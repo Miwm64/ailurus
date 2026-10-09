@@ -5,6 +5,7 @@ Author: Mikhail Dobkes
 <picture>
   <img src="panda.png" align="right" width="250" alt="Red panda">
 </picture>
+
 Ailurus is an open source project with the goal of creating an assembler, linker and a simple VM to run the code on.
 
 It consists of 3 parts:

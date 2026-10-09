@@ -1,0 +1,20 @@
+name: GitLint
+
+on:
+    push:
+        branches: [master, develop]
+    pull_request:
+
+
+jobs:
+    gitlint:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Lint commits, branches, and pull requests
+              uses: aschbacd/gitlint-action@v1.2.0
+              with:
+                  re-branch-name: '^(master|develop|(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)/.+)$'
+                  re-commit-message-subject: '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9-]+\))?!?: .+'
+                  re-pull-request-title: '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9-]+\))?!?: .+'
+                  commit-message-subject-max-length: 72
+                  commit-message-body-max-length: 100

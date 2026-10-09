@@ -1,4 +1,4 @@
-<img src="panda.jpeg" align="right" width="120" alt="Red panda">
+<img src="panda.png" align="right" width="300" alt="Red panda">
 
 # Ailurus
 Author: Mikhail Dobkes

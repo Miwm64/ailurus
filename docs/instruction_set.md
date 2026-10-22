@@ -15,7 +15,7 @@
 offset is a signed 12-bit integer
 PC_next — program counter, address of the next instruction.
 All memory accesses are 32-bit words.
-TODO: evaluation order when both operands have side effects, e.g. `mov (r1)+, (r1)+`.
+When both operands have increments/decrements - compilation error.
 ## Commands
 
 ### Data movement
@@ -52,9 +52,10 @@ TODO: evaluation order when both operands have side effects, e.g. `mov (r1)+, (r
 ### Shifts
 | Instruction    | Meaning                                        |
 |----------------|------------------------------------------------|
-| asl dst, count | dst ← dst << count (zeros fill from the right) |
-| asr dst, count | dst ← dst >> count (sign-filled)               |
+| lsl dst, count | dst ← dst << count (zeros fill from the right) |
+| asl dst, count | alias for lsl, as they behave the same way     |
 | lsr dst, count | dst ← dst >> count (zero-filled)               |
+| asr dst, count | dst ← dst >> count (sign-filled)               |
 
 ### Stack
 | Instruction       | Meaning                                         |

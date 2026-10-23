@@ -151,7 +151,10 @@ One interrupt source: input (port 0).
 | 0x0     | reset vector — address of the program start     |
 | 0x4     | interrupt vector — address of the handler       |
 
-Both vectors are data words, set by the program: `.org 0x0` / `.word _start`, `.word _handler`.
+Vectors are filled by the linker: `mem[0x0] ← addr(_start)`, `mem[0x4] ← addr(_handler)`.
+- 0x0–0x7 are reserved; code and data start at 0x8. `.org` into this range → assembler error.
+- No `_start` → link error.
+- No `_handler` → vector = 0; an interrupt taken with `IE = 1` → CPU halts with an error.
 
 ### Reset
 - `PC ← mem[0x0]`, `IE ← 0`, `irq_pending ← 0`.

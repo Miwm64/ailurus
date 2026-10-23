@@ -19,6 +19,8 @@
 - All data accesses are 32-bit words. Postincrement / predecrement step is ±4.
 - Both operands with increment/decrement → assembler error.
 - Immediate as destination → assembler error.
+- `jump` / `call` do not use operand modes, see [Jump targets](#jump-targets).
+-  Syntax rule: bare — address, parentheses — memory.
 
 ## Commands
 
@@ -65,14 +67,15 @@
 | asr dst, count | dst ← dst >> count (sign-filled)               | F2     |       |
 
 ### Stack
-| Instruction         | Meaning                                         | Format | Flags |
-|---------------------|-------------------------------------------------|--------|-------|
-| push operand        | alias of `mov -(rsp), operand`                  | F2     |       |
-| pushm r2, r1, r13   | push registers in list order                    | FP     |       |
-| pop operand         | alias of `mov operand, (rsp)+`                  | F2     |       |
-| popm r13, r1, r2    | pop into registers in list order                | FP     |       |
-| call label          | push return address, PC ← label                 | ?      |       |
-| ret                 | pop return address into PC                      | F0     |       |
+| Instruction       | Meaning                             | Format | Flags |
+|-------------------|-------------------------------------|--------|-------|
+| push operand      | alias of `mov -(rsp), operand`      | F2     |       |
+| pushm r2, r1, r13 | push registers in list order        | FP     |       |
+| pop operand       | alias of `mov operand, (rsp)+`      | F2     |       |
+| popm r13, r1, r2  | pop into registers in list order    | FP     |       |
+| call label        | push PC_next, PC ← label            | FJ     |       |
+| call @label       | push PC_next, PC ← PC_next + offset | FJ     |       |
+| ret               | pop return address into PC          | F0     |       |
 
 Stack grows down.
 
@@ -85,8 +88,8 @@ popm  r2, r1   ; pop into r2, then r1
 ### Control flow
 | Instruction    | Semantics                                           | Format | Flags |
 |----------------|-----------------------------------------------------|--------|-------|
-| jump label     | PC ← label (absolute)                               | F1     |       |
-| jump @label    | PC ← PC_next + offset                               | F1     |       |
+| jump label     | PC ← label                                          | FJ     |       |
+| jump @label    | PC ← PC_next + offset                               | FJ     |       |
 | jz  label      | if ZF == 1:              PC ← PC_next + offset      | FB     |       |
 | jnz label      | if ZF == 0:              PC ← PC_next + offset      | FB     |       |
 | ja  label      | if CF == 0 && ZF == 0:   PC ← PC_next + offset      | FB     |       |
@@ -99,20 +102,30 @@ popm  r2, r1   ; pop into r2, then r1
 | jge label      | if SF == OF:             PC ← PC_next + offset      | FB     |       |
 | halt           | stops the execution                                 | F0     |       |
 
-Conditional jumps are always PC-relative. `jump` allows only absolute and PC-relative modes.
+Conditional jumps are always PC-relative.
 `offset` — signed 16-bit, computed by the translator: `addr(label) − PC_next`.
+
+### Jump targets
+
+`jump` and `call` have their own target forms:
+
+| Syntax   | Kind         | Size                      |
+|----------|--------------|---------------------------|
+| `label`  | absolute     | 32-bit address, ext word  |
+| `@label` | PC-relative  | 16-bit signed offset      |
 
 ## Machine model
 
 - Word size: 4 bytes.
 - Memory: byte-addressed, single-port, one access per cycle. Shared by code and data (von Neumann).
-- Registers: r0–r15, 4 bytes each.
-- Special registers: PC, PS (interrupt state + N, Z, V, C).
+- Registers: rsp (reg #0), r1–r15, 4 bytes each. All 16 are addressable by the 4-bit register field.
+- Special registers: PC, PS (IE + N, Z, V, C).
 - PC holds a byte address. Instructions are whole words; PC advances by 4 per fetched word.
 - Strings: one character per machine word.
-- **Code and data SHOULD be aligned to 4.** Unaligned accesses (including `.org` to an unaligned address in code) are allowed but slower: an access that spans two cache lines bypasses the cache and goes to memory.
+- **The code and data SHOULD be aligned to 4.** Otherwise, code works but slower - access that spans 2 cache lines,
+  goes directly to memory, bypassing cache.
 - Cache: write-through. An unaligned write goes to memory and invalidates both affected lines.
-- Memory model assumption: RAM can read/write any 4 consecutive bytes in one access.
+- RAM can read/write any 4 consecutive bytes in one access.
 
 ## Errors
 
@@ -128,7 +141,7 @@ Register-relative field: `reg#` in its bits [19:16], `offset` in its bits [15:0]
 
 ### F0 — 0 operands
 ```
-[31:26 OPCODE][25:0 0]
+[31:26 OPCODE][25:0 padding]
 ```
 Size: 1 word.
 
@@ -168,16 +181,27 @@ Sizes:
 
 ### FB — conditional branch
 ```
-[31:26 OPCODE][25:16 0][15:0 offset, signed]
+[31:26 OPCODE][25:16 padding][15:0 offset, signed]
 ```
-No MODE field. Size: 1 word.
+Always relative to PC. Size: 1 word.
+
+### FJ — `jump` / `call`
+```
+word1: [31:26 OPCODE][25 K][24:16 padding][15:0 offset, signed]
+ext:   [31:0 address]                      ; K = 0 only
+```
+- K = 1 — PC-relative: `PC ← PC_next + offset`. Size: 1 word.
+- K = 0 — absolute: offset field is 0, address is in the extension word. Size: 2 words.
+
+`PC_next` — address of the next instruction.
 
 ### FP — `pushm` / `popm`
 ```
-word1: [31:26 OPCODE][25:22 COUNT][21:20 0][19:0 reg0..reg4, 4 bits each, reg0 at [3:0]]
+word1: [31:26 OPCODE][25:22 COUNT][21:20 padding][19:0 reg0..reg4, 4 bits each, reg0 at [3:0]]
 ext:   [31:0 next 8 registers, 4 bits each, from bit 0]
 ```
 COUNT = number of registers − 1 (1–16 registers).
+
 | Registers | Words |
 |-----------|-------|
 | 1–5       | 1     |
@@ -186,9 +210,9 @@ COUNT = number of registers − 1 (1–16 registers).
 
 ### FA — `addm`
 ```
-word1:    [31:26 OPCODE][25:18 COUNT][17:0 0]
+word1:    [31:26 OPCODE][25:18 COUNT][17:0 padding]
 operand:  [31:29 MODE][28:0 operand, from bit 0]
-absolute: [31:29 MODE][28:0 0]
+absolute: [31:29 MODE][28:0 padding]
           [31:0 address]
 ```
 - First operand word(s) — destination, encoded like any other operand.
@@ -198,7 +222,7 @@ absolute: [31:29 MODE][28:0 0]
 Example `addm r1, (r2+8), (0x2000)`:
 ```
 word1: [OPCODE | COUNT=2]
-word2: [MODE=register | r1]               ; dst, fits in 1 word
+word2: [MODE=register | r1]                ; dst, fits in 1 word
 word3: [MODE=reg-relative | r2, 8]         ; fits in 1 word
 word4: [MODE=absolute | 0]                 ; split: mode word
 word5: [0x2000]                            ;        address word
@@ -215,7 +239,8 @@ word5: [0x2000]                            ;        address word
 | PC-relative offset                                         | 16 bits, signed, in bytes             |
 | register-relative                                          | 4 + 16 bits = 20 bits (reg# + offset) |
 | absolute address                                           | 32 bits                               |
-| branch offset                                              | 16 bits, signed, in bytes             |
+| branch / jump offset                                       | 16 bits, signed, in bytes             |
+| K (`jump`/`call` kind)                                     | 1 bit                                 |
 | COUNT (`pushm`/`popm`)                                     | 4 bits                                |
 | COUNT (`addm`)                                             | 8 bits                                |
 

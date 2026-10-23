@@ -141,6 +141,45 @@ Conditional jumps are always PC-relative.
 | `label`  | absolute     | 32-bit address, ext word  |
 | `@label` | PC-relative  | 16-bit signed offset      |
 
+## Interrupts
+
+One interrupt source: input (port 0).
+
+### Memory layout
+| Address | Contents                                       |
+|---------|------------------------------------------------|
+| 0x0     | reset vector — address of the program start     |
+| 0x4     | interrupt vector — address of the handler       |
+
+Both vectors are data words, set by the program: `.org 0x0` / `.word _start`, `.word _handler`.
+
+### Reset
+- `PC ← mem[0x0]`, `IE ← 0`, `irq_pending ← 0`.
+- `rsp` is not initialised.
+
+### Request
+- When a character from the input schedule arrives: `IO[0] ← char`, `irq_pending ← 1`.
+- `irq_pending` is a single bit — requests are not queued.
+- If a character arrives while `irq_pending = 1`, `IO[0]` is overwritten: the previous character is lost, still one pending request.
+
+### Entry
+Checked after each instruction completes (never in the middle of one):
+```
+if irq_pending == 1 and IE == 1:
+    irq_pending ← 0
+    push PC
+    push PS
+    IE ← 0
+    PC ← mem[0x4]
+```
+
+### Return
+`iret`: pop PS (restores IE and NZVC), then pop PC.
+
+### Interrupt during interrupt
+- The handler runs with `IE = 0`. A request arriving meanwhile is latched in `irq_pending` and serviced right after `iret`.
+- The handler may execute `ei` to allow nesting: PC and PS are on the stack, so nested entries are safe.
+
 ## Machine model
 
 - Word size: 4 bytes.
@@ -247,7 +286,7 @@ value:  [31:0 operand values, packed from bit 0]      ; 1+ words
 - Values are packed **in operand order**, each from the lowest free bit of the current value word (next-fit):
     - if a value fits in the rest of the current word, it goes there;
     - otherwise it starts the next word; the rest of the current word is padding.
-- A value never crosses a word boundary. 
+- A value never crosses a word boundary.
 - Word 1 holds only modes, so every `addm` spans at least 2 words.
   Examples:
 ```

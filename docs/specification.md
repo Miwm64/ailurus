@@ -18,7 +18,7 @@
 - `PC_next` — address of the next instruction.
 - All data accesses are 32-bit words. Postincrement / predecrement step is ±4.
 - Both operands with increment/decrement → assembler error.
-- Immediate as destination → assembler error.
+- Immediate as destination → assembler error, except for io port numbers.
 - `cmp/test a, b`: `a` cannot be an immediate → assembler error.
 - `jump` / `call` do not use operand modes, see [Jump targets](#jump-targets).
 -  Syntax rule: bare — address, parentheses — memory.
@@ -78,15 +78,16 @@ Division by 0 → CPU halts with an error.
 `count mod 32` is used.
 
 ### Stack
-| Instruction       | Meaning                             | Format | Flags |
-|-------------------|-------------------------------------|--------|-------|
-| push operand      | alias of `mov -(rsp), operand`      | F2     | NZ    |
-| pushm r2, r1, r13 | push registers in list order        | FP     | —     |
-| pop operand       | alias of `mov operand, (rsp)+`      | F2     | NZ    |
-| popm r13, r1, r2  | pop into registers in list order    | FP     | —     |
-| call label        | push PC_next, PC ← label            | FJ     | —     |
-| call @label       | push PC_next, PC ← PC_next + offset | FJ     | —     |
-| ret               | pop return address into PC          | F0     | —     |
+| Instruction       | Meaning                                           | Format | Flags |
+|-------------------|---------------------------------------------------|--------|-------|
+| push operand      | alias of `mov -(rsp), operand`                    | F2     | NZ    |
+| pushm r2, r1, r13 | push registers in list order                      | FP     | —     |
+| pop operand       | alias of `mov operand, (rsp)+`                    | F2     | NZ    |
+| popm r13, r1, r2  | pop into registers in list order                  | FP     | —     |
+| call label        | push PC_next, PC ← label                          | FJ     | —     |
+| call @label       | push PC_next, PC ← PC_next + offset               | FJ     | —     |
+| ret               | pop return address into PC                        | F0     | —     |
+| iret              | pop return address into PC, restore program state | F0     | —     |
 
 Stack grows down.
 
@@ -95,6 +96,19 @@ Stack grows down.
 pushm r1, r2   ; push r1, then r2
 popm  r2, r1   ; pop into r2, then r1
 ```
+
+### IO
+| Instruction   | Semantics      | Format | Flags       |
+|---------------|----------------|--------|-------------|
+| in dst, port  | dst ← IO[port] | F2     | NZ; V,C ← 0 |
+| out port, src | IO[port] ← src | F2     | —           |
+
+- `port` — port number, any source mode (usually an immediate: `in r1, 0`).
+- Port numbers are a separate address space, not memory addresses.
+- Ports:
+    - 0 — input: holds the last character from the input schedule; its arrival raises the interrupt.
+    - 1 — output: writing appends a character to the output buffer.
+- Reading/writing a nonexistent port → CPU halts with an error.
 
 ### Control flow
 | Instruction | Semantics                                     | Format | Flags |
@@ -111,6 +125,8 @@ popm  r2, r1   ; pop into r2, then r1
 | jle label   | if Z == 1 \|\| N != V: PC ← PC_next + offset  | FB     | —     |
 | jg  label   | if Z == 0 && N == V:  PC ← PC_next + offset   | FB     | —     |
 | jge label   | if N == V:             PC ← PC_next + offset  | FB     | —     |
+| ei          | enables interrupts                            | F0     | IE    |
+| di          | disables interrupts                           | F0     | IE    |
 | halt        | stops the execution                           | F0     | —     |
 
 Conditional jumps are always PC-relative.
@@ -138,7 +154,7 @@ Conditional jumps are always PC-relative.
 - Cache: write-through. An unaligned write goes to memory and invalidates both affected lines.
 - RAM can read/write any 4 consecutive bytes in one access.
 - Physical memory is set in config.
-- Labels used as immediates must be < 0x8000, since address mode is 16 bits signed integer.
+- Labels used as immediates must be < 0x8000, since immediate value is 16 bits signed integer.
 ## Errors
 
 - Invalid source code → assembler error.

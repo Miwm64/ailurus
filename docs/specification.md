@@ -19,7 +19,7 @@
 - All data accesses are 32-bit words. Postincrement / predecrement step is ±4.
 - Both operands with increment/decrement → assembler error.
 - Immediate as destination → assembler error.
-- `cmp a, b`: `a` cannot be an immediate → assembler error.
+- `cmp/test a, b`: `a` cannot be an immediate → assembler error.
 - `jump` / `call` do not use operand modes, see [Jump targets](#jump-targets).
 -  Syntax rule: bare — address, parentheses — memory.
 
@@ -264,7 +264,7 @@ word3: [100]
 | branch / jump offset                                       | 16 bits, signed, in bytes             |
 | K (`jump`/`call` kind)                                     | 1 bit                                 |
 | COUNT (`pushm`/`popm`)                                     | 4 bits                                |
-| COUNT (`addm`)                                             | 8 bits                                |
+| COUNT (`addm`)                                             | 3 bits                                |
 
 ## Immediates
 

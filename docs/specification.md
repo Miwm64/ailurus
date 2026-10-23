@@ -221,22 +221,33 @@ COUNT = number of registers − 1 (1–16 registers).
 
 ### FA — `addm`
 ```
-word1:    [31:26 OPCODE][25:18 COUNT][17:0 padding]
-operand:  [31:29 MODE][28:0 operand, from bit 0]
-absolute: [31:29 MODE][28:0 padding]
-          [31:0 address]
+word1:  [31:26 OPCODE][25:23 COUNT][22:21 padding][20:0 MODE1..MODE7, 3 bits each, MODE1 at [2:0]]
+value:  [31:0 operand values, packed from bit 0]      ; 1+ words
 ```
-- First operand word(s) — destination, encoded like any other operand.
-- COUNT = number of operands − 1, including the destination, 8 bits.
-- Each operand takes 1 word; absolute takes 2 (mode word + address word).
-
-Example `addm r1, (r2+8), (0x2000)`:
+- COUNT = number of operands − 1, including the destination. 1–7 operands; COUNT = 7 → CPU halts with an error.
+- Unused mode slots are 0.
+- Operand 1 is the destination.
+- Values are packed **in operand order**, each from the lowest free bit of the current value word (next-fit):
+    - if a value fits in the rest of the current word, it goes there;
+    - otherwise it starts the next word; the rest of the current word is padding.
+- A value never crosses a word boundary. 
+- Word 1 holds only modes, so every `addm` spans at least 2 words.
+  Examples:
 ```
-word1: [OPCODE | COUNT=2]
-word2: [MODE=register | r1]               ; dst, fits in 1 word
-word3: [MODE=reg-relative | r2, 8]         ; fits in 1 word
-word4: [MODE=absolute | 0]                 ; split: mode word
-word5: [0x2000]                            ;        address word
+addm r1, r2, r3, r4                 ; 2 words
+word1: [OPCODE | COUNT=3 | modes: reg, reg, reg, reg]
+word2: [r4 | r3 | r2 | r1]        
+ 
+addm r1, (0x2000), (0x3000)         ; 4 words
+word1: [OPCODE | COUNT=2 | modes: reg, abs, abs]
+word2: [r1]                                   
+word3: [0x2000]
+word4: [0x3000]
+ 
+addm r1, (r2+8), 100                ; 3 words
+word1: [OPCODE | COUNT=2 | modes: reg, reg-rel, imm]
+word2: [r2, 8 | r1]                           
+word3: [100]                                  
 ```
 
 ## Field sizes

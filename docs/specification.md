@@ -47,22 +47,23 @@
 | xor dst, src | dst ← dst ^ src         | F2     | NZ; V,C ← 0 |
 
 ### Arithmetic
-| Instruction               | Meaning                                 | Format | Flags |
-|---------------------------|-----------------------------------------|--------|-------|
-| inc dst                   | dst ← dst + 1                           | F1     | NZV   |
-| dec dst                   | dst ← dst − 1                           | F1     | NZV   |
-| neg dst                   | dst ← −dst                              | F1     | NZVC  |
-| add dst, src              | dst ← dst + src                         | F2     | NZVC  |
-| addc dst, src             | dst ← dst + src + C                     | F2     | NZVC  |
-| sub dst, src              | dst ← dst − src                         | F2     | NZVC  |
-| subc dst, src             | dst ← dst − src − C                     | F2     | NZVC  |
-| mulh dst, src             | dst ← (dst × src) bits 63:32 (signed)   | F2     | NZ    |
-| umulh dst, src            | dst ← (dst × src) bits 63:32 (unsigned) | F2     | NZ    |
-| mull dst, src             | dst ← (dst × src) bits 31:0             | F2     | NZ    |
-| div dst, src              | dst ← dst / src (signed, truncated)     | F2     | NZ    |
-| mod dst, src              | dst ← dst % src (signed). -7 % 2 = -1   | F2     | NZ    |
-| cmp a, b                  | flags ← a − b                           | F2     | NZVC  |
-| addm dst, src1, ..., srcN | dst ← dst + src1 + ... + srcN           | FA     | NZ    |
+| Instruction               | Meaning                                 | Format | Flags       |
+|---------------------------|-----------------------------------------|--------|-------------|
+| inc dst                   | dst ← dst + 1                           | F1     | NZV         |
+| dec dst                   | dst ← dst − 1                           | F1     | NZV         |
+| neg dst                   | dst ← −dst                              | F1     | NZVC        |
+| add dst, src              | dst ← dst + src                         | F2     | NZVC        |
+| addc dst, src             | dst ← dst + src + C                     | F2     | NZVC        |
+| sub dst, src              | dst ← dst − src                         | F2     | NZVC        |
+| subc dst, src             | dst ← dst − src − C                     | F2     | NZVC        |
+| mulh dst, src             | dst ← (dst × src) bits 63:32 (signed)   | F2     | NZ          |
+| umulh dst, src            | dst ← (dst × src) bits 63:32 (unsigned) | F2     | NZ          |
+| mull dst, src             | dst ← (dst × src) bits 31:0             | F2     | NZ          |
+| div dst, src              | dst ← dst / src (signed, truncated)     | F2     | NZ          |
+| mod dst, src              | dst ← dst % src (signed). -7 % 2 = -1   | F2     | NZ          |
+| cmp a, b                  | flags ← a − b                           | F2     | NZVC        |
+| test a, b                 | flags ← a & b                           | F2     | NZ; V,C ← 0 |
+| addm dst, src1, ..., srcN | dst ← dst + src1 + ... + srcN           | FA     | NZ          |
 
 Division by 0 → CPU halts with an error.
 

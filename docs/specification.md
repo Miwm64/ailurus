@@ -27,60 +27,65 @@
 
 `Format` — see [Instruction formats](#instruction-formats).
 
+`Flags` — flags set from the result; flags not listed are unchanged. `X ← 0` — flag is cleared.
+- N — result bit 31; Z — result is 0; V — signed overflow; C — unsigned carry out (for `sub`/`subc`/`cmp`/`neg` — borrow).
+- `addm`: flags reflect the final result only (N, Z)
+- Shifts: C — last bit shifted out.
+
 ### Data movement
 | Instruction  | Meaning           | Format | Flags |
 |--------------|-------------------|--------|-------|
 | mov dst, src | move: dst ← src   | F2     | NZ    |
 
 ### Logical
-| Instruction  | Meaning                 | Format | Flags |
-|--------------|-------------------------|--------|-------|
-| clr dst      | clear: dst ← 0          | F1     |       |
-| not dst      | bitwise not: dst ← ~dst | F1     |       |
-| and dst, src | dst ← dst & src         | F2     |       |
-| or dst, src  | dst ← dst \| src        | F2     |       |
-| xor dst, src | dst ← dst ^ src         | F2     |       |
+| Instruction  | Meaning                 | Format | Flags       |
+|--------------|-------------------------|--------|-------------|
+| clr dst      | clear: dst ← 0          | F1     | NZ; V,C ← 0 |
+| not dst      | bitwise not: dst ← ~dst | F1     | NZ; V,C ← 0 |
+| and dst, src | dst ← dst & src         | F2     | NZ; V,C ← 0 |
+| or dst, src  | dst ← dst \| src        | F2     | NZ; V,C ← 0 |
+| xor dst, src | dst ← dst ^ src         | F2     | NZ; V,C ← 0 |
 
 ### Arithmetic
-| Instruction                | Meaning                                | Format | Flags |
-|----------------------------|----------------------------------------|--------|-------|
-| inc dst                    | dst ← dst + 1                          | F1     |       |
-| dec dst                    | dst ← dst − 1                          | F1     |       |
-| neg dst                    | dst ← −dst                             | F1     |       |
-| add dst, src               | dst ← dst + src                        | F2     |       |
-| addc dst, src              | dst ← dst + src + C                    | F2     |       |
-| sub dst, src               | dst ← dst − src                        | F2     |       |
-| subc dst, src              | dst ← dst − src − C                    | F2     |       |
-| mulh dst, src              | dst ← (dst × src) bits 63:32 (signed)  | F2     |       |
-| umulh dst, src             | dst ← (dst × src) bits 63:32 (unsigned)| F2     |       |
-| mull dst, src              | dst ← (dst × src) bits 31:0            | F2     |       |
-| div dst, src               | dst ← dst / src (signed, truncated)    | F2     |       |
-| mod dst, src               | dst ← dst % src (signed). -7 % 2 = -1  | F2     |       |
-| cmp a, b                   | flags ← a − b                          | F2     |       |
-| addm dst, src1, ..., srcN  | dst ← dst + src1 + ... + srcN          | FA     |       |
+| Instruction               | Meaning                                 | Format | Flags |
+|---------------------------|-----------------------------------------|--------|-------|
+| inc dst                   | dst ← dst + 1                           | F1     | NZV   |
+| dec dst                   | dst ← dst − 1                           | F1     | NZV   |
+| neg dst                   | dst ← −dst                              | F1     | NZVC  |
+| add dst, src              | dst ← dst + src                         | F2     | NZVC  |
+| addc dst, src             | dst ← dst + src + C                     | F2     | NZVC  |
+| sub dst, src              | dst ← dst − src                         | F2     | NZVC  |
+| subc dst, src             | dst ← dst − src − C                     | F2     | NZVC  |
+| mulh dst, src             | dst ← (dst × src) bits 63:32 (signed)   | F2     | NZ    |
+| umulh dst, src            | dst ← (dst × src) bits 63:32 (unsigned) | F2     | NZ    |
+| mull dst, src             | dst ← (dst × src) bits 31:0             | F2     | NZ    |
+| div dst, src              | dst ← dst / src (signed, truncated)     | F2     | NZ    |
+| mod dst, src              | dst ← dst % src (signed). -7 % 2 = -1   | F2     | NZ    |
+| cmp a, b                  | flags ← a − b                           | F2     | NZVC  |
+| addm dst, src1, ..., srcN | dst ← dst + src1 + ... + srcN           | FA     | NZ    |
 
 Division by 0 → CPU halts with an error.
 
 ### Shifts
 | Instruction    | Meaning                                        | Format | Flags |
-|----------------|`------------------------------------------------|--------|-------|
-| lsl dst, count | dst ← dst << count (zeros fill from the right) | F2     |       |
-| asl dst, count | alias for lsl, as they behave the same way     | F2     |       |
-| lsr dst, count | dst ← dst >> count (zero-filled)               | F2     |       |
-| asr dst, count | dst ← dst >> count (sign-filled)               | F2     |       |
+|----------------|------------------------------------------------|--------|-------|
+| lsl dst, count | dst ← dst << count (zeros fill from the right) | F2     | NZC   |
+| asl dst, count | alias for lsl, as they behave the same way     | F2     | NZC   |
+| lsr dst, count | dst ← dst >> count (zero-filled)               | F2     | NZC   |
+| asr dst, count | dst ← dst >> count (sign-filled)               | F2     | NZC   |
 
 `count mod 32` is used.
 
 ### Stack
-| Instruction         | Meaning                                         | Format | Flags |
-|---------------------|-------------------------------------------------|--------|-------|
-| push operand        | alias of `mov -(rsp), operand`                   | F2     |       |
-| pushm r2, r1, r13   | push registers in list order                    | FP     |       |
-| pop operand         | alias of `mov operand, (rsp)+`                   | F2     |       |
-| popm r13, r1, r2    | pop into registers in list order                | FP     |       |
-| call label          | push PC_next, PC ← label                        | FJ     |       |
-| call @label         | push PC_next, PC ← PC_next + offset             | FJ     |       |
-| ret                 | pop return address into PC                      | F0     |       |
+| Instruction       | Meaning                             | Format | Flags |
+|-------------------|-------------------------------------|--------|-------|
+| push operand      | alias of `mov -(rsp), operand`      | F2     | NZ    |
+| pushm r2, r1, r13 | push registers in list order        | FP     | —     |
+| pop operand       | alias of `mov operand, (rsp)+`      | F2     | NZ    |
+| popm r13, r1, r2  | pop into registers in list order    | FP     | —     |
+| call label        | push PC_next, PC ← label            | FJ     | —     |
+| call @label       | push PC_next, PC ← PC_next + offset | FJ     | —     |
+| ret               | pop return address into PC          | F0     | —     |
 
 Stack grows down.
 
@@ -91,21 +96,21 @@ popm  r2, r1   ; pop into r2, then r1
 ```
 
 ### Control flow
-| Instruction    | Semantics                                           | Format | Flags |
-|----------------|-----------------------------------------------------|--------|-------|
-| jump label     | PC ← label                                          | FJ     |       |
-| jump @label    | PC ← PC_next + offset                               | FJ     |       |
-| jz  label      | if ZF == 1:              PC ← PC_next + offset      | FB     |       |
-| jnz label      | if ZF == 0:              PC ← PC_next + offset      | FB     |       |
-| ja  label      | if CF == 0 && ZF == 0:   PC ← PC_next + offset      | FB     |       |
-| jae label      | if CF == 0:              PC ← PC_next + offset      | FB     |       |
-| jb  label      | if CF == 1:              PC ← PC_next + offset      | FB     |       |
-| jbe label      | if CF == 1 \|\| ZF == 1: PC ← PC_next + offset      | FB     |       |
-| jl  label      | if SF != OF:             PC ← PC_next + offset      | FB     |       |
-| jle label      | if ZF == 1 \|\| SF != OF: PC ← PC_next + offset     | FB     |       |
-| jg  label      | if ZF == 0 && SF == OF:  PC ← PC_next + offset      | FB     |       |
-| jge label      | if SF == OF:             PC ← PC_next + offset      | FB     |       |
-| halt           | stops the execution                                 | F0     |       |
+| Instruction | Semantics                                     | Format | Flags |
+|-------------|-----------------------------------------------|--------|-------|
+| jump label  | PC ← label                                    | FJ     | —     |
+| jump @label | PC ← PC_next + offset                         | FJ     | —     |
+| jz  label   | if Z == 1:              PC ← PC_next + offset | FB     | —     |
+| jnz label   | if Z == 0:              PC ← PC_next + offset | FB     | —     |
+| ja  label   | if C == 0 && Z == 0:   PC ← PC_next + offset  | FB     | —     |
+| jae label   | if C == 0:              PC ← PC_next + offset | FB     | —     |
+| jb  label   | if C == 1:              PC ← PC_next + offset | FB     | —     |
+| jbe label   | if C == 1 \|\| Z == 1: PC ← PC_next + offset  | FB     | —     |
+| jl  label   | if N != V:             PC ← PC_next + offset  | FB     | —     |
+| jle label   | if Z == 1 \|\| N != V: PC ← PC_next + offset  | FB     | —     |
+| jg  label   | if Z == 0 && N == V:  PC ← PC_next + offset   | FB     | —     |
+| jge label   | if N == V:             PC ← PC_next + offset  | FB     | —     |
+| halt        | stops the execution                           | F0     | —     |
 
 Conditional jumps are always PC-relative.
 `offset` — signed 16-bit, computed by the translator: `addr(label) − PC_next`.

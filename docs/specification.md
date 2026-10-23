@@ -137,7 +137,8 @@ Conditional jumps are always PC-relative.
   goes directly to memory, bypassing cache.
 - Cache: write-through. An unaligned write goes to memory and invalidates both affected lines.
 - RAM can read/write any 4 consecutive bytes in one access.
-
+- Physical memory is set in config.
+- Labels used as immediates must be < 0x8000, since address mode is 16 bits signed integer.
 ## Errors
 
 - Invalid source code → assembler error.

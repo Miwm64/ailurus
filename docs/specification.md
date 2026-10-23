@@ -19,6 +19,7 @@
 - All data accesses are 32-bit words. Postincrement / predecrement step is ±4.
 - Both operands with increment/decrement → assembler error.
 - Immediate as destination → assembler error.
+- `cmp a, b`: `a` cannot be an immediate → assembler error.
 - `jump` / `call` do not use operand modes, see [Jump targets](#jump-targets).
 -  Syntax rule: bare — address, parentheses — memory.
 
@@ -53,29 +54,33 @@
 | mulh dst, src              | dst ← (dst × src) bits 63:32 (signed)  | F2     |       |
 | umulh dst, src             | dst ← (dst × src) bits 63:32 (unsigned)| F2     |       |
 | mull dst, src              | dst ← (dst × src) bits 31:0            | F2     |       |
-| div dst, src               | dst ← dst / src (signed)               | F2     |       |
-| mod dst, src               | dst ← dst % src (signed). -7 % 2 = 1   | F2     |       |
+| div dst, src               | dst ← dst / src (signed, truncated)    | F2     |       |
+| mod dst, src               | dst ← dst % src (signed). -7 % 2 = -1  | F2     |       |
 | cmp a, b                   | flags ← a − b                          | F2     |       |
 | addm dst, src1, ..., srcN  | dst ← dst + src1 + ... + srcN          | FA     |       |
 
+Division by 0 → CPU halts with an error.
+
 ### Shifts
 | Instruction    | Meaning                                        | Format | Flags |
-|----------------|------------------------------------------------|--------|-------|
+|----------------|`------------------------------------------------|--------|-------|
 | lsl dst, count | dst ← dst << count (zeros fill from the right) | F2     |       |
 | asl dst, count | alias for lsl, as they behave the same way     | F2     |       |
 | lsr dst, count | dst ← dst >> count (zero-filled)               | F2     |       |
 | asr dst, count | dst ← dst >> count (sign-filled)               | F2     |       |
 
+`count mod 32` is used.
+
 ### Stack
-| Instruction       | Meaning                             | Format | Flags |
-|-------------------|-------------------------------------|--------|-------|
-| push operand      | alias of `mov -(rsp), operand`      | F2     |       |
-| pushm r2, r1, r13 | push registers in list order        | FP     |       |
-| pop operand       | alias of `mov operand, (rsp)+`      | F2     |       |
-| popm r13, r1, r2  | pop into registers in list order    | FP     |       |
-| call label        | push PC_next, PC ← label            | FJ     |       |
-| call @label       | push PC_next, PC ← PC_next + offset | FJ     |       |
-| ret               | pop return address into PC          | F0     |       |
+| Instruction         | Meaning                                         | Format | Flags |
+|---------------------|-------------------------------------------------|--------|-------|
+| push operand        | alias of `mov -(rsp), operand`                   | F2     |       |
+| pushm r2, r1, r13   | push registers in list order                    | FP     |       |
+| pop operand         | alias of `mov operand, (rsp)+`                   | F2     |       |
+| popm r13, r1, r2    | pop into registers in list order                | FP     |       |
+| call label          | push PC_next, PC ← label                        | FJ     |       |
+| call @label         | push PC_next, PC ← PC_next + offset             | FJ     |       |
+| ret                 | pop return address into PC                      | F0     |       |
 
 Stack grows down.
 
@@ -216,13 +221,13 @@ absolute: [31:29 MODE][28:0 padding]
           [31:0 address]
 ```
 - First operand word(s) — destination, encoded like any other operand.
-- COUNT = number of operands − 1, 8 bits.
+- COUNT = number of operands − 1, including the destination, 8 bits.
 - Each operand takes 1 word; absolute takes 2 (mode word + address word).
 
 Example `addm r1, (r2+8), (0x2000)`:
 ```
 word1: [OPCODE | COUNT=2]
-word2: [MODE=register | r1]                ; dst, fits in 1 word
+word2: [MODE=register | r1]               ; dst, fits in 1 word
 word3: [MODE=reg-relative | r2, 8]         ; fits in 1 word
 word4: [MODE=absolute | 0]                 ; split: mode word
 word5: [0x2000]                            ;        address word

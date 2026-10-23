@@ -7,10 +7,10 @@
 | 1 | direct memory      | `(0x120)`, `(label)`    | access at the absolute address stored in the instruction; labels are relocated |
 | 2 | PC-relative memory | `(@label)`              | access at `PC_next + offset`; assembler computes `offset = label − PC_next`    |
 | 3 | register indirect  | `(r1)`                  | access at `r1`                                                                 |
-| 4 | postincrement      | `(r1)+`                 | access at `r1`, then `r1 ← r1 + 4`                                             |
-| 5 | predecrement       | `-(r1)`                 | `r1 ← r1 − 4`, then access at `r1`                                             |
+| 4 | postincrement      | `(r1)+`                 | access at `r1`, then `r1 ← r1 + instruction_size`                              |
+| 5 | predecrement       | `-(r1)`                 | `r1 ← r1 − instruction_size`, then access at `r1`                              |
 | 6 | immediate          | `120`, `0x120`, `label` | value stored in the instruction; source only; a bare label is its address      |
-| 7 | register relative  | `(r1+10)`               | access at `r1 + offset`;                                                       |
+| 7 | register relative  | `(r1+10)`               | access at `r1 + offset`;                                                       |z
 
 offset is a signed 12-bit integer
 PC_next — program counter, address of the next instruction.
@@ -88,4 +88,95 @@ Stack is grown down
 PC_next — address of the instruction following the jump.
 offset — signed N-bit, computed by translator: addr(label) - PC_next.
 
-[//]: # (## Encoding)
+## Encoding
+### Machine model
+- Word size: 4 bytes
+- Memory: byte-addressed, single-port, one access per cycle. Word-aligned instruction fetch.
+- Registers: r0-r15, 4 bytes each.
+- PC: word pointer, always +- bytes. If PC is not aligned - error.
+
+### Instruction classes
+- Fixed-arity, 0 operands: 
+[OPCODE | padding]
+size = 1 word.
+
+- Fixed-arity, 1–2 operands: 
+word1: [OPCODE | MODE1 | MODE2 | OPERAND1 | OPERAND2]
+If any operand fits in the first word - it is put there. Otherwise, operands are put in the 1-2 next machine words.
+size = 1-3 words.
+
+- Variable-arity(pushm/popm): 
+word1: [OPCODE | COUNT | registries] 
+if registries did not fit into first word, they are put into second.
+size > 1 word.
+
+## Encoding
+
+### Machine model
+- Word size: 4 bytes.
+- Memory: byte-addressed, single-port, one access per cycle. Instruction fetch is word-aligned.
+- Registers: r0–r15, 4 bytes each.
+- PC: word pointer, always ± bytes. Unaligned PC → error.
+
+### Instruction classes
+
+**Fixed arity, 0 operands**
+
+    [OPCODE | padding]
+
+Size: 1 word.
+
+**Fixed arity, 1–2 operands**
+
+    word1: [OPCODE | MODE1 | MODE2 | inline operands]
+
+Operands that do not fit into word 1 go into extension words.
+Size: 1–3 words.
+
+**Variable arity (`pushm` / `popm`)**
+
+    word1: [OPCODE | COUNT | registers]
+
+If the registers do not fit into word 1, they go into a second word.
+
+### Field sizes
+
+| Field                                                   | Size              |
+|---------------------------------------------------------|-------------------|
+| OPCODE                                                  | 6 bits            |
+| MODE                                                    | 3 bits            |
+| register (register, indirect, postincrement, predecrement) | 4 bits         |
+| immediate                                               | 16 bits, signed   |
+| PC-relative offset                                      | 16 bits, signed, in bytes |
+| register-relative                                       | 4 + 16 bits = 20 bits (reg# + offset) |
+| absolute address                                        | 32 bits           |
+
+OPCODE + 2 × MODE = 12 bits, so 20 bits of word 1 are free for inline operands.
+
+### Operand packing
+- Operands are placed in order: operand 1, then operand 2. If they do not fit in that order, the order is changed (the only such case: absolute + register-relative).
+- An absolute address is always placed in an extension word.
+- Absolute + register-relative: register-relative goes in word 1, absolute in word 2.
+- Instruction sizes:
+    - absolute + absolute: 3 words
+    - register-relative + register-relative: 2 words
+    - all other combinations: at most 2 words
+
+### Immediates
+- Always 16 bits, signed. There are no 32-bit immediates.
+- Larger constants are either stored in the data section and loaded from memory, or built with shift/or.
+- `mov r1, label` loads the address of `label` into `r1`. If the address does not fit into the immediate field → error.
+
+### Unresolved (encoding)
+- [ ] PC line in the machine model is unclear ("word pointer, always ± bytes").
+- [ ] The operand modes section says the offset is 12-bit, and conditional jumps say "N-bit"; this section says 16.
+- [ ] Is "change order" needed, or does greedy per-operand placement already cover absolute + register-relative?
+- [ ] Order of extension words when both operands go out.
+- [ ] Layout of a 16-bit or 20-bit operand inside a 32-bit extension word (bit positions, sign extension).
+- [ ] Relocation of external labels: how instruction size is fixed before linking, and what the linker needs to patch a field.
+- [ ] Signed 16-bit immediate means addresses ≤ 0x7FFF; memory size is not specified.
+- [ ] Which stage reports "label address does not fit" (assembler or linker).
+- [ ] 1-operand instructions and conditional jumps: what goes in MODE2, and do jumps carry a MODE field at all.
+- [ ] Invalid encodings (immediate as destination, junk in padding): error or undefined.
+- [ ] `pushm`/`popm`: register mask or list, COUNT width, size "> 1 word" vs "≥ 1 word".
+- [ ] Bit-position diagrams for each instruction class.

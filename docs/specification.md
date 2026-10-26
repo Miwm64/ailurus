@@ -204,14 +204,14 @@ if irq_pending == 1 and IE == 1:
 
 ### Cache access cases
 
-| Access              | Action                                                                                             | Ticks | Tick notes                                   |
-|---------------------|----------------------------------------------------------------------------------------------------|-------|----------------------------------------------|
-| Aligned read, hit   | Return word from `data_array` (picked by `addr[3:2]`)                                              | 1     | cache access                                 |
-| Aligned read, miss  | Pick victim (invalid first, then tree-PLRU), burst-fill line, write tag + valid, return word       | 14    | 10 first word + 3×1 burst + 1 cache read     |
-| Unaligned read      | Bypass: single RAM read, cache untouched                                                           | 10    | one RAM access                               |
-| Aligned write, hit  | Write word to `data_array` and RAM (write-through)                                                 | 10    | RAM write; cache write in parallel           |
-| Aligned write, miss | Write to RAM only (no-allocate)                                                                    | 10    | one RAM access                               |
-| Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                                     | 10–12 | RAM write + 1 tick per invalidated line      |
+| ID | Access              | Action                                                                                       | Ticks | Tick notes                                |
+|----|---------------------|----------------------------------------------------------------------------------------------|-------|-------------------------------------------|
+| R1 | Aligned read, hit   | Return word from `data_array` (picked by `addr[3:2]`)                                        | 1     | cache access                              |
+| R2 | Aligned read, miss  | Pick victim (invalid first, then tree-PLRU), burst-fill line, write tag + valid, return word | 14    | 10 first word + 3×1 burst + 1 cache read  |
+| R3 | Unaligned read      | Bypass: single RAM read, cache untouched                                                     | 10    | one RAM access                            |
+| W1 | Aligned write, hit  | Write word to `data_array` and RAM (write-through)                                           | 10    | RAM write; cache write in parallel        |
+| W2 | Aligned write, miss | Write to RAM only (no-allocate)                                                              | 10    | one RAM access                            |
+| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 10–12 | RAM write + 1 tick per invalidated line   |
 
 Reset clears all valid bits.
 

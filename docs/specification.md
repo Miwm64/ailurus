@@ -329,55 +329,55 @@ word3: [100]
 
 ## Opcodes
 
-| Opcode | Binary | Instruction | Format |
-|--------|--------|-------------|--------|
+| Opcode | Binary | Instruction           | Format |
+|--------|--------|-----------------------|--------|
 | 0x00   | 000000 | — (reserved, invalid) | —      |
-| 0x01   | 000001 | halt        | F0     |
-| 0x02   | 000010 | ret         | F0     |
-| 0x03   | 000011 | iret        | F0     |
-| 0x04   | 000100 | ei          | F0     |
-| 0x05   | 000101 | di          | F0     |
-| 0x06   | 000100 | pass_b      | F0     |
-| 0x08   | 001000 | clr         | F1     |
-| 0x09   | 001001 | not         | F1     |
-| 0x0A   | 001010 | inc         | F1     |
-| 0x0B   | 001011 | dec         | F1     |
-| 0x0C   | 001100 | neg         | F1     |
-| 0x0E   | 001110 | jump        | FJ     |
-| 0x0F   | 001111 | call        | FJ     |
-| 0x10   | 010000 | pushm       | FP     |
-| 0x11   | 010001 | popm        | FP     |
-| 0x12   | 010010 | addm        | FA     |
-| 0x18   | 011000 | jz          | FB     |
-| 0x19   | 011001 | jnz         | FB     |
-| 0x1A   | 011010 | ja          | FB     |
-| 0x1B   | 011011 | jae         | FB     |
-| 0x1C   | 011100 | jb          | FB     |
-| 0x1D   | 011101 | jbe         | FB     |
-| 0x1E   | 011110 | jl          | FB     |
-| 0x1F   | 011111 | jle         | FB     |
-| 0x20   | 100000 | jg          | FB     |
-| 0x21   | 100001 | jge         | FB     |
-| 0x28   | 101000 | mov         | F2     |
-| 0x29   | 101001 | and         | F2     |
-| 0x2A   | 101010 | or          | F2     |
-| 0x2B   | 101011 | xor         | F2     |
-| 0x2C   | 101100 | add         | F2     |
-| 0x2D   | 101101 | addc        | F2     |
-| 0x2E   | 101110 | sub         | F2     |
-| 0x2F   | 101111 | subc        | F2     |
-| 0x30   | 110000 | mulh        | F2     |
-| 0x31   | 110001 | umulh       | F2     |
-| 0x32   | 110010 | mull        | F2     |
-| 0x33   | 110011 | div         | F2     |
-| 0x34   | 110100 | mod         | F2     |
-| 0x35   | 110101 | cmp         | F2     |
-| 0x36   | 110110 | test        | F2     |
-| 0x37   | 110111 | lsl         | F2     |
-| 0x38   | 111000 | lsr         | F2     |
-| 0x39   | 111001 | asr         | F2     |
-| 0x3A   | 111010 | in          | F2     |
-| 0x3B   | 111011 | out         | F2     |
+| 0x01   | 000001 | halt                  | F0     |
+| 0x02   | 000010 | ret                   | F0     |
+| 0x03   | 000011 | iret                  | F0     |
+| 0x04   | 000100 | ei                    | F0     |
+| 0x05   | 000101 | di                    | F0     |
+| 0x06   | 000100 | pass_b                | F0     |
+| 0x08   | 001000 | clr                   | F1     |
+| 0x09   | 001001 | not                   | F1     |
+| 0x0A   | 001010 | inc                   | F1     |
+| 0x0B   | 001011 | dec                   | F1     |
+| 0x0C   | 001100 | neg                   | F1     |
+| 0x0E   | 001110 | jump                  | FJ     |
+| 0x0F   | 001111 | call                  | FJ     |
+| 0x10   | 010000 | pushm                 | FP     |
+| 0x11   | 010001 | popm                  | FP     |
+| 0x12   | 010010 | addm                  | FA     |
+| 0x18   | 011000 | jz                    | FB     |
+| 0x19   | 011001 | jnz                   | FB     |
+| 0x1A   | 011010 | ja                    | FB     |
+| 0x1B   | 011011 | jae                   | FB     |
+| 0x1C   | 011100 | jb                    | FB     |
+| 0x1D   | 011101 | jbe                   | FB     |
+| 0x1E   | 011110 | jl                    | FB     |
+| 0x1F   | 011111 | jle                   | FB     |
+| 0x20   | 100000 | jg                    | FB     |
+| 0x21   | 100001 | jge                   | FB     |
+| 0x28   | 101000 | mov                   | F2     |
+| 0x29   | 101001 | and                   | F2     |
+| 0x2A   | 101010 | or                    | F2     |
+| 0x2B   | 101011 | xor                   | F2     |
+| 0x2C   | 101100 | add                   | F2     |
+| 0x2D   | 101101 | addc                  | F2     |
+| 0x2E   | 101110 | sub                   | F2     |
+| 0x2F   | 101111 | subc                  | F2     |
+| 0x30   | 110000 | mulh                  | F2     |
+| 0x31   | 110001 | umulh                 | F2     |
+| 0x32   | 110010 | mull                  | F2     |
+| 0x33   | 110011 | div                   | F2     |
+| 0x34   | 110100 | mod                   | F2     |
+| 0x35   | 110101 | cmp                   | F2     |
+| 0x36   | 110110 | test                  | F2     |
+| 0x37   | 110111 | lsl                   | F2     |
+| 0x38   | 111000 | lsr                   | F2     |
+| 0x39   | 111001 | asr                   | F2     |
+| 0x3A   | 111010 | in                    | F2     |
+| 0x3B   | 111011 | out                   | F2     |
 
 - Opcodes are grouped by format with gaps, so each format occupies its own range.
 - Unlisted opcodes → CPU halts with an error. 0x00 is invalid on purpose: running into zeroed memory stops with an error.

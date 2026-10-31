@@ -146,10 +146,10 @@ Conditional jumps are always PC-relative.
 One interrupt source: input (port 0).
 
 ### Memory layout
-| Address | Contents                                       |
-|---------|------------------------------------------------|
-| 0x0     | reset vector — address of the program start     |
-| 0x4     | interrupt vector — address of the handler       |
+| Address | Contents                                    |
+|---------|---------------------------------------------|
+| 0x0     | reset vector — address of the program start |
+| 0x4     | interrupt vector — address of the handler   |
 
 Both vectors are filled by the linker: `mem[0x0] ← addr(_start)`, `mem[0x4] ← addr(_handler)`.
 - 0x0–0x7 are reserved; code and data start at 0x8. `.org` into this range → assembler error.
@@ -402,6 +402,29 @@ word3: [100]
 
 ## Immediates
 
-- Always 16 bits, signed. There are no 32-bit immediates.
+- Always 16 bits, signed. There are no 32-bit immediate.
 - Larger constants are either stored in the data section and loaded from memory, or built with shift/or.
 - `mov r1, label` loads the address of `label` into `r1`. If the address does not fit into the immediate field → error.
+
+## Syntax
+```
+<program> ::= { <line> | <macro> | <condition>}
+<macro> ::= "macro" <word> "," <non_neg_number> {"\n"} "{" [<comment>] <eol> {<line>} "}" [<comment>] <eol> 
+<line> ::= [<label>] [<definition> | <operation>] [<comment>] <eol>
+
+<label> :== {<symbol>} ":"
+<comment> ::= ";" {<symbol> | <whitespace>}
+<condition> ::= 
+
+<eol> ::= "\n" | <EOF>
+
+
+1. definitions of vars
+2. commands
+3. labels(others)
+4. macro
+6. conditional compilation: define, ifdef, else, ifndef, endif
+7. structure: .org, sections
+8. all types of literals
+9. 1-line comments
+```

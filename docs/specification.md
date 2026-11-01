@@ -420,6 +420,25 @@ word3: [100]
 <line> ::= [<label>] [<definition> | <operation>] [<comment>] <eol>
 
 <label> ::= <name> ":"
+
+<operation> ::= <command> [<argument> {"," <argument>}]
+<command> ::= ? any mnemonic from the instruction list, or a macro name ?
+
+<argument> ::= <register> | <direct> | <pc_relative> | <indirect>
+             | <postincrement> | <predecrement> | <immediate>
+             | <register_relative> | <jump_relative>
+
+<register> ::= "rsp" | "r1" | "r2" | ... | "r15"
+
+<direct>            ::= "(" (<non_neg_number> | <name>) ")"
+<pc_relative>       ::= "(" "@" <name> ")"
+<indirect>          ::= "(" <register> ")"
+<postincrement>     ::= "(" <register> ")" "+"
+<predecrement>      ::= "-" "(" <register> ")"
+<immediate>         ::= <number> | <name> | ('"' <pstr_char> '"')
+<register_relative> ::= "(" <register> ("+" | "-") <non_neg_number> ")"
+<jump_relative>     ::= "@" <name>
+
 <definition> ::= <definition_word> | <definition_pstr> | <definition_ref>
 
 <definition_ref> ::= ".ref" <name>
@@ -455,9 +474,13 @@ word3: [100]
 <any_char> ::= ? any utf-8 character ?
 <EOF> ::= ? end of input ?
 
-A macro definition may not appear inside other macro definition and preprocessor will throw error 
-Spaces and tabs between tokens are ignored by translator, unlike newlines
+A macro definition may not appear inside another macro definition and preprocessor will throw error 
+Spaces and tabs between tokens are ignored by translator, unlike newlines. 
+Spaces inside strings, comments and define values are not ignored; spaces are required between names.
 Number values must fit into 32-bits range, otherwise translator error
-
-2. commands
+Register names can't be used as labels
+Macro argument numeration starts from 0
+Inside a macro body, %N is replaced textually
+by the N-th argument of the call before parsing, like #define.
+Using %N with N >= parameter count, causes preprocessor error
 ```

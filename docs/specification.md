@@ -408,23 +408,56 @@ word3: [100]
 
 ## Syntax
 ```
-<program> ::= { <line> | <macro> | <condition>}
-<macro> ::= "macro" <word> "," <non_neg_number> {"\n"} "{" [<comment>] <eol> {<line>} "}" [<comment>] <eol> 
+<program> ::= {<line> | <macro> | <preprocessor> | <directive>}
+
+<macro> ::= "#macro" <name> "," <non_neg_number> {"\n"} "{" [<comment>] <eol> <program> "}" [<comment>] <eol>
+<preprocessor> ::= <define> | <condition>
+<condition> ::= ("#ifdef" | "#ifndef")  <name> [<comment>] <eol> <program> ["#else" [<comment>] <eol> <program>] "#endif" [<comment>] <eol>
+<define> ::= "#define" <name> [<value>] <eol>
+<value> ::= <value_char> {<value_char>}
+<value_char> ::= <any_char> - "\n"
+
 <line> ::= [<label>] [<definition> | <operation>] [<comment>] <eol>
 
-<label> :== {<symbol>} ":"
-<comment> ::= ";" {<symbol> | <whitespace>}
-<condition> ::= 
+<label> ::= <name> ":"
+<definition> ::= <definition_word> | <definition_pstr> | <definition_ref>
 
+<definition_ref> ::= ".ref" <name>
+
+<definition_word> ::= ".word" <word_value> {"," <word_value>}
+<word_value> ::= <number> | '"' <pstr_char> '"'
+
+<definition_pstr> ::= ".pstr" '"' {<pstr_char>} '"'
+<pstr_char> ::= (<any_ascii> - "\" - '"') | <escape_symbol>
+<escape_symbol> ::= "\" ("n" | "t" | "\" | '"' | "0")
+<any_ascii> ::= ? any ascii character in the range 0x20–0x7E ?
+
+<directive> ::= <org> | <section> | <import> | <export>
+<section> ::= ".section" ("data" | "text" ) [<comment>] <eol>
+<org> ::= ".org" <non_neg_number> [<comment>] <eol>
+<import> ::= ".import" <name> [<comment>] <eol>
+<export> ::= ".export" <name> [<comment>] <eol>
+
+<comment> ::= ";" {<comment_char>}
+<comment_char> ::= <any_char> - "\n"
+
+<name> ::= (<letter> | "_") {<symbol>}
 <eol> ::= "\n" | <EOF>
 
+<number> ::= ["-"] <non_neg_number>
+<non_neg_number> ::= <dec_number> | <hex_number>
+<dec_number> ::= <digit> {<digit>}
+<hex_number> ::= "0x" <hex_digit> {<hex_digit>}
+<hex_digit> ::= <digit> | "a" | ... | "f" | "A" | ... | "F"
+<symbol> ::= <letter> | <digit> | "_"
+<letter> ::= "a" | "b" | ... | "z" | "A" | "B" | ... | "Z"
+<digit> ::= "0" | "1" | ... | "9"
+<any_char> ::= ? any utf-8 character ?
+<EOF> ::= ? end of input ?
 
-1. definitions of vars
+A macro definition may not appear inside other macro definition and preprocessor will throw error 
+Spaces and tabs between tokens are ignored by translator, unlike newlines
+Number values must fit into 32-bits range, otherwise translator error
+
 2. commands
-3. labels(others)
-4. macro
-6. conditional compilation: define, ifdef, else, ifndef, endif
-7. structure: .org, sections
-8. all types of literals
-9. 1-line comments
 ```

@@ -406,73 +406,69 @@ word3: [100]
 - Larger constants are either stored in the data section and loaded from memory, or built with shift/or.
 - `mov r1, label` loads the address of `label` into `r1`. If the address does not fit into the immediate field → error.
 
-## Syntax
+## Syntax in EBNF
 ```
-<program> ::= {<line> | <macro> | <preprocessor> | <directive>}
+(* --- structure --- *)
+<program>   ::= { <line> | <macro> | <define> | <condition> | <directive> }
+<end>       ::= [ <comment> ] <eol>
+<eol>       ::= "\n" | <EOF>
 
-<macro> ::= "#macro" <name> "," <non_neg_number> {"\n"} "{" [<comment>] <eol> <program> "}" [<comment>] <eol>
-<preprocessor> ::= <define> | <condition>
-<condition> ::= ("#ifdef" | "#ifndef")  <name> [<comment>] <eol> <program> ["#else" [<comment>] <eol> <program>] "#endif" [<comment>] <eol>
-<define> ::= "#define" <name> [<value>] <eol>
-<value> ::= <value_char> {<value_char>}
-<value_char> ::= <any_char> - "\n"
+(* --- preprocessor --- *)
+<macro>     ::= "#macro" <name> "," <non_neg_number> { "\n" }
+                "{" <end>
+                <program>
+                "}" <end>
 
-<line> ::= [<label>] [<definition> | <operation>] [<comment>] <eol>
+<define>    ::= "#define" <name> [ <value> ] <eol>
 
-<label> ::= <name> ":"
+<condition> ::= ( "#ifdef" | "#ifndef" ) <name> <end>
+                <program>
+                [ "#else" <end> <program> ]
+                "#endif" <end>
 
-<operation> ::= <command> [<argument> {"," <argument>}]
-<command> ::= ? any mnemonic from the instruction list, or a macro name ?
+(* --- directives --- *)
+<directive> ::= ( ".section" ( "data" | "text" )
+                | ".org" <non_neg_number>
+                | ".import" <name>
+                | ".export" <name>
+                ) <end>
 
-<argument> ::= <register> | <direct> | <pc_relative> | <indirect>
-             | <postincrement> | <predecrement> | <immediate>
-             | <register_relative> | <jump_relative>
+(* --- lines --- *)
+<line>        ::= [ <label> ] [ <data> | <instruction> ] <end>
+<label>       ::= <name> ":"
 
-<register> ::= "rsp" | "r1" | "r2" | ... | "r15"
+<data>        ::= ".word" <word> { "," <word> }
+                | ".pstr" <string>
+                | ".ref" <name>
+<word>        ::= <number> | <char>
 
-<direct>            ::= "(" (<non_neg_number> | <name>) ")"
-<pc_relative>       ::= "(" "@" <name> ")"
-<indirect>          ::= "(" <register> ")"
-<postincrement>     ::= "(" <register> ")" "+"
-<predecrement>      ::= "-" "(" <register> ")"
-<immediate>         ::= <number> | <name> | ('"' <pstr_char> '"')
-<register_relative> ::= "(" <register> ("+" | "-") <non_neg_number> ")"
-<jump_relative>     ::= "@" <name>
+<instruction> ::= <command> [ <operand> { "," <operand> } ]
+<command>     ::= ? any mnemonic from the instruction list, or a macro name ?
 
-<definition> ::= <definition_word> | <definition_pstr> | <definition_ref>
+<operand>     ::= <register>                                        (* register *)
+                | "(" ( <non_neg_number> | <name> ) ")"             (* direct *)
+                | "(" "@" <name> ")"                                (* PC-relative *)
+                | "(" <register> ")"                                (* indirect *)
+                | "(" <register> ")" "+"                            (* postincrement *)
+                | "-" "(" <register> ")"                            (* predecrement *)
+                | "(" <register> ( "+" | "-" ) <non_neg_number> ")" (* register-relative *)
+                | <number> | <name> | <char>                        (* immediate *)
+                | "@" <name>                                        (* jump PC-relative *)
+<register>    ::= "rsp" | "r1" | "r2" | ... | "r15"
 
-<definition_ref> ::= ".ref" <name>
+(* --- tokens --- *)
+<name>           ::= ( <letter> | "_" ) { <letter> | <digit> | "_" }
+<number>         ::= [ "-" ] <non_neg_number>
+<non_neg_number> ::= <digit> { <digit> } | "0x" <hex_digit> { <hex_digit> }
+<char>           ::= '"' <str_char> '"'
+<string>         ::= '"' { <str_char> } '"'
+<str_char>       ::= ? printable ASCII character 0x20–0x7E, except "\" and '"' ?
+                   | "\" ( "n" | "t" | "\" | '"' | "0" )
+<comment>        ::= ";" { ? any UTF-8 character except newline ? }
+<value>          ::= ? any characters up to the end of the line ?
 
-<definition_word> ::= ".word" <word_value> {"," <word_value>}
-<word_value> ::= <number> | '"' <pstr_char> '"'
-
-<definition_pstr> ::= ".pstr" '"' {<pstr_char>} '"'
-<pstr_char> ::= (<any_ascii> - "\" - '"') | <escape_symbol>
-<escape_symbol> ::= "\" ("n" | "t" | "\" | '"' | "0")
-<any_ascii> ::= ? any ascii character in the range 0x20–0x7E ?
-
-<directive> ::= <org> | <section> | <import> | <export>
-<section> ::= ".section" ("data" | "text" ) [<comment>] <eol>
-<org> ::= ".org" <non_neg_number> [<comment>] <eol>
-<import> ::= ".import" <name> [<comment>] <eol>
-<export> ::= ".export" <name> [<comment>] <eol>
-
-<comment> ::= ";" {<comment_char>}
-<comment_char> ::= <any_char> - "\n"
-
-<name> ::= (<letter> | "_") {<symbol>}
-<eol> ::= "\n" | <EOF>
-
-<number> ::= ["-"] <non_neg_number>
-<non_neg_number> ::= <dec_number> | <hex_number>
-<dec_number> ::= <digit> {<digit>}
-<hex_number> ::= "0x" <hex_digit> {<hex_digit>}
-<hex_digit> ::= <digit> | "a" | ... | "f" | "A" | ... | "F"
-<symbol> ::= <letter> | <digit> | "_"
-<letter> ::= "a" | "b" | ... | "z" | "A" | "B" | ... | "Z"
-<digit> ::= "0" | "1" | ... | "9"
-<any_char> ::= ? any utf-8 character ?
-<EOF> ::= ? end of input ?
+<letter>, <digit>, <hex_digit> have their usual meaning: a–z A–Z; 0–9; 0–9 a–f A–F.
+<EOF> is the end of input.
 
 A macro definition may not appear inside another macro definition and preprocessor will throw error 
 Spaces and tabs between tokens are ignored by translator, unlike newlines. 

@@ -408,7 +408,9 @@ word3: [100]
 - `mov r1, label` loads the address of `label` into `r1`. If the address does not fit into the immediate field → error.
 
 ## Programming language
-### Syntax in EBNF
+
+### Syntax (EBNF)
+
 ```
 (* --- structure --- *)
 <program>   ::= { <line> | <macro> | <define> | <condition> | <directive> }
@@ -418,8 +420,9 @@ word3: [100]
 (* --- preprocessor --- *)
 <macro>     ::= "#macro" <name> "," <non_neg_number> { "\n" }
                 "{" <end>
-                <program>
+                { <raw_line> }
                 "}" <end>
+<raw_line>  ::= ? any characters except newline, or unopened "{" ? <eol>
 
 <define>    ::= "#define" <name> [ <value> ] <eol>
 
@@ -471,28 +474,37 @@ word3: [100]
 
 <letter>, <digit>, <hex_digit> have their usual meaning: a–z A–Z; 0–9; 0–9 a–f A–F.
 <EOF> is the end of input.
-
-A macro definition may not appear inside another macro definition and preprocessor will throw error 
-Spaces and tabs between tokens are ignored by translator, unlike newlines. 
-Spaces inside strings, comments and define values are not ignored; spaces are required between names.
-Number values must fit into 32-bits range, otherwise translator error
-Register names can't be used as labels
-Macro argument numeration starts from 0
-Inside a macro body, %N is replaced textually
-by the N-th argument of the call before parsing, like #define.
-Using %N with N >= parameter count, causes preprocessor error
 ```
 
-## Semantics
+Notes:
+- The language is case-sensitive.
+- Spaces and tabs between tokens are ignored; newlines are not. Spaces inside strings, comments and
+  define values are kept. Names must be separated by spaces.
+- Number values must be in the range $[-2^{31},\ 2^{32}-1]$; otherwise it is a translator error.
+- Reserved words cannot be used as labels or macro names: register names, mnemonics, 
+keywords, and names of already defined macros.
+- A `#define` line cannot have a comment: everything including ";" will be added as value
+- A macro body is not parsed at definition time. It is stored as raw lines and parsed only after
+  expansion, after `%N` replacement.
+- A macro call has the same syntax as an instruction; the
+  preprocessor expands it before assembly.
+- A macro definition cannot appear inside another macro definition, including through a
+  conditional block; it is a preprocessor error.
+
+### Semantics
+
 **Instructions.** Executed sequentially, starting from `_start`. Meaning, operand modes, flags and
 cycle counts are described in the ISA section.
 
 **Labels.**
-- A label marks address of the next emitted instruction. The value may be written on the same line or different
+- A label marks the address of the next emitted word (instruction or data). The label may stand on
+  its own line or before an instruction or data on the same line.
 - A label may be used before its definition.
-- A label is local unless it was exported with `.export` and used with `import` directives.
-The use of a name that is not defined in the file or imported is an error.
+- A label is local to its file unless it is exported with `.export`.
+- Another file can use an exported label only after declaring it with `.import`. Using a name that
+  is neither defined in the file nor imported is an error.
 - Duplicate labels within a file are an error.
+- A label exported by more than one file in the same link is an error.
 
 **Data.**
 - `.word v1, v2, ...` — one word per value. A char literal `"c"` is its ASCII code;
@@ -503,23 +515,26 @@ The use of a name that is not defined in the file or imported is an error.
 
 **Sections.**
 - `.section data|text` switches the current section; switching back to a section continues it.
+- The default section is `text`.
+- Instructions in `data` and data in `text` are not allowed, causing translation error.
 - `.org N` — TODO: absolute address or offset within the section.
 
-**Preprocessor.** Runs before assembly; works on text.
-- `#define NAME value` — every later occurrence of `NAME` is replaced by `value` as text, until
-  the end of the file. `value` is the rest of the line. Redefinition is allowed,
-with the value applied from the next line. Defines are local to the file.
-- `#ifdef NAME` / `#ifndef NAME` keep the lines up to `#else` / `#endif` if `NAME` is / is not
-  defined; `#else` keeps the other part. Conditional blocks may nest.
-- `#macro name, N { ... }` defines a macro with N parameters. A call looks like an instruction:
-  `name a0, a1, ...`; it is replaced by the body, with every `%i` replaced textually by the i-th
-  argument. TODO: may a macro be called before its definition?
+**Preprocessor.** One top-down pass over the text, before assembly. Expanded macro bodies are
+processed like ordinary code.
+- `#define NAME value` — replaces the whole identifier `NAME` with `value` (the rest of the line)
+from the next line on. Strings and comments are skipped.  Redefinition is allowed.
+- `#ifdef` / `#ifndef NAME` … [`#else`] … `#endif` — keeps one branch; blocks may nest.
+- `#macro name, N { ... }` — a call `name a0, ..., aN-1` is replaced by the body, with `%i` → `ai`.
+Arguments are split on commas outside quotes.
+- Defines and macros are local to the file.
 
-**Entry points.** The linker writes the address of `_start` into the reset vector and of
-`_handler` into the interrupt vector (see Memory organization). 
-`_start` and `_handler` have to be manually exported/imported.
-More than 1 instance of `_start` or `_handler` is an error. 
-No `_start` is an error, no `_handler` leaves the vector at 0. 
+**Entry points.**
+- The linker writes the address of `_start` into the reset vector and the address of `_handler`
+  into the interrupt vector (see Memory organization).
+- Both must be exported with `.export`; the linker takes them from the export tables, and no file
+  imports them.
+- No exported `_start` is an error.
+- No exported `_handler` leaves the interrupt vector at 0.
 
 **Types.** There are no types: every value is a 32-bit word. Signed or unsigned interpretation is chosen by 
 operation (`jl` vs `jb`).

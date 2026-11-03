@@ -22,6 +22,7 @@
 - `cmp/test a, b`: `a` cannot be an immediate → assembler error.
 - `jump` / `call` do not use operand modes, see [Jump targets](#jump-targets).
 -  Syntax rule: bare — address, parentheses — memory.
+-   A register used with +/- must not appear in any other operand of the same instruction”
 
 ## Commands
 
@@ -103,7 +104,7 @@ popm  r2, r1   ; pop into r2, then r1
 | in dst, port  | dst ← IO[port] | F2     | NZ; V,C ← 0 |
 | out port, src | IO[port] ← src | F2     | —           |
 
-- `port` — port number, any source mode (usually an immediate: `in r1, 0`).
+- `port` — port number, only immediate address
 - Port numbers are a separate address space, not memory addresses.
 - Ports:
     - 0 — input: holds the last character from the input schedule; its arrival raises the interrupt.

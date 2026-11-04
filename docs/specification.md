@@ -133,10 +133,10 @@ Conditional jumps: if the condition holds, `PC ← PC_next + offset`. Always PC-
 
 #### Jump targets
 
-| Syntax   | Kind        | `jump`                | `call`                           | Size         |
-|----------|-------------|-----------------------|----------------------------------|--------------|
-| `label`  | absolute    | PC ← label            | push PC_next, PC ← label         | 2 words      |
-| `@label` | PC-relative | PC ← PC_next + offset | push PC_next, PC ← PC_next + offset | 1 word    |
+| Syntax   | Kind        | `jump`                | `call`                              | Size    |
+|----------|-------------|-----------------------|-------------------------------------|---------|
+| `label`  | absolute    | PC ← label            | push PC_next, PC ← label            | 2 words |
+| `@label` | PC-relative | PC ← PC_next + offset | push PC_next, PC ← PC_next + offset | 1 word  |
 
 ### Interrupts
 
@@ -151,7 +151,7 @@ One interrupt source: input (port 0).
 Filled by the linker. `0x0`–`0x7` are reserved.
 
 #### Reset
-- `PC ← mem[0x0]`, `IE ← 0`, `irq_pending ← 0`. `rsp` is not initialised.
+- `PC ← mem[0x0]`, `IE ← 0`, `irq_pending ← 0`. `rsp` is not initialized.
 
 #### Request
 - A character from the input schedule arrives: `IO[0] ← char`, `irq_pending ← 1`.
@@ -502,7 +502,7 @@ operation (`jl` vs `jb`).
 ailurus-build [flags] FILE...
 ```
 
-`FILE` is a source file (`.asm`) or an object file (`.o`). By default all inputs are assembled and
+`FILE` is a source file (`.asm`) or an object file (`.o`). By default, all inputs are assembled and
 linked together with the standard library into one flat binary image.
 
 | Flag              | Meaning                                                        |
@@ -566,11 +566,11 @@ One pass is enough, because an instruction’s size depends only on its mnemonic
 
 For each entry, compute the value, run the check, and write the field.
 
-| Kind      | Value                | Check                      |
-|-----------|----------------------|----------------------------|
-| `abs32`   | $S$                  | none                       |
-| `imm16`   | $S$                  | $S \le \texttt{0x7FFF}$    |
-| `pcrel16` | $S - \text{PC\_next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
+| Kind      | Value                       | Check                      |
+|-----------|-----------------------------|----------------------------|
+| `abs32`   | $S$                         | none                       |
+| `imm16`   | $S$                         | $S \le \texttt{0x7FFF}$    |
+| `pcrel16` | $S - \text{PC}_\text{next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
 
 A failed check is an error.
 
@@ -769,13 +769,13 @@ Outputs: field value (sign-extended if signed), register numbers, port address, 
 | register-relative | 20    | offset — yes | mode 7: reg [19:16], offset [15:0] |
 | absolute          | 32    | —            | mode 1; FJ with K = 0              |
 
-| Format | Modes in IR                       | Operand area, IDX = 0 | IDX ≥ 1 |
-|--------|-----------------------------------|-----------------------|---------|
-| F1     | [25:23]                           | [22:0]                | 32 bits |
-| F2     | [25:23], [22:20]                  | [19:0]                | 32 bits |
-| FB, FJ | —                                 | [15:0], K at [25]     | 32 bits |
-| FP     | — (COUNT [25:22])                 | [19:0]                | 32 bits |
-| FA     | [20:0], 3 bits each (COUNT [25:23]) | none                | 32 bits |
+| Format | Modes in IR                         | Operand area, IDX = 0 | IDX ≥ 1 |
+|--------|-------------------------------------|-----------------------|---------|
+| F1     | [25:23]                             | [22:0]                | 32 bits |
+| F2     | [25:23], [22:20]                    | [19:0]                | 32 bits |
+| FB, FJ | —                                   | [15:0], K at [25]     | 32 bits |
+| FP     | — (COUNT [25:22])                   | [19:0]                | 32 bits |
+| FA     | [20:0], 3 bits each (COUNT [25:23]) | none                  | 32 bits |
 
 `fits = POS + width ≤ area size`. Otherwise, the next word is fetched into MDR, IDX ← IDX + 1,
 POS ← 0. `last` — the current operand is the last one.

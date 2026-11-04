@@ -1,6 +1,8 @@
-# Instruction set
+# Documentation
 
-## Machine model
+## Instruction set
+
+### Machine model
 
 - Word: 32 bits. Memory: byte-addressed, single-port, shared by code and data (von Neumann).
 - Registers: `rsp` (reg #0), `r1`–`r15`, 32 bits each, addressed by a 4-bit field.
@@ -9,7 +11,7 @@
 - RAM reads/writes any 4 consecutive bytes in one access. All data accesses are 32-bit words.
 - Code and data should be aligned to 4: unaligned accesses work, but bypass the cache (see [Cache](#cache)).
 
-## Operand modes
+### Operand modes
 
 | # | Mode               | Syntax                  | Operand size (bits) | Notes                                                        |
 |---|--------------------|-------------------------|---------------------|--------------------------------------------------------------|
@@ -31,7 +33,7 @@
   - a register used with `+` / `-` appears in another operand of the same instruction.
 - `jump` / `call` do not use operand modes, see [Jump targets](#jump-targets).
 
-## Commands
+### Commands
 
 `Format` — see [Instruction formats](#instruction-formats).
 
@@ -39,12 +41,12 @@
 - N — result bit 31; Z — result is 0; V — signed overflow; C — unsigned carry out (borrow for `sub`/`subc`/`cmp`/`neg`).
 - Shifts: C — last bit shifted out.
 
-### Data movement
+#### Data movement
 | Instruction  | Meaning    | Format | Flags |
 |--------------|------------|--------|-------|
 | mov dst, src | dst ← src  | F2     | NZ    |
 
-### Logical
+#### Logical
 | Instruction  | Meaning          | Format | Flags       |
 |--------------|------------------|--------|-------------|
 | clr dst      | dst ← 0          | F1     | NZ; V,C ← 0 |
@@ -53,7 +55,7 @@
 | or dst, src  | dst ← dst \| src | F2     | NZ; V,C ← 0 |
 | xor dst, src | dst ← dst ^ src  | F2     | NZ; V,C ← 0 |
 
-### Arithmetic
+#### Arithmetic
 | Instruction               | Meaning                                 | Format | Flags             |
 |---------------------------|-----------------------------------------|--------|-------------------|
 | inc dst                   | dst ← dst + 1                           | F1     | NZV               |
@@ -72,7 +74,7 @@
 | test a, b                 | flags ← a & b                           | F2     | NZ; V,C ← 0       |
 | addm dst, src1, ..., srcN | dst ← dst + src1 + ... + srcN           | FA     | NZ (final result) |
 
-### Shifts
+#### Shifts
 | Instruction    | Meaning                          | Format | Flags |
 |----------------|----------------------------------|--------|-------|
 | lsl dst, count | dst ← dst << count (zero-filled) | F2     | NZC   |
@@ -82,7 +84,7 @@
 
 `count mod 32` is used.
 
-### Stack
+#### Stack
 | Instruction       | Meaning                              | Format | Flags |
 |-------------------|--------------------------------------|--------|-------|
 | push operand      | alias of `mov -(rsp), operand`       | F2     | NZ    |
@@ -99,7 +101,7 @@ pushm r1, r2   ; push r1, then r2
 popm  r2, r1   ; pop into r2, then r1
 ```
 
-### IO
+#### IO
 | Instruction   | Meaning        | Format | Flags       |
 |---------------|----------------|--------|-------------|
 | in dst, port  | dst ← IO[port] | F2     | NZ; V,C ← 0 |
@@ -109,7 +111,7 @@ popm  r2, r1   ; pop into r2, then r1
 - 0 — input: last character from the input schedule; its arrival raises the interrupt.
 - 1 — output: writing appends a character to the output buffer.
 
-### Control flow
+#### Control flow
 | Instruction  | Meaning / condition   | Format | Flags |
 |--------------|-----------------------|--------|-------|
 | jump target  | PC ← target           | FJ     | —     |
@@ -129,18 +131,18 @@ popm  r2, r1   ; pop into r2, then r1
 
 Conditional jumps: if the condition holds, `PC ← PC_next + offset`. Always PC-relative.
 
-### Jump targets
+#### Jump targets
 
 | Syntax   | Kind        | `jump`                | `call`                           | Size         |
 |----------|-------------|-----------------------|----------------------------------|--------------|
 | `label`  | absolute    | PC ← label            | push PC_next, PC ← label         | 2 words      |
 | `@label` | PC-relative | PC ← PC_next + offset | push PC_next, PC ← PC_next + offset | 1 word    |
 
-## Interrupts
+### Interrupts
 
 One interrupt source: input (port 0).
 
-### Vectors
+#### Vectors
 | Address | Contents                                    |
 |---------|---------------------------------------------|
 | 0x0     | reset vector — `addr(_start)`               |
@@ -148,15 +150,15 @@ One interrupt source: input (port 0).
 
 Filled by the linker. `0x0`–`0x7` are reserved.
 
-### Reset
+#### Reset
 - `PC ← mem[0x0]`, `IE ← 0`, `irq_pending ← 0`. `rsp` is not initialised.
 
-### Request
+#### Request
 - A character from the input schedule arrives: `IO[0] ← char`, `irq_pending ← 1`.
 - `irq_pending` is a single bit — requests are not queued. A new character while `irq_pending = 1`
   overwrites `IO[0]`: the previous one is lost.
 
-### Entry
+#### Entry
 Checked after each instruction completes (never in the middle of one):
 ```
 if irq_pending == 1 and IE == 1:
@@ -167,14 +169,14 @@ if irq_pending == 1 and IE == 1:
     PC ← mem[0x4]
 ```
 
-### Return
+#### Return
 `iret`: pop PS (restores IE and NZVC), then pop PC.
 
-### Interrupt during interrupt
+#### Interrupt during interrupt
 - The handler runs with `IE = 0`. A request arriving meanwhile is latched in `irq_pending` and serviced right after `iret`.
 - The handler may execute `ei` to allow nesting: PC and PS are on the stack, so nested entries are safe.
 
-## Cache
+### Cache
 - 16 lines × 16 bytes, fully associative, tree-PLRU replacement.
 - Write-through, no-allocate on write miss.
 - Reset clears all valid bits.
@@ -188,27 +190,27 @@ if irq_pending == 1 and IE == 1:
 | W2 | Aligned write, miss | Write to RAM only                                                                            | 10    | one RAM access                           |
 | W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 10–12 | RAM write + 1 tick per invalidated line  |
 
-## Instruction formats
+### Instruction formats
 
 - Padding and unused bits are 0.
 - Operands are placed **from bit 0 upward**: each one takes the lowest free bits of its area.
 - Signed fields (immediate, offsets) are sign-extended to 32 bits by the CU.
 - Register-relative field: `reg#` in its bits [19:16], `offset` in [15:0].
 
-### F0 — 0 operands
+#### F0 — 0 operands
 ```
 [31:26 OPCODE][25:0 padding]
 ```
 Size: 1 word.
 
-### F1 — 1 operand
+#### F1 — 1 operand
 ```
 word1: [31:26 OPCODE][25:23 MODE][22:0 operand]
 ext:   [31:0 address]                      ; absolute mode only
 ```
 Every mode except absolute fits inline. Size: 1–2 words.
 
-### F2 — 2 operands
+#### F2 — 2 operands
 ```
 word1: [31:26 OPCODE][25:23 MODE1][22:20 MODE2][19:0 inline operands]
 ext:   [31:0 operand, right-aligned]       ; 0–2 words
@@ -231,20 +233,20 @@ word2: [OPERAND1]
 | absolute + non-absolute           | 2     |
 | absolute + absolute               | 3     |
 
-### FB — conditional branch
+#### FB — conditional branch
 ```
 [31:26 OPCODE][25:16 padding][15:0 offset]
 ```
 Size: 1 word.
 
-### FJ — `jump` / `call`
+#### FJ — `jump` / `call`
 ```
 word1: [31:26 OPCODE][25 K][24:16 padding][15:0 offset]
 ext:   [31:0 address]                      ; K = 0 only
 ```
 K = 1 — PC-relative (1 word); K = 0 — absolute, offset field is 0 (2 words).
 
-### FP — `pushm` / `popm`
+#### FP — `pushm` / `popm`
 ```
 word1: [31:26 OPCODE][25:22 COUNT][21:20 padding][19:0 reg0..reg4, reg0 at [3:0]]
 ext:   [31:0 next 8 registers]
@@ -257,7 +259,7 @@ COUNT = number of registers − 1 (1–16 registers).
 | 6–13      | 2     |
 | 14–16     | 3     |
 
-### FA — `addm`
+#### FA — `addm`
 ```
 word1:  [31:26 OPCODE][25:23 COUNT][22:21 padding][20:0 MODE1..MODE7, MODE1 at [2:0]]
 value:  [31:0 operand values]              ; 1+ words
@@ -285,7 +287,7 @@ word2: [r2, 8 | r1]
 word3: [100]
 ```
 
-## Opcodes
+### Opcodes
 
 | Opcode | Binary | Instruction           | Format |
 |--------|--------|-----------------------|--------|
@@ -339,7 +341,7 @@ word3: [100]
 - Grouped by format with gaps; the opcode alone determines the format.
 - Aliases (`asl`, `push`, `pop`) have no opcode.
 
-## Field sizes
+### Field sizes
 
 | Field                                                      | Size                        |
 |------------------------------------------------------------|-----------------------------|
@@ -354,10 +356,11 @@ word3: [100]
 | COUNT (`pushm`/`popm`)                                     | 4 bits                      |
 | COUNT (`addm`)                                             | 3 bits                      |
 
-## Immediates
+### Immediates
 
 - There are no 32-bit immediates. Larger constants are stored in `data` and loaded, or built with shift / or.
 - `mov r1, label` loads the address of `label`; the address must be `< 0x8000`, otherwise translator error.
+
 ## Programming language
 
 ### Syntax (EBNF)
@@ -373,7 +376,7 @@ word3: [100]
                 "{" <end>
                 { <raw_line> }
                 "}" <end>
-<raw_line>  ::= ? any characters except newline, or unopened "{" ? <eol>
+<raw_line>  ::= ? any characters except newline, or unopened "}" ? <eol>
 
 <define>    ::= "#define" <name> [ <value> ] <eol>
 
@@ -432,8 +435,8 @@ Notes:
 - Spaces and tabs between tokens are ignored; newlines are not. Spaces inside strings, comments and
   define values are kept. Names must be separated by spaces.
 - Number values must be in the range $[-2^{31},\ 2^{32}-1]$; otherwise it is a translator error.
-- Reserved words cannot be used as labels or macro names: register names, mnemonics, 
-keywords, and names of already defined macros.
+- Reserved words cannot be used as labels or macro names: register names, mnemonics,
+  keywords, and names of already defined macros.
 - A `#define` line cannot have a comment: everything including ";" will be added as value
 - A macro body is not parsed at definition time. It is stored as raw lines and parsed only after
   expansion, after `%N` replacement.
@@ -473,10 +476,10 @@ cycle counts are described in the ISA section.
 **Preprocessor.** One top-down pass over the text, before assembly. Expanded macro bodies are
 processed like ordinary code.
 - `#define NAME value` — replaces the whole identifier `NAME` with `value` (the rest of the line)
-from the next line on. Strings and comments are skipped.  Redefinition is allowed.
+  from the next line on. Strings and comments are skipped.  Redefinition is allowed.
 - `#ifdef` / `#ifndef NAME` … [`#else`] … `#endif` — keeps one branch; blocks may nest.
 - `#macro name, N { ... }` — a call `name a0, ..., aN-1` is replaced by the body, with `%i` → `ai`.
-Arguments are split on commas outside quotes.
+  Arguments are split on commas outside quotes.
 - Defines and macros are local to the file.
 
 **Entry points.**
@@ -487,7 +490,7 @@ Arguments are split on commas outside quotes.
 - No exported `_start` is an error.
 - No exported `_handler` leaves the interrupt vector at 0.
 
-**Types.** There are no types: every value is a 32-bit word. Signed or unsigned interpretation is chosen by 
+**Types.** There are no types: every value is a 32-bit word. Signed or unsigned interpretation is chosen by
 operation (`jl` vs `jb`).
 
 
@@ -567,7 +570,7 @@ For each entry, compute the value, run the check, and write the field.
 |-----------|----------------------|----------------------------|
 | `abs32`   | $S$                  | none                       |
 | `imm16`   | $S$                  | $S \le \texttt{0x7FFF}$    |
-| `pcrel16` | $S - \text{PC_next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
+| `pcrel16` | $S - \text{PC\_next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
 
 A failed check is an error.
 
@@ -604,11 +607,11 @@ msg: .pstr "hi"
   "symbols": [
     { "name": "print",  "binding": "import" },
     { "name": "_start", "binding": "export", "section": "text", "offset": 0 },
-    { "name": "loop",   "binding": "local",  "section": "text", "offset": 16 },
+    { "name": "loop",   "binding": "local",  "section": "text", "offset": 12 },
     { "name": "msg",    "binding": "local",  "section": "data", "offset": 0 }
   ],
   "relocations": [
-    { "section": "text", "offset": 0, "bit": 0, "width": 16,
+    { "section": "text", "offset": 0, "bit": 4, "width": 16,
       "kind": "pcrel16", "symbol": "msg", "pc_next": 4 },
     { "section": "text", "offset": 8, "bit": 0, "width": 32,
       "kind": "abs32", "symbol": "print" }
@@ -616,7 +619,7 @@ msg: .pstr "hi"
   "lines": [
     { "section": "text", "offset": 0,  "line": 5,  "text": "mov r1, (@msg)" },
     { "section": "text", "offset": 4,  "line": 6,  "text": "call print" },
-    { "section": "text", "offset": 16, "line": 8,  "text": "jz loop" },
+    { "section": "text", "offset": 12, "line": 8,  "text": "jz loop" },
     { "section": "data", "offset": 0,  "line": 10, "text": "msg: .pstr \"hi\"" }
   ]
 }
@@ -681,7 +684,7 @@ Fields:
 | Variable    | `.word` in `data` (static). Registers and stack are used manually — no register allocation.                        |
 | Multi-word  | consecutive words, low word first (64-bit: `addr` — bits $[31:0]$, `addr+4` — bits $[63:32]$).                     |
 | String      | `.pstr` in `data`: length word, then one word per character.                                                       |
-| Instruction | `text`, 1–4 words.                                                                                                 |
+| Instruction | `text`, 1–8 words.                                                                                                 |
 | Procedure   | code in `text`, `call` / `ret` through the stack.                                                                  |
 | Interrupt   | handler is code in `text`, its address is in the `0x4` vector. Entry pushes PC and PS.                             |
 
@@ -690,12 +693,12 @@ Fields:
 
 ### Calling convention
 
-| What         | Rule                                          |
-|--------------|-----------------------------------------------|
-| Arguments    | `r1`–`r4`; on the stack, pushed right to left |
-| Return value | `r1`; 64-bit — `r1` low, `r2` high            |
-| Caller-saved | `r1`–`r7`: a procedure may change them        |
-| Callee-saved | `r8`–`r15`, `rsp`: restored before `ret`      |
+| What         | Rule                                                                            |
+|--------------|---------------------------------------------------------------------------------|
+| Arguments    | `r1`–`r4`; the rest on the stack, pushed right to left, the caller removes them |
+| Return value | `r1`; 64-bit — `r1` low, `r2` high                                              |
+| Caller-saved | `r1`–`r7`: a procedure may change them                                          |
+| Callee-saved | `r8`–`r15`, `rsp`: restored before `ret`                                        |
 
 - The interrupt handler preserves every register it uses: hardware saves only PC and PS.
 
@@ -730,7 +733,7 @@ input:              # interrupt schedule: [tick, char]
 
 - `result` (ALU output) is the only write bus.
 - Register file: 2 read ports, 1 write port.
-- MAR_DST — destination address, in order to save during operand fetch. 
+- MAR_DST — destination address, in order to save during operand fetch.
 - TMP - destination value / sum for `addm`.
 - PS — IE + NZVC, each bit latched separately; carry goes back to the ALU for `addc` / `subc`.
   PS_MUX takes ALU flags or `result` (`iret`).
@@ -798,5 +801,5 @@ Controller FSM:
 | `TAG`      | `ta_wr` for the victim, update PLRU, word to DataPath, `ready`                                     | `IDLE`                                                           |
 | `BYPASS_R` | `ram_op = read` at `addr`; on `ram_done` RAM value to DataPath, `ready`                            | `IDLE`                                                           |
 | `WRITE`    | `ram_op = write` at `addr`; aligned hit — also write data_array; on `ram_done`: aligned → `ready`  | aligned → `IDLE`; unaligned → `INV1`                             |
-| `INV1`     | compare `addr`; hit → clear valid                                                                  | `INV2`                                                           |
+| `INV1`     | compare `addr`; hit → clear valid                                                                  | spans 2 lines → `INV2`; otherwise → `IDLE`                       |
 | `INV2`     | compare `addr + 4`; hit → clear valid; `ready`. For unaligned writes spanning 2 lines              | `IDLE`                                                           |

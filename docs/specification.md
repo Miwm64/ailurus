@@ -541,9 +541,148 @@ operation (`jl` vs `jb`).
 
 
 ## Translator
-- Translation pipeline includes 3 stages:
+
+### CLI tool
+
+```
+ailurus-build [flags] FILE...
+```
+
+`FILE` is a source file (`.asm`) or an object file (`.o`). By default all inputs are assembled and
+linked together with the standard library into one flat binary image.
+
+| Flag              | Meaning                                                        |
+|-------------------|----------------------------------------------------------------|
+| `-o FILE`         | output file (default `a.bin`)                                  |
+| `-l FILE`         | debug listing: `<address> - <HEXCODE> - <mnemonic>`            |
+| `-c`              | assemble only: one `.o` per input, no linking                  |
+| `-E`              | preprocess only: print expanded source to stdout               |
+| `-D NAME[=value]` | define `NAME`, as if `#define` were at the top of every file   |
+| `--no-stdlib`     | do not link the standard library                               |
+
+### Pipeline
+
+Translation pipeline includes 3 stages:
 1. Preprocessor - receives source code, returns source code after expanding macros, defines, conditional blocks
 2. Assembler - receives code after preprocessor, converts instructions into machine code, creates symbol and relocation
    tables, converts data definitions(.pstr, .ref, .word) and returns an object file
-3. Linker - receives several object files, resolves symbol references, places sections and fills the vectors
-   from `_start` and `_handler` and returns a single binary.
+3. Linker - receives several object files, resolves symbol references, does relocations, places sections and fills the vectors
+   from `_start` and `_handler` and returns a single flat image binary.
+
+### Preprocessor
+
+- Single top to bottom pass.
+- Keep table with defines and macros.
+- The expanded macros are fed back into the stream
+- Each line is split into tokens. The tokens found in tables are substituted
+- A macro call replaces the whole line with the macro body, `%i` replaced by the i-th argument.
+  The expanded lines are fed back into the stream, so defines and conditionals apply to them.
+- Line tracking: every output line keeps its origin `file:line`. Expanded lines keep the line of
+  the macro call, so errors and the listing point to real source.
+
+### Assembling
+
+Each line becomes a statement, aliases are rewritten.
+
+Single pass compilation + fixup:
+
+An instruction is encoded right away. Its size comes from the format and operand modes, using the greedy packing.
+If operand can not be determined right away(for example, address of label which has not been defined yet),
+operand is written as 0 and recorded as fixup.
+
+At the end of the file: fixup resolution - PC relative to a local label in the same section is fixed
+
+One pass is enough, because an instruction’s size depends only on its mnemonic and modes, not on the label values.
+
+### Linking
+- First text part starts at 0x8, after start and interrupt vectors.
+- All text parts go in first, then - data. Both in the file order.
+- Each part starts at a 4-byte-aligned address, gaps are filled with 0.
+
+**Symbol resolution**
+
+- `.org` directive defines offset within the file and section. Later, when source code is linked address will be = base(file, section) + offset.
+- For symbol resolution a global table is built from every file’s exports, mapping name to final address.
+- A name exported twice is an error.
+- Imports are looked in this table. Error if missing one.
+- _start must be exported; _handler is optional.
+- stdlib is placed last
+
+- **Relocation**
+
+For each entry, compute the value, run the check, and write the field.
+
+| Kind      | Value                | Check                      |
+|-----------|----------------------|----------------------------|
+| `abs32`   | $S$                  | none                       |
+| `imm16`   | $S$                  | $S \le \texttt{0x7FFF}$    |
+| `pcrel16` | $S - \text{PC_next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
+
+A failed check is an error.
+
+- Vectors: mem[0x0] ← addr(_start), and mem[0x4] ← addr(_handler) or 0 if there’s none.
+
+### Object file format
+
+This file is used between assembling and linking stages.
+It is stored as JSON: it is an intermediate file, so readability matters. The final machine code is binary.
+
+Example for:
+
+```asm
+.import print
+.export _start
+.section text
+_start:
+    mov r1, (@msg)
+    call print
+loop:
+    jz loop
+.section data
+msg: .pstr "hi"
+```
+
+```json
+{
+  "version": 1,
+  "source": "main.asm",
+  "sections": {
+    "text": "<bytes, hex>",
+    "data": "<bytes, hex>"
+  },
+  "symbols": [
+    { "name": "print",  "binding": "import" },
+    { "name": "_start", "binding": "export", "section": "text", "offset": 0 },
+    { "name": "loop",   "binding": "local",  "section": "text", "offset": 16 },
+    { "name": "msg",    "binding": "local",  "section": "data", "offset": 0 }
+  ],
+  "relocations": [
+    { "section": "text", "offset": 0, "bit": 0, "width": 16,
+      "kind": "pcrel16", "symbol": "msg", "pc_next": 4 },
+    { "section": "text", "offset": 8, "bit": 0, "width": 32,
+      "kind": "abs32", "symbol": "print" }
+  ],
+  "lines": [
+    { "section": "text", "offset": 0,  "line": 5,  "text": "mov r1, (@msg)" },
+    { "section": "text", "offset": 4,  "line": 6,  "text": "call print" },
+    { "section": "text", "offset": 16, "line": 8,  "text": "jz loop" },
+    { "section": "data", "offset": 0,  "line": 10, "text": "msg: .pstr \"hi\"" }
+  ]
+}
+```
+
+Fields:
+
+- `version`, `source` — version and source file name.
+- `sections` — bytes of `text` and `data`.
+- `symbols` — every label of the file:
+  - `local` — visible only in this file.
+  - `export` — added to the linker's global table.
+  - `import` — must be found among the exports of other files; has no section or offset.
+- `relocations` — fields the assembler could not fill:
+  - `section`, `offset` — the word containing the field;
+    `bit`, `width` — the field's position inside the word.
+  - `kind` — `abs32`, `imm16` or `pcrel16`.
+  - `symbol` — looked up among this file's symbols first, then among global exports.
+  - `pc_next` — `pcrel16` only: offset of the next instruction in the same section.
+- `lines` — one entry per emitted instruction or data item. Used for debug listing

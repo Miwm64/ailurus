@@ -686,3 +686,64 @@ Fields:
   - `symbol` — looked up among this file's symbols first, then among global exports.
   - `pc_next` — `pcrel16` only: offset of the next instruction in the same section.
 - `lines` — one entry per emitted instruction or data item. Used for debug listing
+
+
+## Memory organization
+
+### Memory model
+
+- Von Neumann: code and data share one memory. Single-port, byte-addressed.
+- Word: 32 bits. Little-endian: the lowest byte of a word is at the lowest address.
+- Memory size is set in the simulator config.
+- Registers available to the programmer: `rsp`, `r1`–`r15`.
+- PC and PS are not addressable; they change only through control flow, PC-relative modes, flags and `ei` / `di`.
+- IO ports are a separate address space (port 0 — input, port 1 — output).
+
+### Layout
+```
+        Memory
++-------------------------------+
+| 0x0  : reset vector → _start  |
+| 0x4  : irq vector → _handler  |
+| 0x8  : text, file 1           |
+|        text, file 2           |
+|        ...                    |
+|        text, stdlib           |
+|        data, file 1           |
+|        ...                    |
+|        data, stdlib           |
+|        free                   |
+|        ...                    |
+| top  : stack (grows down)     |
++-------------------------------+
+```
+
+- Each file's section part starts at a 4-byte-aligned address.
+- `rsp` is not initialized at reset: `_start` must set it.
+
+### Mapping
+
+| Entity      | Where                                                                                                              |
+|-------------|--------------------------------------------------------------------------------------------------------------------|
+| Literal     | fits in $[-2^{15},\ 2^{15}-1]$ → immediate inside the instruction; otherwise the programmer must load it from data |
+| Constant    | `#define` — text substitution, no memory.                                                                          |
+| Variable    | `.word` in `data` (static). Registers and stack are used manually — no register allocation.                        |
+| Multi-word  | consecutive words, low word first (64-bit: `addr` — bits $[31:0]$, `addr+4` — bits $[63:32]$).                     |
+| String      | `.pstr` in `data`: length word, then one word per character.                                                       |
+| Instruction | `text`, 1–4 words.                                                                                                 |
+| Procedure   | code in `text`, `call` / `ret` through the stack.                                                                  |
+| Interrupt   | handler is code in `text`, its address is in the `0x4` vector. Entry pushes PC and PS.                             |
+
+- Compile time: the assembler places everything at offsets within sections; the linker assigns final addresses and fills the vectors.
+- Run time: only registers, the stack and `data` contents change.
+
+### Calling convention
+
+| What         | Rule                                          |
+|--------------|-----------------------------------------------|
+| Arguments    | `r1`–`r4`; on the stack, pushed right to left |
+| Return value | `r1`; 64-bit — `r1` low, `r2` high            |
+| Caller-saved | `r1`–`r7`: a procedure may change them        |
+| Callee-saved | `r8`–`r15`, `rsp`: restored before `ret`      |
+
+- The interrupt handler preserves every register it uses: hardware saves only PC and PS.

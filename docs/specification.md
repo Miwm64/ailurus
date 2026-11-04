@@ -698,3 +698,105 @@ Fields:
 | Callee-saved | `r8`–`r15`, `rsp`: restored before `ret`      |
 
 - The interrupt handler preserves every register it uses: hardware saves only PC and PS.
+
+## Processor model
+
+### Simulator CLI
+
+```
+ailurus-run prog.bin [-l prog.lst] [-c config.yaml]
+```
+
+| Flag      | Meaning                                                             |
+|-----------|---------------------------------------------------------------------|
+| `-l FILE` | file from `ailurus-build`: maps addresses to source for the journal |
+| `-c FILE` | simulator config                                                    |
+
+Output: the output buffer and the journal.
+
+Config:
+```yaml
+memory_size: 4096   # bytes
+cache: true         # false: direct RAM
+tick_limit: 100000  
+input:              # interrupt schedule: [tick, char]
+  - [10, "h"]
+  - [25, "i"]
+```
+
+### Datapath
+
+![DataPath](fig/datapath.png)
+
+- `result` (ALU output) is the only write bus.
+- Register file: 2 read ports, 1 write port.
+- MAR_DST — destination address, in order to save during operand fetch. 
+- TMP - destination value / sum for `addm`.
+- PS — IE + NZVC, each bit latched separately; carry goes back to the ALU for `addc` / `subc`.
+  PS_MUX takes ALU flags or `result` (`iret`).
+- IO_CTRL — port address from CU; . On a scheduled tick the input device writes
+  port 0 and raises `request_interrupt`.
+- To CU: `ready`, `div_zero`, PS, MDR, `request_interrupt`.
+
+TODO: ALU operations
+
+### ControlUnit
+
+![ControlUnit](fig/control_unit.png)
+
+Hardwired. `control logic` is combinational.
+
+- IR keeps word 1 for the whole instruction; extension words stay in MDR.
+- step — tick inside the current phase.
+- `irq = irq_pending AND IE`.
+- PC: `pc_add = PC + (offset | 4)`; PC_MUX takes `pc_add` or MDR (`ret`, `iret`, absolute targets, vectors).
+- data_mux → DataPath: imm/offset, `4` (stack / postincrement step), `0`.
+
+Phases: interrupt check → IF → OF (per operand) → execute → writeback.
+
+**FIELD_EXT** extracts the current operand from IR (IDX = 0) or MDR (IDX ≥ 1) at bit POS.
+Outputs: field value (sign-extended if signed), register numbers, port address, mode,
+`fits`, `last`, `pos_next = POS + width`.
+
+| Field             | Width | Signed       | Used by                            |
+|-------------------|-------|--------------|------------------------------------|
+| register          | 4     | —            | modes 0, 3, 4, 5; FP               |
+| immediate         | 16    | yes          | mode 6; port                       |
+| PC-relative       | 16    | yes          | mode 2; FB, FJ                     |
+| register-relative | 20    | offset — yes | mode 7: reg [19:16], offset [15:0] |
+| absolute          | 32    | —            | mode 1; FJ with K = 0              |
+
+| Format | Modes in IR                       | Operand area, IDX = 0 | IDX ≥ 1 |
+|--------|-----------------------------------|-----------------------|---------|
+| F1     | [25:23]                           | [22:0]                | 32 bits |
+| F2     | [25:23], [22:20]                  | [19:0]                | 32 bits |
+| FB, FJ | —                                 | [15:0], K at [25]     | 32 bits |
+| FP     | — (COUNT [25:22])                 | [19:0]                | 32 bits |
+| FA     | [20:0], 3 bits each (COUNT [25:23]) | none                | 32 bits |
+
+`fits = POS + width ≤ area size`. Otherwise, the next word is fetched into MDR, IDX ← IDX + 1,
+POS ← 0. `last` — the current operand is the last one.
+
+### Cache
+
+![Cache](fig/cache.png)
+
+- `cmp scheme` compares the CMP_MUX address with all 16 tags.
+- `effective_addr` — burst address, then `+ 4` per word.
+- IND_ARR_MUX — word in the line: `addr[3:2]` or `effective_addr[3:2]`.
+- D_OUT_MUX — to DataPath: data_array or RAM (cache bypass).
+- `ram_op`: 0 — none, 1 — read, 2 — write; `ram_done` — RAM finished.
+- `ta_wr` — write tag + valid; `ready` — request complete, to CU.
+- Alignment check, victim choice and the 15 tree-PLRU bits are inside the controller.
+
+Controller FSM:
+
+| State      | Action                                                                                             | Next                                                             |
+|------------|----------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| `IDLE`     | wait for `mem_rd` / `mem_wr`. Aligned read hit: data_array value to DataPath, update PLRU, `ready` | read miss → `FILL`; unaligned read → `BYPASS_R`; write → `WRITE` |
+| `FILL`     | `ram_op = read` at `effective_addr`; on `ram_done` store the word, `effective_addr += 4`;          | `TAG`                                                            |
+| `TAG`      | `ta_wr` for the victim, update PLRU, word to DataPath, `ready`                                     | `IDLE`                                                           |
+| `BYPASS_R` | `ram_op = read` at `addr`; on `ram_done` RAM value to DataPath, `ready`                            | `IDLE`                                                           |
+| `WRITE`    | `ram_op = write` at `addr`; aligned hit — also write data_array; on `ram_done`: aligned → `ready`  | aligned → `IDLE`; unaligned → `INV1`                             |
+| `INV1`     | compare `addr`; hit → clear valid                                                                  | `INV2`                                                           |
+| `INV2`     | compare `addr + 4`; hit → clear valid; `ready`. For unaligned writes spanning 2 lines              | `IDLE`                                                           |

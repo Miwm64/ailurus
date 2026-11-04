@@ -726,7 +726,7 @@ input:              # interrupt schedule: [tick, char]
 
 ### Datapath
 
-![DataPath](fig/datapath.png)
+![DataPath](scheme/datapath.png)
 
 - `result` (ALU output) is the only write bus.
 - Register file: 2 read ports, 1 write port.
@@ -742,7 +742,7 @@ TODO: ALU operations
 
 ### ControlUnit
 
-![ControlUnit](fig/control_unit.png)
+![ControlUnit](scheme/control_unit.png)
 
 Hardwired. `control logic` is combinational.
 
@@ -779,7 +779,7 @@ POS ← 0. `last` — the current operand is the last one.
 
 ### Cache
 
-![Cache](fig/cache.png)
+![Cache](scheme/cache.png)
 
 - `cmp scheme` compares the CMP_MUX address with all 16 tags.
 - `effective_addr` — burst address, then `+ 4` per word.

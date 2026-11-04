@@ -1,0 +1,40 @@
+version: "2"
+
+linters:
+    default: all
+    disable:
+        # needs an explicit allow-list of imports
+        - depguard
+        # zero values are idiomatic Go
+        - exhaustruct
+        # deprecated, now use wsl_v5
+        - wsl
+        # ISA tables
+        - gochecknoglobals
+
+    settings:
+        lll:
+            line-length: 120
+        funlen:
+            lines: 80
+            statements: 50
+        cyclop:
+            max-complexity: 15
+        varnamelen:
+            ignore-names: [i, j, n]
+
+formatters:
+    enable:
+        - gofmt
+        - goimports
+        - golines
+    settings:
+        goimports:
+            local-prefixes:
+                - github.com/Miwm64/ailurus
+        golines:
+            max-len: 120
+
+issues:
+    max-issues-per-linter: 0
+    max-same-issues: 0

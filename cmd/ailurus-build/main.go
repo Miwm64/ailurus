@@ -1,7 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/Miwm64/ailurus/internal/preprocess"
+)
 
 func main() {
-	fmt.Println("ailurus-build")
+	test := "hi!"
+	res := preprocess.Preprocess(test)
+	fmt.Println(res)
 }

@@ -22,18 +22,19 @@ func main() {
 		321
 		#endif
 
-		#macro test, 3 {
+		#macro aboba, 3 {
 			add r2, 41
 			add r2, %0
 			%1, %2
 		}
 		sub 123, hi2
-		test 1, "123", hi
+		aboba 1, "123", hi
 		`
-	res, err := preprocessor.Preprocess(test, make(map[string]string))
+	res, lineMap, err := preprocessor.Preprocess(test, make(map[string]string))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	fmt.Println(res)
+	fmt.Println(lineMap)
 }

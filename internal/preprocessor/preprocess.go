@@ -22,10 +22,13 @@ var allowed = map[string]struct{}{
 	"#endif":  {},
 }
 
-func Preprocess(text string, globalDefines map[string]string) (res string, err error) {
+func Preprocess(text string, globalDefines map[string]string) (res string, lineMap map[int]int, err error) {
 	lines := strings.Split(text, "\n")
 	origins := make([]int, len(lines))
 	fromMacro := make([]bool, len(lines))
+
+	lineMap = make(map[int]int)
+	outLine := 0
 
 	for i := range origins {
 		origins[i] = i + 1
@@ -43,12 +46,19 @@ func Preprocess(text string, globalDefines map[string]string) (res string, err e
 
 		l, skips, currentMacro, err = handleLine(lines[i], fromMacro[i], skips, currentMacro, defines, macros)
 		if err != nil {
-			return "", fmt.Errorf("line %d: %w", origins[i], err)
+			return "", nil, fmt.Errorf("line %d: %w", origins[i], err)
 		}
 
 		if len(l) == 0 {
 			continue
 		}
+
+		if l[0] != "" {
+			outLine++
+			lineMap[outLine] = origins[i]
+		}
+
+		res += l[0]
 
 		res += l[0]
 
@@ -63,14 +73,14 @@ func Preprocess(text string, globalDefines map[string]string) (res string, err e
 	}
 
 	if currentMacro != nil {
-		return "", fmt.Errorf("%w: %s", ErrUnclosedMacro, currentMacro.Name)
+		return "", nil, fmt.Errorf("%w: %s", ErrUnclosedMacro, currentMacro.Name)
 	}
 
 	if len(skips) > 0 {
-		return "", ErrUnclosedIf
+		return "", nil, ErrUnclosedIf
 	}
 
-	return strings.TrimSuffix(res, "\n"), nil
+	return strings.TrimSuffix(res, "\n"), lineMap, nil
 }
 
 func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacro *Macro,

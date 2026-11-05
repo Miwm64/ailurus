@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	test, err := io.ReadFile("test.asm")
+	test, err := io.ReadFile("programs/test.asm")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -18,7 +18,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	err = io.WriteFile("test_res.asm", res)
+	err = io.WriteFile("programs/test_res.asm", res)
 	if err != nil {
 		fmt.Println(err)
 	}

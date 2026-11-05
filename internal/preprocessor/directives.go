@@ -13,7 +13,7 @@ var (
 	ErrUnknownDirective = errors.New("unknown directive")
 )
 
-func handleDirective(line string, defines map[string]string) error {
+func handleDefine(line string, defines map[string]string) error {
 	line = strings.TrimSpace(line)
 	tokens := strings.Fields(line)
 

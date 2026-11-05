@@ -30,7 +30,7 @@ func handleLine(line string, defines map[string]string) (string, error) {
 
 	// #define directive can not be tokenized properly, as they are crude copy
 	if strings.Fields(line)[0] == "#define" {
-		err := handleDirective(line, defines)
+		err := handleDefine(line, defines)
 		if err != nil {
 			return "", err
 		}

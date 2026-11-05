@@ -60,8 +60,6 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 
 		res += l[0]
 
-		res += l[0]
-
 		if len(l) == 1 {
 			continue
 		}

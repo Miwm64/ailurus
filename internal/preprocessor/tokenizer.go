@@ -1,0 +1,180 @@
+package preprocessor
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+const (
+	PREPROCESSOR_DIRECTIVE = iota
+	ASSEMBLER_DIRECTIVE
+	NAME
+	NUMBER
+	STRING
+	COLON
+	COMMA
+	PLUS
+	MINUS
+	AT
+	LPAREN
+	RPAREN
+	LBRACE
+	RBRACE
+)
+
+var (
+	ErrUnexpectedChar     = errors.New("unexpected character")
+	ErrUnterminatedString = errors.New("unterminated string")
+	ErrInvalidEscape      = errors.New("invalid escape sequence")
+	ErrInvalidNumber      = errors.New("invalid number")
+)
+
+var symbols = map[byte]int{
+	':': COLON,
+	',': COMMA,
+	'+': PLUS,
+	'-': MINUS,
+	'@': AT,
+	'(': LPAREN,
+	')': RPAREN,
+	'{': LBRACE,
+	'}': RBRACE,
+}
+
+type token struct {
+	kind  int
+	value string
+}
+
+func tokenize(input string) ([]token, error) {
+	tokens := make([]token, 0)
+
+	for i := 0; i < len(input); {
+		switch input[i] {
+		case ' ', '\t':
+			i++
+
+			continue
+		case ';':
+			return tokens, nil
+		}
+
+		tok, end, err := scanToken(input, i)
+		if err != nil {
+			return nil, err
+		}
+
+		tokens = append(tokens, tok)
+		i = end
+	}
+
+	return tokens, nil
+}
+
+func scanToken(input string, i int) (token, int, error) {
+	ch := input[i]
+
+	switch {
+	case ch == '#':
+		return scanDirective(input, i, PREPROCESSOR_DIRECTIVE)
+	case ch == '.':
+		return scanDirective(input, i, ASSEMBLER_DIRECTIVE)
+	case isLetter(ch) || ch == '_':
+		return scanName(input, i)
+	case isDigit(ch):
+		return scanNumber(input, i)
+	case ch == '"':
+		return scanString(input, i)
+	default:
+		return scanSymbol(input, i)
+	}
+}
+
+func scanDirective(input string, start, kind int) (token, int, error) {
+	j := start + 1
+	for j < len(input) && isLetter(input[j]) {
+		j++
+	}
+
+	return token{kind, input[start:j]}, j, nil
+}
+
+func scanName(input string, start int) (token, int, error) {
+	j := start + 1
+	for j < len(input) && isNameChar(input[j]) {
+		j++
+	}
+
+	return token{NAME, input[start:j]}, j, nil
+}
+
+func scanNumber(input string, start int) (token, int, error) {
+	j := start + 1
+
+	hex := input[start] == '0' && j < len(input) && input[j] == 'x'
+	if hex {
+		j++
+	}
+
+	digitsStart := j
+	for j < len(input) && (isDigit(input[j]) || (hex && isHex(input[j]))) {
+		j++
+	}
+
+	if (hex && j == digitsStart) || (j < len(input) && isNameChar(input[j])) {
+		return token{}, 0, fmt.Errorf("%w at column %d", ErrInvalidNumber, start+1)
+	}
+
+	return token{NUMBER, input[start:j]}, j, nil
+}
+
+func scanString(input string, start int) (token, int, error) {
+	j := start + 1
+
+	for j < len(input) {
+		ch := input[j]
+
+		switch {
+		case ch == '"':
+			return token{STRING, input[start+1 : j]}, j + 1, nil
+		case ch == '\\':
+			if j+1 >= len(input) || strings.IndexByte(`nt\"0`, input[j+1]) < 0 {
+				return token{}, 0, fmt.Errorf("%w at column %d", ErrInvalidEscape, j+1)
+			}
+
+			j += 2
+		case ch < 0x20 || ch > 0x7E:
+			return token{}, 0, fmt.Errorf("%w %q at column %d", ErrUnexpectedChar, ch, j+1)
+		default:
+			j++
+		}
+	}
+
+	return token{}, 0, fmt.Errorf("%w at column %d", ErrUnterminatedString, start+1)
+}
+
+func scanSymbol(input string, start int) (token, int, error) {
+	kind, ok := symbols[input[start]]
+	if !ok {
+		return token{}, 0, fmt.Errorf("%w %q at column %d", ErrUnexpectedChar, input[start], start+1)
+	}
+
+	return token{kind, input[start : start+1]}, start + 1, nil
+}
+
+func isLetter(ch byte) bool {
+	return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z'
+}
+
+func isDigit(ch byte) bool {
+	return ch >= '0' && ch <= '9'
+}
+
+func isHex(ch byte) bool {
+	return isDigit(ch) || ch >= 'a' && ch <= 'f' || ch >= 'A' && ch <= 'F'
+}
+
+func isNameChar(ch byte) bool {
+	return isLetter(ch) || isDigit(ch) || ch == '_'
+}

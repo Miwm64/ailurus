@@ -481,6 +481,8 @@ processed like ordinary code.
 - `#macro name, N { ... }` — a call `name a0, ..., aN-1` is replaced by the body, with `%i` → `ai`.
   Arguments are split on commas outside quotes.
 - Defines and macros are local to the file.
+- `#define NAME` without a value sets `NAME` to an empty value; a value it already had is removed.
+- Define names follow `<name>` but may shadow registers and mnemonics.
 
 **Entry points.**
 - The linker writes the address of `_start` into the reset vector and the address of `_handler`

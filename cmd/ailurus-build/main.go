@@ -22,6 +22,10 @@ func main() {
 		321
 		#endif
 
+		#macro test, 123 {
+			add r2, 41
+		}
+
 		`
 	res, err := preprocessor.Preprocess(test, make(map[string]string))
 	if err != nil {

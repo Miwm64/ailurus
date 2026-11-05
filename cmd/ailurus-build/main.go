@@ -22,10 +22,13 @@ func main() {
 		321
 		#endif
 
-		#macro test, 123 {
+		#macro test, 3 {
 			add r2, 41
+			add r2, %0
+			%1, %2
 		}
-
+		sub 123, hi2
+		test 1, "123", hi
 		`
 	res, err := preprocessor.Preprocess(test, make(map[string]string))
 	if err != nil {

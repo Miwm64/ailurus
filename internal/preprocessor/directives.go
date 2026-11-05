@@ -98,3 +98,30 @@ func handleConditions(tokens []token, skips []conditionFrame, defines map[string
 
 	return "", skips, nil
 }
+
+//nolint:nilnil no open macro
+func handleMacroLine(line string, currentMacro *Macro, macros map[string]*Macro) (*Macro, error) {
+	if !currentMacro.initialized {
+		if !isBraceLine(line, '{') {
+			return currentMacro, fmt.Errorf("%w: %s", ErrExpectedBrace, currentMacro.Name)
+		}
+
+		currentMacro.initialized = true
+
+		return currentMacro, nil
+	}
+
+	if isBraceLine(line, '}') {
+		macros[currentMacro.Name] = currentMacro
+
+		return nil, nil
+	}
+
+	if strings.Fields(line)[0] == "#macro" {
+		return currentMacro, ErrNestedMacro
+	}
+
+	currentMacro.AddRawLine(line)
+
+	return currentMacro, nil
+}

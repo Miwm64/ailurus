@@ -1,11 +1,14 @@
 package preprocessor
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
 )
+
+var ErrNestedMacroCall = errors.New("macro call inside a macro expansion")
 
 type conditionFrame struct {
 	skip     bool
@@ -20,6 +23,14 @@ var allowed = map[string]struct{}{
 }
 
 func Preprocess(text string, globalDefines map[string]string) (res string, err error) {
+	lines := strings.Split(text, "\n")
+	origins := make([]int, len(lines))
+	fromMacro := make([]bool, len(lines))
+
+	for i := range origins {
+		origins[i] = i + 1
+	}
+
 	defines := make(map[string]string)
 	maps.Copy(defines, globalDefines)
 	macros := make(map[string]*Macro)
@@ -27,18 +38,28 @@ func Preprocess(text string, globalDefines map[string]string) (res string, err e
 
 	var currentMacro *Macro
 
-	lineNum := 0
-	for line := range strings.SplitSeq(text, "\n") {
-		lineNum++
+	for i := 0; i < len(lines); i++ {
+		var l []string
 
-		var l string
-
-		l, skips, currentMacro, err = handleLine(line, skips, currentMacro, defines, macros)
+		l, skips, currentMacro, err = handleLine(lines[i], fromMacro[i], skips, currentMacro, defines, macros)
 		if err != nil {
-			return "", fmt.Errorf("line %d: %w", lineNum, err)
+			return "", fmt.Errorf("line %d: %w", origins[i], err)
 		}
 
-		res += l
+		if len(l) == 0 {
+			continue
+		}
+
+		res += l[0]
+
+		if len(l) == 1 {
+			continue
+		}
+
+		n := len(l) - 1
+		lines = slices.Insert(lines, i+1, l[1:]...)
+		origins = slices.Insert(origins, i+1, slices.Repeat([]int{origins[i]}, n)...)
+		fromMacro = slices.Insert(fromMacro, i+1, slices.Repeat([]bool{true}, n)...)
 	}
 
 	if currentMacro != nil {
@@ -52,74 +73,139 @@ func Preprocess(text string, globalDefines map[string]string) (res string, err e
 	return strings.TrimSuffix(res, "\n"), nil
 }
 
-func handleLine(line string, skips []conditionFrame, currentMacro *Macro,
-	defines map[string]string, macros map[string]*Macro) (string, []conditionFrame, *Macro, error) {
+func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacro *Macro,
+	defines map[string]string, macros map[string]*Macro) ([]string, []conditionFrame, *Macro, error) {
 	line = strings.TrimSpace(line)
 	if len(line) == 0 {
-		return "", skips, currentMacro, nil
+		return nil, skips, currentMacro, nil
 	}
 
 	if currentMacro != nil {
 		m, err := handleMacroLine(line, currentMacro, macros)
 
-		return "", skips, m, err
+		return nil, skips, m, err
 	}
 
 	first := strings.Fields(line)[0]
 
 	skipping := slices.ContainsFunc(skips, func(f conditionFrame) bool { return f.skip })
 	if _, ok := allowed[first]; skipping && !ok {
-		return "", skips, currentMacro, nil
+		return nil, skips, currentMacro, nil
 	}
 
 	// #define values are raw text and can not be tokenized
 	if first == "#define" {
-		return "", skips, currentMacro, handleDefine(line, defines)
+		return nil, skips, currentMacro, handleDefine(line, defines)
 	}
 
 	tokens, err := tokenize(line)
 	if err != nil || len(tokens) == 0 {
-		return "", skips, currentMacro, err
+		return nil, skips, currentMacro, err
 	}
 
 	if tokens[0].kind == PREPROCESSOR_DIRECTIVE && tokens[0].value == "#macro" {
 		m, err := handleMacroHeader(tokens, macros)
 
-		return "", skips, m, err
+		return nil, skips, m, err
 	}
 
 	if tokens[0].kind == PREPROCESSOR_DIRECTIVE {
 		l, frames, err := handleConditions(tokens, skips, defines)
 
-		return l, frames, currentMacro, err
+		return []string{l}, frames, currentMacro, err
 	}
 
-	return line + "\n", skips, currentMacro, nil
+	lines, err := handleNormalLine(tokens, fromMacro, defines, macros)
+
+	return lines, skips, currentMacro, err
 }
 
-//nolint:nilnil no open macro
-func handleMacroLine(line string, currentMacro *Macro, macros map[string]*Macro) (*Macro, error) {
-	if !currentMacro.initialized {
-		if line[0] == '{' {
-			return currentMacro, fmt.Errorf("%w: %s", ErrExpectedBrace, currentMacro.Name)
+func handleNormalLine(tokens []token, fromMacro bool, defines map[string]string,
+	macros map[string]*Macro) ([]string, error) {
+
+	label, call := "", 0
+	if len(tokens) >= 2 && tokens[0].kind == NAME && tokens[1].kind == COLON {
+		label, call = tokens[0].value+":\n", 2
+	}
+
+	if call < len(tokens) && tokens[call].kind == NAME {
+		if macro, ok := macros[tokens[call].value]; ok {
+			if fromMacro {
+				return nil, fmt.Errorf("%w: %s", ErrNestedMacroCall, macro.Name)
+			}
+
+			expanded, err := macro.Apply(splitArguments(tokens[call+1:]))
+			if err != nil {
+				return nil, err
+			}
+
+			return append([]string{label}, expanded...), nil
+		}
+	}
+
+	var res strings.Builder
+
+	for _, tok := range tokens {
+		res.WriteString(" ")
+
+		switch tok.kind {
+		case PREPROCESSOR_DIRECTIVE, LBRACE, RBRACE:
+			return nil, fmt.Errorf("%w: %s", ErrUnexpectedChar, tok.value)
+		case NAME:
+			if value, ok := defines[tok.value]; ok {
+				res.WriteString(value)
+
+				break
+			}
+
+			res.WriteString(tok.value)
+		default:
+			res.WriteString(tokenText(tok))
+		}
+	}
+
+	res.WriteString("\n")
+
+	return []string{res.String()[1:]}, nil
+}
+
+// splitArguments joins the tokens between commas into one argument each.
+func splitArguments(tokens []token) []string {
+	if len(tokens) == 0 {
+		return nil
+	}
+
+	args := make([]string, 0)
+	parts := make([]string, 0)
+
+	for _, tok := range tokens {
+		if tok.kind == COMMA {
+			args = append(args, strings.Join(parts, " "))
+			parts = parts[:0]
+
+			continue
 		}
 
-		currentMacro.initialized = true
-
-		return currentMacro, nil
+		parts = append(parts, tokenText(tok))
 	}
 
-	if line[0] == '}' {
-		macros[currentMacro.Name] = currentMacro
+	return append(args, strings.Join(parts, " "))
+}
 
-		return nil, nil
+func tokenText(tok token) string {
+	if tok.kind == STRING {
+		return "\"" + tok.value + "\""
 	}
 
-	if strings.Fields(line)[0] == "#macro" {
-		return currentMacro, ErrNestedMacro
+	return tok.value
+}
+
+func isBraceLine(line string, brace byte) bool {
+	if line[0] != brace {
+		return false
 	}
 
-	currentMacro.AddRawLine(line)
+	rest := strings.TrimSpace(line[1:])
 
-	return currentMacro, nil
+	return rest == "" || rest[0] == ';'
 }

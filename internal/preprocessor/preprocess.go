@@ -1,6 +1,7 @@
 package preprocessor
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -12,26 +13,32 @@ type conditionFrame struct {
 }
 
 func Preprocess(text string, globalDefines map[string]string) (res string, err error) {
-	lines := strings.SplitSeq(text, "\n")
 	defines := make(map[string]string)
 	maps.Copy(defines, globalDefines)
 	skips := make([]conditionFrame, 0)
 
-	for line := range lines {
+	lineNum := 0
+	for line := range strings.SplitSeq(text, "\n") {
+		lineNum++
+
 		var l string
 		l, skips, err = handleLine(line, skips, defines)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("line %d: %w", lineNum, err)
 		}
+
 		res += l
 	}
+
 	if len(skips) > 0 {
-		return "", ErrUnexpectedChar
+		return "", ErrUnclosedIf
 	}
-	if len(res) >= 1 {
+
+	if len(res) > 0 {
 		res = res[:len(res)-1]
 	}
-	return
+
+	return res, nil
 }
 
 var allowed = map[string]struct{}{

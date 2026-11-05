@@ -11,6 +11,12 @@ var (
 	ErrNoArguments      = errors.New("directive used without arguments")
 	ErrInvalidName      = errors.New("name does not follow naming rules")
 	ErrUnknownDirective = errors.New("unknown directive")
+	ErrExpectedName     = errors.New("expected a name")
+	ErrUnexpectedArgs   = errors.New("unexpected arguments")
+	ErrElseWithoutIf    = errors.New("#else without #ifdef/#ifndef")
+	ErrDuplicateElse    = errors.New("duplicate #else")
+	ErrEndifWithoutIf   = errors.New("#endif without #ifdef/#ifndef")
+	ErrUnclosedIf       = errors.New("unclosed #ifdef/#ifndef")
 )
 
 func handleDefine(line string, defines map[string]string) error {
@@ -38,65 +44,57 @@ func handleDefine(line string, defines map[string]string) error {
 }
 
 func handleConditions(tokens []token, skips []conditionFrame, defines map[string]string) (string, []conditionFrame, error) {
-	switch tokens[0].value {
-	case "#ifdef":
-		if len(tokens) != 2 || tokens[1].kind != NAME {
-			return "", skips, ErrUnexpectedChar
-		}
-		if _, ok := defines[tokens[1].value]; ok {
-			skips = append(skips, conditionFrame{
-				skip:     false,
-				elseUsed: false,
-			})
-		} else {
-			skips = append(skips, conditionFrame{
-				skip:     true,
-				elseUsed: false,
-			})
+	directive := tokens[0].value
+
+	switch directive {
+	case "#ifdef", "#ifndef":
+		if len(tokens) < 2 || tokens[1].kind != NAME {
+			return "", skips, fmt.Errorf("%w after %s", ErrExpectedName, directive)
 		}
 
-	case "#ifndef":
-		if len(tokens) != 2 || tokens[1].kind != NAME {
-			return "", skips, ErrUnexpectedChar
+		if len(tokens) > 2 {
+			return "", skips, fmt.Errorf("%w after %s %s", ErrUnexpectedArgs, directive, tokens[1].value)
 		}
-		if _, ok := defines[tokens[1].value]; ok {
-			skips = append(skips, conditionFrame{
-				skip:     true,
-				elseUsed: false,
-			})
-		} else {
-			skips = append(skips, conditionFrame{
-				skip:     false,
-				elseUsed: false,
-			})
+
+		_, defined := defines[tokens[1].value]
+		skip := !defined
+		if directive == "#ifndef" {
+			skip = defined
 		}
+
+		skips = append(skips, conditionFrame{skip: skip})
 
 	case "#else":
 		if len(tokens) != 1 {
-			return "", skips, ErrUnexpectedChar
+			return "", skips, fmt.Errorf("%w after %s", ErrUnexpectedArgs, directive)
 		}
-		if len(skips) < 1 {
-			return "", skips, ErrUnexpectedChar
+
+		if len(skips) == 0 {
+			return "", skips, ErrElseWithoutIf
 		}
-		if skips[len(skips)-1].elseUsed {
-			return "", skips, ErrUnexpectedChar
+
+		top := &skips[len(skips)-1]
+		if top.elseUsed {
+			return "", skips, ErrDuplicateElse
 		}
-		skips[len(skips)-1].skip = !skips[len(skips)-1].skip
-		skips[len(skips)-1].elseUsed = true
+
+		top.skip = !top.skip
+		top.elseUsed = true
 
 	case "#endif":
 		if len(tokens) != 1 {
-			return "", skips, ErrUnexpectedChar
+			return "", skips, fmt.Errorf("%w after %s", ErrUnexpectedArgs, directive)
 		}
-		if len(skips) < 1 {
-			return "", skips, ErrUnexpectedChar
-		}
-		skips = skips[0 : len(skips)-1]
-	default:
-		return "", skips, ErrUnknownDirective
 
+		if len(skips) == 0 {
+			return "", skips, ErrEndifWithoutIf
+		}
+
+		skips = skips[:len(skips)-1]
+
+	default:
+		return "", skips, fmt.Errorf("%w: %s", ErrUnknownDirective, directive)
 	}
 
 	return "", skips, nil
-
 }

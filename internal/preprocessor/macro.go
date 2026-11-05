@@ -80,6 +80,9 @@ func handleMacroHeader(tokens []token, macros map[string]*Macro) (*Macro, error)
 	}
 
 	name := tokens[1].value
+	if isReserved(name) {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidName, name)
+	}
 
 	if _, ok := macros[name]; ok {
 		return nil, fmt.Errorf("%w: %s", ErrMacroRedefined, name)

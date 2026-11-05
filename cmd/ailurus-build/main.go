@@ -16,7 +16,7 @@ func main() {
 		123
 
 		`
-	err, res := preprocessor.Preprocess(test, make(map[string]string))
+	res, err := preprocessor.Preprocess(test, make(map[string]string))
 	if err != nil {
 		fmt.Println(err)
 		return

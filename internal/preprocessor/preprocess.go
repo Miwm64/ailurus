@@ -1,7 +1,6 @@
 package preprocessor
 
 import (
-	"fmt"
 	"maps"
 	"strings"
 )
@@ -29,11 +28,20 @@ func handleLine(line string, defines map[string]string) (string, error) {
 		return "", nil
 	}
 
+	// #define directive can not be tokenized properly, as they are crude copy
+	if strings.Fields(line)[0] == "#define" {
+		err := handleDirective(line, defines)
+		if err != nil {
+			return "", err
+		}
+		return "", nil
+	}
+
 	tokens, err := tokenize(line)
-	fmt.Printf("%v\n", tokens)
-	if err != nil {
+	if err != nil || len(tokens) == 0 {
 		return "", err
 	}
+
 	return "", nil
 }
 

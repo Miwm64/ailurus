@@ -9,7 +9,8 @@ func PrintMap(m map[string]string) {
 }
 
 func PrintSlice(str []string) {
-	for i, v := range str {
+	for i, v := range
+	str {
 		fmt.Printf("%d: %s\n", i, v)
 	}
 }

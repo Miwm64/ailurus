@@ -99,7 +99,8 @@ func handleConditions(tokens []token, skips []conditionFrame, defines map[string
 	return "", skips, nil
 }
 
-//nolint:nilnil no open macro
+//nolint:nilnil
+//no open macro
 func handleMacroLine(line string, currentMacro *Macro, macros map[string]*Macro) (*Macro, error) {
 	if !currentMacro.initialized {
 		if !isBraceLine(line, '{') {

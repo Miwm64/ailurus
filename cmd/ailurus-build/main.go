@@ -18,5 +18,8 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(res)
+	err = io.WriteFile("test_res.asm", res)
+	if err != nil {
+		fmt.Println(err)
+	}
 }

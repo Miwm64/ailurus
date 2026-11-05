@@ -7,7 +7,13 @@ import (
 )
 
 func main() {
-	test := "hi!"
-	res := preprocessor.Preprocess(test)
+	test :=
+		`
+		#define hi
+		#define hi2 hi
+		123
+
+		`
+	res := preprocessor.Preprocess(test, make(map[string]string))
 	fmt.Println(res)
 }

@@ -5,15 +5,15 @@ import (
 	"strings"
 )
 
-func Preprocess(text string, globalDefines map[string]string) (res string, err error) {
+func Preprocess(text string, globalDefines map[string]string) (err error, res string) {
 	lines := strings.SplitSeq(text, "\n")
 	defines := make(map[string]string)
 	maps.Copy(defines, globalDefines)
 
 	for line := range lines {
-		l, err := handleLine(line, defines)
+		err, l := handleLine(line, defines)
 		if err != nil {
-			return "", err
+			return err, ""
 		}
 		res += l
 	}
@@ -22,20 +22,20 @@ func Preprocess(text string, globalDefines map[string]string) (res string, err e
 	return
 }
 
-func handleLine(line string, defines map[string]string) (string, error) {
+func handleLine(line string, defines map[string]string) (error, string) {
 	line = strings.TrimSpace(line)
 	if len(line) == 0 {
-		return "", nil
+		return nil, ""
 	}
 
 	if strings.HasPrefix(line, "#") {
 		err := handleDirective(line, defines)
 		if err != nil {
-			return "", err
+			return err, ""
 		}
-		return "", nil
+		return nil, ""
 	}
-	return deleteComment(line) + "\n", nil
+	return nil, deleteComment(line) + "\n"
 }
 
 func deleteComment(str string) string {

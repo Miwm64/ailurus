@@ -6,11 +6,16 @@ import (
 	"strings"
 )
 
+type conditionFrame struct {
+	skip     bool
+	elseUsed bool
+}
+
 func Preprocess(text string, globalDefines map[string]string) (res string, err error) {
 	lines := strings.SplitSeq(text, "\n")
 	defines := make(map[string]string)
 	maps.Copy(defines, globalDefines)
-	skips := make([]int, 0)
+	skips := make([]conditionFrame, 0)
 
 	for line := range lines {
 		var l string
@@ -20,9 +25,11 @@ func Preprocess(text string, globalDefines map[string]string) (res string, err e
 		}
 		res += l
 	}
-	//res = res[:len(res)-1]
 	if len(skips) > 0 {
 		return "", ErrUnexpectedChar
+	}
+	if len(res) >= 1 {
+		res = res[:len(res)-1]
 	}
 	return
 }
@@ -34,14 +41,14 @@ var allowed = map[string]struct{}{
 	"#endif":  {},
 }
 
-// 1 - skip, 0 - keep
-func handleLine(line string, skips []int, defines map[string]string) (string, []int, error) {
+func handleLine(line string, skips []conditionFrame, defines map[string]string) (string, []conditionFrame, error) {
 	line = strings.TrimSpace(line)
 	if len(line) == 0 {
 		return "", skips, nil
 	}
+	skipping := slices.ContainsFunc(skips, func(f conditionFrame) bool { return f.skip })
 
-	if _, ok := allowed[strings.Fields(line)[0]]; slices.Contains(skips, 1) && !ok {
+	if _, ok := allowed[strings.Fields(line)[0]]; skipping && !ok {
 		return "", skips, nil
 	}
 

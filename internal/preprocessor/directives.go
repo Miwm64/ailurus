@@ -37,16 +37,22 @@ func handleDefine(line string, defines map[string]string) error {
 	return nil
 }
 
-func handleConditions(tokens []token, skips []int, defines map[string]string) (string, []int, error) {
+func handleConditions(tokens []token, skips []conditionFrame, defines map[string]string) (string, []conditionFrame, error) {
 	switch tokens[0].value {
 	case "#ifdef":
 		if len(tokens) != 2 || tokens[1].kind != NAME {
 			return "", skips, ErrUnexpectedChar
 		}
 		if _, ok := defines[tokens[1].value]; ok {
-			skips = append(skips, 0)
+			skips = append(skips, conditionFrame{
+				skip:     false,
+				elseUsed: false,
+			})
 		} else {
-			skips = append(skips, 1)
+			skips = append(skips, conditionFrame{
+				skip:     true,
+				elseUsed: false,
+			})
 		}
 
 	case "#ifndef":
@@ -54,9 +60,15 @@ func handleConditions(tokens []token, skips []int, defines map[string]string) (s
 			return "", skips, ErrUnexpectedChar
 		}
 		if _, ok := defines[tokens[1].value]; ok {
-			skips = append(skips, 1)
+			skips = append(skips, conditionFrame{
+				skip:     true,
+				elseUsed: false,
+			})
 		} else {
-			skips = append(skips, 0)
+			skips = append(skips, conditionFrame{
+				skip:     false,
+				elseUsed: false,
+			})
 		}
 
 	case "#else":
@@ -66,7 +78,11 @@ func handleConditions(tokens []token, skips []int, defines map[string]string) (s
 		if len(skips) < 1 {
 			return "", skips, ErrUnexpectedChar
 		}
-		skips[len(skips)-1] = (skips[len(skips)-1] + 1) % 2 // invert from 0 to 1 and vice versa
+		if skips[len(skips)-1].elseUsed {
+			return "", skips, ErrUnexpectedChar
+		}
+		skips[len(skips)-1].skip = !skips[len(skips)-1].skip
+		skips[len(skips)-1].elseUsed = true
 
 	case "#endif":
 		if len(tokens) != 1 {

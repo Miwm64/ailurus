@@ -471,7 +471,7 @@ cycle counts are described in the ISA section.
 - `.section data|text` switches the current section; switching back to a section continues it.
 - The default section is `text`.
 - Instructions in `data` and data in `text` are not allowed, causing translation error.
-- `.org N` — sets offset within file, section.
+- `.org N` — sets offset within file, section. This command does not check if bytes are already filled
 
 **Preprocessor.** One top-down pass over the text, before assembly. Expanded macro bodies are
 processed like ordinary code.

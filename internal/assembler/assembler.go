@@ -79,6 +79,12 @@ func (p *assembler) handleLine(line string) error {
 	return nil
 }
 
+func (p *assembler) handleNormalLine(tokens []tokenizer.Token) error {
+	if len(tokens) != 1 {
+	}
+	return nil
+}
+
 func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 	directive := tokens[0]
 	if len(tokens) != 2 {

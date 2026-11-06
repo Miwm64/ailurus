@@ -6,8 +6,10 @@ import (
 	"strings"
 )
 
+type Kind int
+
 const (
-	PREPROCESSOR_DIRECTIVE = iota
+	PREPROCESSOR_DIRECTIVE Kind = iota
 	ASSEMBLER_DIRECTIVE
 	NAME
 	NUMBER
@@ -23,6 +25,30 @@ const (
 	RBRACE
 )
 
+var kindNames = [...]string{
+	PREPROCESSOR_DIRECTIVE: "preprocessor directive",
+	ASSEMBLER_DIRECTIVE:    "assembler directive",
+	NAME:                   "name",
+	NUMBER:                 "number",
+	STRING:                 "string",
+	COLON:                  "':'",
+	COMMA:                  "','",
+	PLUS:                   "'+'",
+	MINUS:                  "'-'",
+	AT:                     "'@'",
+	LPAREN:                 "'('",
+	RPAREN:                 "')'",
+	LBRACE:                 "'{'",
+	RBRACE:                 "'}'",
+}
+
+func (k Kind) String() string {
+	if k < 0 || int(k) >= len(kindNames) {
+		return fmt.Sprintf("Kind(%d)", int(k))
+	}
+	return kindNames[k]
+}
+
 var (
 	ErrUnexpectedChar     = errors.New("unexpected character")
 	ErrUnterminatedString = errors.New("unterminated string")
@@ -30,7 +56,7 @@ var (
 	ErrInvalidNumber      = errors.New("invalid number")
 )
 
-var symbols = map[byte]int{
+var symbols = map[byte]Kind{
 	':': COLON,
 	',': COMMA,
 	'+': PLUS,
@@ -43,7 +69,7 @@ var symbols = map[byte]int{
 }
 
 type Token struct {
-	Kind  int
+	Kind  Kind
 	Value string
 }
 
@@ -91,7 +117,7 @@ func scanToken(input string, i int) (Token, int, error) {
 	}
 }
 
-func scanDirective(input string, start, kind int) (Token, int, error) {
+func scanDirective(input string, start int, kind Kind) (Token, int, error) {
 	j := start + 1
 	for j < len(input) && isLetter(input[j]) {
 		j++

@@ -243,6 +243,7 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 	}
 
 	p.resolveLabel()
+	p.addLineToListing(p.dataCounter)
 	p.dataCounter += dataSize
 	return nil
 }
@@ -313,9 +314,20 @@ func stringToBytes(str string) []byte {
 func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	instructionSize := 0
 	// TODO check if instruction
+
 	p.resolveLabel()
+
 	p.textCounter += instructionSize
 	return nil
+}
+
+func (p *assembler) addLineToListing(offset int) {
+	p.objectFile.Lines = append(p.objectFile.Lines, Line{
+		Section: p.currentSection,
+		Offset:  offset,
+		Line:    p.lineMap[p.lineIndex],
+		Text:    p.lines[p.lineIndex],
+	})
 }
 
 func (p *assembler) resolveLabel() {

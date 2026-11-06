@@ -1,6 +1,7 @@
 package assembler
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -24,6 +25,7 @@ var (
 	ErrLabelBeforeDirective = errors.New("label before directive")
 	ErrUnexpectedToken      = errors.New("unexpected token")
 	ErrUndefinedExport      = errors.New("exported symbol not defined")
+	ErrWrongSection         = errors.New("wrong section")
 )
 
 const (
@@ -140,11 +142,75 @@ func (p *assembler) handleLine(line string) error {
 }
 
 func (p *assembler) handleData(tokens []tokenizer.Token) error {
+	directive := tokens[0]
 	dataSize := 0
-	// TODO check if data
+
+	if p.currentSection != Data {
+		return fmt.Errorf("%w: %s is only allowed in %s, current section is %s",
+			ErrWrongSection, directive.Value, Data, p.currentSection)
+	}
+
+	switch directive.Value {
+	case ".pstr":
+		if len(tokens) != 2 {
+			return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
+		}
+		if tokens[1].Kind != tokenizer.STRING {
+			return fmt.Errorf("%w: %s expects %s, got %s", ErrArgumentKind, directive.Value, tokenizer.STRING, tokens[1].Kind)
+		}
+
+		chars := stringToBytes(tokens[1].Value)
+		res := binary.LittleEndian.AppendUint32(nil, uint32(len(chars)))
+		res = append(res, bytesToWords(chars)...)
+		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
+
+		dataSize = len(res)
+	}
+
 	p.resolveLabel()
 	p.dataCounter += dataSize
 	return nil
+}
+
+func bytesToWords(in []byte) (out []byte) {
+	out = make([]byte, len(in)*4)
+	for i := 0; i < len(in); i++ {
+		out[i*4] = in[i]
+		out[i*4+1] = 0
+		out[i*4+2] = 0
+		out[i*4+3] = 0
+	}
+	return out
+}
+
+func stringToBytes(str string) []byte {
+	var res []byte
+	for i := 0; i < len(str); i += 1 {
+		if str[i] == '\\' && i < len(str)-1 {
+			switch str[i+1] {
+			case '"':
+				res = append(res, '"')
+				i++
+			case '\\':
+				res = append(res, '\\')
+				i++
+			case 'n':
+				res = append(res, '\n')
+				i++
+			case 't':
+				res = append(res, '\t')
+				i++
+			case '0':
+				res = append(res, 0)
+				i++
+			default:
+				res = append(res, str[i])
+			}
+		} else {
+			res = append(res, str[i])
+		}
+	}
+	return res
 }
 
 func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {

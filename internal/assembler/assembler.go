@@ -129,13 +129,34 @@ func (p *assembler) handleLine(line string) error {
 }
 
 func (p *assembler) handleData(tokens []tokenizer.Token) error {
-
+	dataSize := 0
+	// TODO check if data
+	p.resolveLabel()
+	p.dataCounter += dataSize
 	return nil
 }
 
 func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
-
+	instructionSize := 0
+	// TODO check if instruction
+	p.resolveLabel()
+	p.textCounter += instructionSize
 	return nil
+}
+
+func (p *assembler) resolveLabel() {
+	if p.currentLabel == "" {
+		return
+	}
+
+	labelIndex := p.symbolIndex[p.currentLabel]
+	if p.currentSection == Text {
+		p.objectFile.Symbols[labelIndex].Offset = p.textCounter
+	} else {
+		p.objectFile.Symbols[labelIndex].Offset = p.dataCounter
+	}
+	p.objectFile.Symbols[labelIndex].Section = p.currentSection
+	p.currentLabel = ""
 }
 
 func (p *assembler) handleLabel(labelName string) error {

@@ -210,11 +210,63 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		})
 
 		dataSize = len(res)
+	case ".word":
+		args := tokens[1:]
+		if len(args) == 0 {
+			return fmt.Errorf("%w: %s expects at least 1 argument", ErrArgumentCount, directive.Value)
+		}
+
+		var res []byte
+		for i := 0; i < len(args); {
+			val, n, err := parseValue(args[i:])
+			if err != nil {
+				return fmt.Errorf("%s: %w", directive.Value, err)
+			}
+			res = binary.LittleEndian.AppendUint32(res, uint32(val))
+			i += n
+
+			if i == len(args) {
+				break
+			}
+			if args[i].Kind != tokenizer.COMMA {
+				return fmt.Errorf("%w: %s expects %s between values, got %s %q",
+					ErrUnexpectedToken, directive.Value, tokenizer.COMMA, args[i].Kind, args[i].Value)
+			}
+			i++
+			if i == len(args) {
+				return fmt.Errorf("%w: %s ends with %s", ErrUnexpectedToken, directive.Value, tokenizer.COMMA)
+			}
+		}
+
+		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
+		dataSize = len(res)
 	}
 
 	p.resolveLabel()
 	p.dataCounter += dataSize
 	return nil
+}
+
+func parseValue(tokens []tokenizer.Token) (int64, int, error) {
+	switch tokens[0].Kind {
+	case tokenizer.NUMBER:
+		val, err := parseNumber(tokens[0].Value)
+		return val, 1, err
+	case tokenizer.MINUS:
+		if len(tokens) < 2 || tokens[1].Kind != tokenizer.NUMBER {
+			return 0, 0, fmt.Errorf("%w: %s must be followed by %s", ErrArgumentKind, tokenizer.MINUS, tokenizer.NUMBER)
+		}
+		val, err := parseNumber("-" + tokens[1].Value)
+		return val, 2, err
+	case tokenizer.STRING:
+		chars := stringToBytes(tokens[0].Value)
+		if len(chars) != 1 {
+			return 0, 0, fmt.Errorf("%w: char literal %q must be exactly 1 character", ErrArgumentKind, tokens[0].Value)
+		}
+		return int64(chars[0]), 1, nil
+	default:
+		return 0, 0, fmt.Errorf("%w: expected value, got %s %q", ErrArgumentKind, tokens[0].Kind, tokens[0].Value)
+	}
 }
 
 func bytesToWords(in []byte) (out []byte) {

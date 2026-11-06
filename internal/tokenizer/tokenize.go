@@ -1,4 +1,4 @@
-package preprocessor
+package tokenizer
 
 import (
 	"errors"
@@ -42,13 +42,13 @@ var symbols = map[byte]int{
 	'}': RBRACE,
 }
 
-type token struct {
-	kind  int
-	value string
+type Token struct {
+	Kind  int
+	Value string
 }
 
-func tokenize(input string) ([]token, error) {
-	tokens := make([]token, 0)
+func Tokenize(input string) ([]Token, error) {
+	tokens := make([]Token, 0)
 
 	for i := 0; i < len(input); {
 		switch input[i] {
@@ -72,7 +72,7 @@ func tokenize(input string) ([]token, error) {
 	return tokens, nil
 }
 
-func scanToken(input string, i int) (token, int, error) {
+func scanToken(input string, i int) (Token, int, error) {
 	ch := input[i]
 
 	switch {
@@ -91,25 +91,25 @@ func scanToken(input string, i int) (token, int, error) {
 	}
 }
 
-func scanDirective(input string, start, kind int) (token, int, error) {
+func scanDirective(input string, start, kind int) (Token, int, error) {
 	j := start + 1
 	for j < len(input) && isLetter(input[j]) {
 		j++
 	}
 
-	return token{kind, input[start:j]}, j, nil
+	return Token{kind, input[start:j]}, j, nil
 }
 
-func scanName(input string, start int) (token, int, error) {
+func scanName(input string, start int) (Token, int, error) {
 	j := start + 1
 	for j < len(input) && isNameChar(input[j]) {
 		j++
 	}
 
-	return token{NAME, input[start:j]}, j, nil
+	return Token{NAME, input[start:j]}, j, nil
 }
 
-func scanNumber(input string, start int) (token, int, error) {
+func scanNumber(input string, start int) (Token, int, error) {
 	j := start + 1
 
 	hex := input[start] == '0' && j < len(input) && input[j] == 'x'
@@ -123,13 +123,13 @@ func scanNumber(input string, start int) (token, int, error) {
 	}
 
 	if (hex && j == digitsStart) || (j < len(input) && isNameChar(input[j])) {
-		return token{}, 0, fmt.Errorf("%w at column %d", ErrInvalidNumber, start+1)
+		return Token{}, 0, fmt.Errorf("%w at column %d", ErrInvalidNumber, start+1)
 	}
 
-	return token{NUMBER, input[start:j]}, j, nil
+	return Token{NUMBER, input[start:j]}, j, nil
 }
 
-func scanString(input string, start int) (token, int, error) {
+func scanString(input string, start int) (Token, int, error) {
 	j := start + 1
 
 	for j < len(input) {
@@ -137,30 +137,30 @@ func scanString(input string, start int) (token, int, error) {
 
 		switch {
 		case ch == '"':
-			return token{STRING, input[start+1 : j]}, j + 1, nil
+			return Token{STRING, input[start+1 : j]}, j + 1, nil
 		case ch == '\\':
 			if j+1 >= len(input) || strings.IndexByte(`nt\"0`, input[j+1]) < 0 {
-				return token{}, 0, fmt.Errorf("%w at column %d", ErrInvalidEscape, j+1)
+				return Token{}, 0, fmt.Errorf("%w at column %d", ErrInvalidEscape, j+1)
 			}
 
 			j += 2
 		case ch < 0x20 || ch > 0x7E:
-			return token{}, 0, fmt.Errorf("%w %q at column %d", ErrUnexpectedChar, ch, j+1)
+			return Token{}, 0, fmt.Errorf("%w %q at column %d", ErrUnexpectedChar, ch, j+1)
 		default:
 			j++
 		}
 	}
 
-	return token{}, 0, fmt.Errorf("%w at column %d", ErrUnterminatedString, start+1)
+	return Token{}, 0, fmt.Errorf("%w at column %d", ErrUnterminatedString, start+1)
 }
 
-func scanSymbol(input string, start int) (token, int, error) {
+func scanSymbol(input string, start int) (Token, int, error) {
 	kind, ok := symbols[input[start]]
 	if !ok {
-		return token{}, 0, fmt.Errorf("%w %q at column %d", ErrUnexpectedChar, input[start], start+1)
+		return Token{}, 0, fmt.Errorf("%w %q at column %d", ErrUnexpectedChar, input[start], start+1)
 	}
 
-	return token{kind, input[start : start+1]}, start + 1, nil
+	return Token{kind, input[start : start+1]}, start + 1, nil
 }
 
 func isLetter(ch byte) bool {

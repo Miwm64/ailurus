@@ -236,8 +236,8 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 			return fmt.Errorf("%w: %s cannot be imported", ErrReservedSymbol, argument.Value)
 		}
 
-		if i, ok := p.symbolIndex[argument.Value]; ok {
-			if p.objectFile.Symbols[i].Binding != Import {
+		if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
+			if p.objectFile.Symbols[labelIndex].Binding != Import {
 				return fmt.Errorf("%w: %s is defined in this file, cannot be imported", ErrSymbolConflict, argument.Value)
 			}
 			return nil // repeated import: allowed
@@ -249,6 +249,31 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 			Binding: Import,
 		})
 	case ".export":
+		if argument.Kind != tokenizer.NAME {
+			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
+		}
+
+		if tokenizer.IsReserved(argument.Value) {
+			return fmt.Errorf("%w: %s cannot be exported", ErrReservedSymbol, argument.Value)
+		}
+
+		if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
+			if p.objectFile.Symbols[labelIndex].Binding == Import {
+				return fmt.Errorf("%w: %s is imported in this file, cannot be exported", ErrSymbolConflict, argument.Value)
+			}
+
+			if p.objectFile.Symbols[labelIndex].Binding == Local {
+				p.objectFile.Symbols[labelIndex].Binding = Export
+			}
+
+			return nil // repeated export: allowed
+		}
+
+		p.symbolIndex[argument.Value] = len(p.objectFile.Symbols)
+		p.objectFile.Symbols = append(p.objectFile.Symbols, Symbol{
+			Name:    argument.Value,
+			Binding: Export,
+		})
 	default:
 		return fmt.Errorf("%w: %q", ErrUnknownDirective, directive.Value)
 	}

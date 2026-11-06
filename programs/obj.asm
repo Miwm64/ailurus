@@ -1,8 +1,9 @@
 .import print
 .export _start
 .section text
+#define tmp #macr231o
 _start:
-    mov r1, (@msg)
+    mov tmp, (@msg)
     call print
 loop:
     jz loop

@@ -29,9 +29,6 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 	origins := make([]int, len(lines))
 	fromMacro := make([]bool, len(lines))
 
-	lineMap = make(map[int]int)
-	outLine := 0
-
 	for i := range origins {
 		origins[i] = i + 1
 	}
@@ -43,12 +40,15 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 
 	var currentMacro *Macro
 
+	var out []string
+	lineMap = map[int]int{}
+
 	for i := 0; i < len(lines); i++ {
 		var l []string
 
 		l, skips, currentMacro, err = handleLine(lines[i], fromMacro[i], skips, currentMacro, defines, macros)
 		if err != nil {
-			return "", nil, fmt.Errorf("line %d: %w", origins[i], err)
+			return "", nil, fmt.Errorf("preprocess: line %d: %w", origins[i], err)
 		}
 
 		if len(l) == 0 {
@@ -56,11 +56,9 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 		}
 
 		if l[0] != "" {
-			outLine++
-			lineMap[outLine] = origins[i]
+			lineMap[len(out)] = origins[i]                    // index this line WILL have
+			out = append(out, strings.TrimSuffix(l[0], "\n")) // normalise: no trailing "\n"
 		}
-
-		res += l[0]
 
 		if len(l) == 1 {
 			continue
@@ -80,7 +78,7 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 		return "", nil, ErrUnclosedIf
 	}
 
-	return strings.TrimSuffix(res, "\n"), lineMap, nil
+	return strings.Join(out, "\n"), lineMap, nil
 }
 
 func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacro *Macro,

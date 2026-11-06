@@ -452,7 +452,8 @@ cycle counts are described in the ISA section.
 
 **Labels.**
 - A label marks the address of the next emitted word (instruction or data). The label may stand on
-  its own line or before an instruction or data on the same line.
+  its own line or before an instruction or data on the same line. 
+  Directives in between change label address and section.
 - A label may be used before its definition.
 - A label is local to its file unless it is exported with `.export`.
 - Another file can use an exported label only after declaring it with `.import`. Using a name that

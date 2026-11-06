@@ -100,6 +100,7 @@ func (p *assembler) handleNormalLine(tokens []tokenizer.Token) error {
 	if len(tokens) == tokenBase {
 		return nil
 	}
+	tokens = tokens[tokenBase:]
 
 	return nil
 }
@@ -122,7 +123,7 @@ func (p *assembler) handleLabel(labelName string) error {
 		}
 
 		if p.objectFile.Symbols[i].Section != "" {
-			return fmt.Errorf("%w: %s is defined", ErrSymbolConflict, labelName)
+			return fmt.Errorf("%w: %s is already defined", ErrSymbolConflict, labelName)
 		}
 
 		p.currentLabel = labelName

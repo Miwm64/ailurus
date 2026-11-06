@@ -1,5 +1,7 @@
 package assembler
 
+import "encoding/hex"
+
 type Section string
 
 const (
@@ -75,4 +77,16 @@ func newObjectFile(source string) *ObjectFile {
 			Text: &HexBytes{},
 		},
 	}
+}
+
+func (h HexBytes) MarshalText() ([]byte, error) {
+	res := make([]byte, len(h)*2)
+	hex.Encode(res, h)
+	return res, nil
+}
+
+func (h *HexBytes) UnmarshalText(text []byte) error {
+	*h = make([]byte, len(text)/2)
+	_, err := hex.Decode(*h, text)
+	return err
 }

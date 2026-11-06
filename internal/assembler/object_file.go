@@ -37,8 +37,8 @@ type ObjectFile struct {
 type Symbol struct {
 	Name    string  `json:"name"`
 	Binding Binding `json:"binding"`
-	Section Section `json:"section"`
-	Offset  int     `json:"offset"`
+	Section Section `json:"section,omitempty"`
+	Offset  int     `json:"offset,omitempty"`
 }
 
 type Relocation struct {

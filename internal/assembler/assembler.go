@@ -17,6 +17,8 @@ var (
 	ErrUnknownDirective = errors.New("unknown assembler directive")
 	ErrInvalidNumber    = errors.New("invalid number")
 	ErrNumberRange      = errors.New("number out of range")
+	ErrSymbolConflict   = errors.New("symbol conflict")
+	ErrReservedSymbol   = errors.New("reserved symbol")
 )
 
 const (
@@ -29,6 +31,8 @@ type assembler struct {
 	lines      []string
 	objectFile *ObjectFile
 
+	symbolIndex map[string]int // name -> index in objectFile.Symbols
+
 	dataCounter    int
 	textCounter    int
 	currentSection Section
@@ -39,6 +43,7 @@ func newAssembler(source string, file string, lineMap map[int]int) *assembler {
 		lineMap:        lineMap,
 		lines:          strings.Split(file, "\n"),
 		objectFile:     newObjectFile(source),
+		symbolIndex:    make(map[string]int),
 		currentSection: Text,
 	}
 }
@@ -108,6 +113,25 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		}
 
 	case ".import":
+		if argument.Kind != tokenizer.NAME {
+			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
+		}
+		if argument.Value == "_start" || argument.Value == "_handler" {
+			return fmt.Errorf("%w: %s cannot be imported", ErrReservedSymbol, argument.Value)
+		}
+
+		if i, ok := p.symbolIndex[argument.Value]; ok {
+			if p.objectFile.Symbols[i].Binding != Import {
+				return fmt.Errorf("%w: %s is defined in this file, cannot be imported", ErrSymbolConflict, argument.Value)
+			}
+			return nil // repeated import: allowed
+		}
+
+		p.symbolIndex[argument.Value] = len(p.objectFile.Symbols)
+		p.objectFile.Symbols = append(p.objectFile.Symbols, Symbol{
+			Name:    argument.Value,
+			Binding: Import,
+		})
 	case ".export":
 	default:
 		return fmt.Errorf("%w: %q", ErrUnknownDirective, directive.Value)

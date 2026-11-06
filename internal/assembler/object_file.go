@@ -48,7 +48,7 @@ type Relocation struct {
 	Width   int            `json:"width"`
 	Kind    RelocationKind `json:"kind"`
 	Symbol  string         `json:"symbol"`
-	PCNext  int            `json:"pc_next"`
+	PCNext  int            `json:"pc_next,omitempty"`
 }
 
 type Line struct {

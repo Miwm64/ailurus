@@ -10,3 +10,4 @@ jz loop
 .section data
 .org 0x4
 msg : .pstr "hi"
+msg_ref : .ref msg

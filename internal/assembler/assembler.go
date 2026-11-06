@@ -26,12 +26,18 @@ var (
 	ErrUnexpectedToken      = errors.New("unexpected token")
 	ErrUndefinedExport      = errors.New("exported symbol not defined")
 	ErrWrongSection         = errors.New("wrong section")
+	ErrUndefinedSymbol      = errors.New("undefined symbol")
 )
 
 const (
 	minNumber = math.MinInt32  // -2^31
 	maxNumber = math.MaxUint32 // 2^32 - 1
 )
+
+type symbolUse struct {
+	name      string
+	lineIndex int
+}
 
 type assembler struct {
 	lineMap    map[int]int
@@ -47,6 +53,8 @@ type assembler struct {
 
 	lineIndex int
 	labelLine int
+
+	uses []symbolUse
 }
 
 func newAssembler(source string, file string, lineMap map[int]int) *assembler {
@@ -80,6 +88,14 @@ func (p *assembler) assemble() (*ObjectFile, error) {
 			undefined = append(undefined, s.Name)
 		}
 	}
+
+	for _, u := range p.uses {
+		if _, ok := p.symbolIndex[u.name]; !ok {
+			return nil, fmt.Errorf("line %d: %w: %s is neither defined nor imported",
+				p.lineMap[u.lineIndex], ErrUndefinedSymbol, u.name)
+		}
+	}
+
 	if len(undefined) > 0 {
 		return nil, fmt.Errorf("%w: %s", ErrUndefinedExport, strings.Join(undefined, ", "))
 	}
@@ -163,6 +179,35 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		res := binary.LittleEndian.AppendUint32(nil, uint32(len(chars)))
 		res = append(res, bytesToWords(chars)...)
 		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
+
+		dataSize = len(res)
+	case ".ref":
+		if len(tokens) != 2 {
+			return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
+		}
+		if tokens[1].Kind != tokenizer.NAME {
+			return fmt.Errorf("%w: %s expects %s, got %s", ErrArgumentKind, directive.Value, tokenizer.NAME, tokens[1].Kind)
+		}
+
+		if tokenizer.IsReserved(tokens[1].Value) {
+			return fmt.Errorf("%w: %s cannot be used as a reference", ErrReservedSymbol, tokens[1].Value)
+		}
+
+		res := make([]byte, 4)
+		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
+
+		p.objectFile.Relocations = append(p.objectFile.Relocations, Relocation{
+			Section: p.currentSection,
+			Offset:  p.dataCounter,
+			Bit:     0,
+			Width:   32,
+			Kind:    Abs32,
+			Symbol:  tokens[1].Value,
+		})
+		p.uses = append(p.uses, symbolUse{
+			name:      tokens[1].Value,
+			lineIndex: p.lineIndex,
+		})
 
 		dataSize = len(res)
 	}

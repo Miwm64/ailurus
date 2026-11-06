@@ -1,0 +1,59 @@
+package assembler
+
+type Section string
+
+const (
+	Data Section = "data"
+	Text Section = "text"
+)
+
+type Binding string
+
+const (
+	Import Binding = "import"
+	Export Binding = "export"
+	Local  Binding = "local"
+)
+
+type RelocationKind string
+
+const (
+	Abs32   RelocationKind = "abs32"
+	Imm16   RelocationKind = "imm16"
+	PCRel16 RelocationKind = "pcrel16"
+)
+
+type ObjectFile struct {
+	Version     int                  `json:"version"`
+	Source      string               `json:"source"`
+	Sections    map[Section]HexBytes `json:"sections"`
+	Symbols     []Symbol             `json:"symbols"`
+	Relocations []Relocation         `json:"relocations"`
+	Lines       []Line               `json:"lines"`
+}
+
+type Symbol struct {
+	Name    string  `json:"name"`
+	Binding Binding `json:"binding"`
+	Section Section `json:"section"`
+	Offset  int     `json:"offset"`
+}
+
+type Relocation struct {
+	Section Section        `json:"section"`
+	Offset  int            `json:"offset"`
+	Bit     int            `json:"bit"`
+	Width   int            `json:"width"`
+	Kind    RelocationKind `json:"kind"`
+	Symbol  string         `json:"symbol"`
+	PCNext  int            `json:"pc_next"`
+}
+
+type Line struct {
+	Section Section `json:"section"`
+	Offset  int     `json:"offset"`
+	Line    int     `json:"line"`
+	Text    string  `json:"text"`
+}
+
+type HexBytes []byte

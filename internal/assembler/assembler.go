@@ -19,6 +19,7 @@ var (
 	ErrNumberRange      = errors.New("number out of range")
 	ErrSymbolConflict   = errors.New("symbol conflict")
 	ErrReservedSymbol   = errors.New("reserved symbol")
+	ErrMultipleLabels   = errors.New("multiple labels for one address")
 )
 
 const (
@@ -36,6 +37,7 @@ type assembler struct {
 	dataCounter    int
 	textCounter    int
 	currentSection Section
+	currentLabel   string
 }
 
 func newAssembler(source string, file string, lineMap map[int]int) *assembler {
@@ -57,6 +59,10 @@ func (p *assembler) assemble() (*ObjectFile, error) {
 		}
 	}
 
+	if p.currentLabel != "" {
+		return nil, fmt.Errorf("%w: %s", ErrArgumentKind, p.currentLabel)
+	}
+
 	return p.objectFile, nil
 }
 
@@ -73,15 +79,62 @@ func (p *assembler) handleLine(line string) error {
 			return err
 		}
 	default:
-
+		err := p.handleNormalLine(tokens)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func (p *assembler) handleNormalLine(tokens []tokenizer.Token) error {
-	if len(tokens) != 1 {
+	tokenBase := 0
+	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
+		tokenBase = 2
+		err := p.handleLabel(tokens[0].Value)
+		if err != nil {
+			return err
+		}
 	}
+	if len(tokens) == tokenBase {
+		return nil
+	}
+
+	return nil
+}
+
+func (p *assembler) handleLabel(labelName string) error {
+	if tokenizer.IsReserved(labelName) {
+		return fmt.Errorf("%w: %s cannot be used as a label", ErrReservedSymbol, labelName)
+	}
+
+	if p.currentLabel != "" {
+		return fmt.Errorf("%w: %s defined while %s has no content yet", ErrMultipleLabels, labelName, p.currentLabel)
+	}
+
+	if i, ok := p.symbolIndex[labelName]; ok {
+		switch p.objectFile.Symbols[i].Binding {
+		case Import:
+			return fmt.Errorf("%w: %s is imported, cannot be defined", ErrSymbolConflict, labelName)
+		case Local:
+			return fmt.Errorf("%w: %s is already defined", ErrSymbolConflict, labelName)
+		}
+
+		if p.objectFile.Symbols[i].Section != "" {
+			return fmt.Errorf("%w: %s is defined", ErrSymbolConflict, labelName)
+		}
+
+		p.currentLabel = labelName
+		return nil
+	}
+
+	p.currentLabel = labelName
+	p.symbolIndex[labelName] = len(p.objectFile.Symbols)
+	p.objectFile.Symbols = append(p.objectFile.Symbols, Symbol{
+		Name:    labelName,
+		Binding: Local,
+	})
 	return nil
 }
 

@@ -29,7 +29,7 @@ func handleDefine(line string, defines map[string]string) error {
 		return fmt.Errorf("%w: %s", ErrNoArguments, tokens[0])
 	}
 
-	if !validateName(tokens[1]) {
+	if !tokenizer.ValidateName(tokens[1]) {
 		return fmt.Errorf("%w: %q", ErrInvalidName, tokens[1])
 	}
 

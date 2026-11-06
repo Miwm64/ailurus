@@ -82,7 +82,7 @@ func handleMacroHeader(tokens []tokenizer.Token, macros map[string]*Macro) (*Mac
 	}
 
 	name := tokens[1].Value
-	if isReserved(name) {
+	if tokenizer.IsReserved(name) {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidName, name)
 	}
 

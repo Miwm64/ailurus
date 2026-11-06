@@ -23,6 +23,7 @@ var (
 	ErrPendingLabel         = errors.New("label without content")
 	ErrLabelBeforeDirective = errors.New("label before directive")
 	ErrUnexpectedToken      = errors.New("unexpected token")
+	ErrUndefinedExport      = errors.New("exported symbol not defined")
 )
 
 const (
@@ -69,6 +70,16 @@ func (p *assembler) assemble() (*ObjectFile, error) {
 	if p.currentLabel != "" {
 		return nil, fmt.Errorf("line %d: %w: %s is not followed by data or an instruction",
 			p.lineMap[p.labelLine], ErrPendingLabel, p.currentLabel)
+	}
+
+	var undefined []string
+	for _, s := range p.objectFile.Symbols {
+		if s.Binding == Export && s.Section == "" {
+			undefined = append(undefined, s.Name)
+		}
+	}
+	if len(undefined) > 0 {
+		return nil, fmt.Errorf("%w: %s", ErrUndefinedExport, strings.Join(undefined, ", "))
 	}
 
 	return p.objectFile, nil

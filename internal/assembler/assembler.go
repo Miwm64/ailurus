@@ -11,15 +11,18 @@ import (
 )
 
 var (
-	ErrArgumentCount    = errors.New("wrong number of arguments")
-	ErrArgumentKind     = errors.New("wrong argument kind")
-	ErrUnknownSection   = errors.New("unknown section")
-	ErrUnknownDirective = errors.New("unknown assembler directive")
-	ErrInvalidNumber    = errors.New("invalid number")
-	ErrNumberRange      = errors.New("number out of range")
-	ErrSymbolConflict   = errors.New("symbol conflict")
-	ErrReservedSymbol   = errors.New("reserved symbol")
-	ErrMultipleLabels   = errors.New("multiple labels for one address")
+	ErrArgumentCount        = errors.New("wrong number of arguments")
+	ErrArgumentKind         = errors.New("wrong argument kind")
+	ErrUnknownSection       = errors.New("unknown section")
+	ErrUnknownDirective     = errors.New("unknown assembler directive")
+	ErrInvalidNumber        = errors.New("invalid number")
+	ErrNumberRange          = errors.New("number out of range")
+	ErrSymbolConflict       = errors.New("symbol conflict")
+	ErrReservedSymbol       = errors.New("reserved symbol")
+	ErrMultipleLabels       = errors.New("multiple labels for one address")
+	ErrPendingLabel         = errors.New("label without content")
+	ErrLabelBeforeDirective = errors.New("label before directive")
+	ErrUnexpectedToken      = errors.New("unexpected token")
 )
 
 const (
@@ -38,6 +41,9 @@ type assembler struct {
 	textCounter    int
 	currentSection Section
 	currentLabel   string
+
+	lineIndex int
+	labelLine int
 }
 
 func newAssembler(source string, file string, lineMap map[int]int) *assembler {
@@ -52,6 +58,7 @@ func newAssembler(source string, file string, lineMap map[int]int) *assembler {
 
 func (p *assembler) assemble() (*ObjectFile, error) {
 	for i, line := range p.lines {
+		p.lineIndex = i
 		line = strings.TrimSpace(line)
 		err := p.handleLine(line)
 		if err != nil {
@@ -60,7 +67,8 @@ func (p *assembler) assemble() (*ObjectFile, error) {
 	}
 
 	if p.currentLabel != "" {
-		return nil, fmt.Errorf("%w: %s", ErrArgumentKind, p.currentLabel)
+		return nil, fmt.Errorf("line %d: %w: %s is not followed by data or an instruction",
+			p.lineMap[p.labelLine], ErrPendingLabel, p.currentLabel)
 	}
 
 	return p.objectFile, nil
@@ -72,35 +80,60 @@ func (p *assembler) handleLine(line string) error {
 		return err
 	}
 
+	// label
+	hasLabel := false
+	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
+		err := p.handleLabel(tokens[0].Value)
+		if err != nil {
+			return err
+		}
+		tokens = tokens[2:]
+		hasLabel = true
+	}
+
+	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
+		return fmt.Errorf("%w: %s defined on the same line as %s", ErrMultipleLabels, tokens[0].Value, p.currentLabel)
+	}
+	if len(tokens) == 0 {
+		return nil
+	}
+
+	// main part
 	switch tokens[0].Kind {
 	case tokenizer.ASSEMBLER_DIRECTIVE:
-		err := p.handleDirective(tokens)
+		switch tokens[0].Value {
+		case ".word", ".pstr", ".ref":
+			err := p.handleData(tokens)
+			if err != nil {
+				return err
+			}
+		default:
+			if hasLabel {
+				return fmt.Errorf("%w: %s cannot follow label %s", ErrLabelBeforeDirective, tokens[0].Value, p.currentLabel)
+			}
+			err := p.handleDirective(tokens)
+			if err != nil {
+				return err
+			}
+		}
+	case tokenizer.NAME:
+		err := p.handleInstruction(tokens)
 		if err != nil {
 			return err
 		}
 	default:
-		err := p.handleNormalLine(tokens)
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("%w: %s %q at start of line", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
 	}
 
 	return nil
 }
 
-func (p *assembler) handleNormalLine(tokens []tokenizer.Token) error {
-	tokenBase := 0
-	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
-		tokenBase = 2
-		err := p.handleLabel(tokens[0].Value)
-		if err != nil {
-			return err
-		}
-	}
-	if len(tokens) == tokenBase {
-		return nil
-	}
-	tokens = tokens[tokenBase:]
+func (p *assembler) handleData(tokens []tokenizer.Token) error {
+
+	return nil
+}
+
+func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 
 	return nil
 }
@@ -127,10 +160,12 @@ func (p *assembler) handleLabel(labelName string) error {
 		}
 
 		p.currentLabel = labelName
+		p.labelLine = p.lineIndex
 		return nil
 	}
 
 	p.currentLabel = labelName
+	p.labelLine = p.lineIndex
 	p.symbolIndex[labelName] = len(p.objectFile.Symbols)
 	p.objectFile.Symbols = append(p.objectFile.Symbols, Symbol{
 		Name:    labelName,

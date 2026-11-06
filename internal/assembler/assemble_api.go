@@ -1,6 +1,6 @@
 package assembler
 
-func Assemble(file string, lineMap map[int]int) (*ObjectFile, error) {
-	assembler := newAssembler(file, lineMap)
+func Assemble(source string, file string, lineMap map[int]int) (*ObjectFile, error) {
+	assembler := newAssembler(source, file, lineMap)
 	return assembler.assemble()
 }

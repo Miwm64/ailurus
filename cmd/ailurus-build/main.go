@@ -9,7 +9,8 @@ import (
 )
 
 func main() {
-	test, err := io.ReadFile("programs/obj.asm")
+	testFile := "obj.asm"
+	test, err := io.ReadFile("programs/" + testFile)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -19,12 +20,12 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	err = io.WriteFile("programs/obj_res.asm", res)
+	err = io.WriteFile("programs/"+testFile, res)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	_, err = assembler.Assemble(res, lineMap)
+	_, err = assembler.Assemble(testFile, res, lineMap)
 	if err != nil {
 		fmt.Println(err)
 	}

@@ -13,19 +13,15 @@ type assembler struct {
 	objectFile *ObjectFile
 }
 
-func newAssembler(file string, lineMap map[int]int) *assembler {
+func newAssembler(source string, file string, lineMap map[int]int) *assembler {
 	return &assembler{
-		lineMap: lineMap,
-		lines:   strings.Split(file, "\n"),
+		lineMap:    lineMap,
+		lines:      strings.Split(file, "\n"),
+		objectFile: newObjectFile(source),
 	}
-
 }
 
 func (p *assembler) assemble() (*ObjectFile, error) {
-	p.objectFile = &ObjectFile{
-		Sections: make(map[Section]HexBytes, 2),
-	}
-
 	for i, line := range p.lines {
 		line = strings.TrimSpace(line)
 		err := p.handleLine(line)

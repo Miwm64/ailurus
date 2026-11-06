@@ -24,12 +24,12 @@ const (
 )
 
 type ObjectFile struct {
-	Version     int                  `json:"version"`
-	Source      string               `json:"source"`
-	Sections    map[Section]HexBytes `json:"sections"`
-	Symbols     []Symbol             `json:"symbols"`
-	Relocations []Relocation         `json:"relocations"`
-	Lines       []Line               `json:"lines"`
+	Version     int                   `json:"version"`
+	Source      string                `json:"source"`
+	Sections    map[Section]*HexBytes `json:"sections"`
+	Symbols     []Symbol              `json:"symbols"`
+	Relocations []Relocation          `json:"relocations"`
+	Lines       []Line                `json:"lines"`
 }
 
 type Symbol struct {
@@ -57,3 +57,22 @@ type Line struct {
 }
 
 type HexBytes []byte
+
+func (p *HexBytes) writeAt(offset int, data []byte) {
+	if end := offset + len(data); end > len(*p) {
+		*p = append(*p, make([]byte, end-len(*p))...)
+	}
+
+	copy((*p)[offset:], data)
+}
+
+func newObjectFile(source string) *ObjectFile {
+	return &ObjectFile{
+		Version: 1,
+		Source:  source,
+		Sections: map[Section]*HexBytes{
+			Data: &HexBytes{},
+			Text: &HexBytes{},
+		},
+	}
+}

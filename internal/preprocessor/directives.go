@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/Miwm64/ailurus/internal/tokenizer"
 )
 
 var (
@@ -27,7 +29,7 @@ func handleDefine(line string, defines map[string]string) error {
 		return fmt.Errorf("%w: %s", ErrNoArguments, tokens[0])
 	}
 
-	if !validateName(tokens[1]) {
+	if !tokenizer.ValidateName(tokens[1]) {
 		return fmt.Errorf("%w: %q", ErrInvalidName, tokens[1])
 	}
 
@@ -43,20 +45,20 @@ func handleDefine(line string, defines map[string]string) error {
 	return nil
 }
 
-func handleConditions(tokens []token, skips []conditionFrame, defines map[string]string) (string, []conditionFrame, error) {
-	directive := tokens[0].value
+func handleConditions(tokens []tokenizer.Token, skips []conditionFrame, defines map[string]string) (string, []conditionFrame, error) {
+	directive := tokens[0].Value
 
 	switch directive {
 	case "#ifdef", "#ifndef":
-		if len(tokens) < 2 || tokens[1].kind != NAME {
+		if len(tokens) < 2 || tokens[1].Kind != tokenizer.NAME {
 			return "", skips, fmt.Errorf("%w after %s", ErrExpectedName, directive)
 		}
 
 		if len(tokens) > 2 {
-			return "", skips, fmt.Errorf("%w after %s %s", ErrUnexpectedArgs, directive, tokens[1].value)
+			return "", skips, fmt.Errorf("%w after %s %s", ErrUnexpectedArgs, directive, tokens[1].Value)
 		}
 
-		_, defined := defines[tokens[1].value]
+		_, defined := defines[tokens[1].Value]
 		skip := !defined
 		if directive == "#ifndef" {
 			skip = defined
@@ -99,8 +101,9 @@ func handleConditions(tokens []token, skips []conditionFrame, defines map[string
 	return "", skips, nil
 }
 
+// no open macro
+//
 //nolint:nilnil
-//no open macro
 func handleMacroLine(line string, currentMacro *Macro, macros map[string]*Macro) (*Macro, error) {
 	if !currentMacro.initialized {
 		if !isBraceLine(line, '{') {

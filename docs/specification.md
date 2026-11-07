@@ -452,7 +452,8 @@ cycle counts are described in the ISA section.
 
 **Labels.**
 - A label marks the address of the next emitted word (instruction or data). The label may stand on
-  its own line or before an instruction or data on the same line.
+  its own line or before an instruction or data on the same line. 
+  Directives in between change label address and section.
 - A label may be used before its definition.
 - A label is local to its file unless it is exported with `.export`.
 - Another file can use an exported label only after declaring it with `.import`. Using a name that
@@ -471,7 +472,7 @@ cycle counts are described in the ISA section.
 - `.section data|text` switches the current section; switching back to a section continues it.
 - The default section is `text`.
 - Instructions in `data` and data in `text` are not allowed, causing translation error.
-- `.org N` — sets offset within file, section.
+- `.org N` — sets offset within file, section. This command does not check if bytes are already filled
 
 **Preprocessor.** One top-down pass over the text, before assembly. Expanded macro bodies are
 processed like ordinary code.

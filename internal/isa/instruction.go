@@ -1,6 +1,16 @@
 package isa
 
 type Instruction struct {
-	Opcode Opcode // [31:26]
+	Opcode    OpInfo // [31:26]
+	Arguments []Argument
+}
+
+type EncodedPosition struct {
+	word   int
+	offset int
+	width  int
+}
+
+func (p *Instruction) encode() ([]byte, []EncodedPosition, error) {
 
 }

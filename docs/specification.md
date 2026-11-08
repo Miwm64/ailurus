@@ -196,6 +196,10 @@ if irq_pending == 1 and IE == 1:
 - Operands are placed **from bit 0 upward**: each one takes the lowest free bits of its area.
 - Signed fields (immediate, offsets) are sign-extended to 32 bits by the CU.
 - Register-relative field: `reg#` in its bits [19:16], `offset` in [15:0].
+- Packing (F1, F2, FA): operands are placed in operand order, next-fit — into the rest of the current word
+  if it fits, otherwise into a new word. The free area of word 1 is the first word. A value never crosses a
+  word boundary; earlier words are never revisited. FA has no free area in word 1, so its values start in
+  word 2.
 
 #### F0 — 0 operands
 ```
@@ -213,25 +217,20 @@ Every mode except absolute fits inline. Size: 1–2 words.
 #### F2 — 2 operands
 ```
 word1: [31:26 OPCODE][25:23 MODE1][22:20 MODE2][19:0 inline operands]
-ext:   [31:0 operand, right-aligned]       ; 0–2 words
+ext:   [31:0 operands]                     ; 0–2 words
 ```
-Placement is greedy:
-1. Try operand 1 inline, then operand 2 in the remaining bits.
-2. Operands that did not fit go to extension words, in operand order.
+Placement is next-fit (see Packing above):
+1. Operand 1 goes inline if it fits, otherwise to word 2.
+2. Operand 2 goes into the rest of the current word if it fits, otherwise to the next word.
 3. Absolute address never fits inline.
 
-So operand 2 may be inline while operand 1 is in an extension word:
-```
-word1: [OPCODE | MODE1 | MODE2 | OPERAND2]
-word2: [OPERAND1]
-```
-
-| Operand sizes (bits)              | Words |
-|-----------------------------------|-------|
-| 4 + 4, 4 + 16                     | 1     |
-| 4 + 20, 16 + 16, 16 + 20, 20 + 20 | 2     |
-| absolute + non-absolute           | 2     |
-| absolute + absolute               | 3     |
+| Operand sizes (bits), in order             | Words |
+|--------------------------------------------|-------|
+| 4 + 4, 4 + 16, 16 + 4                      | 1     |
+| 4 + 20, 16 + 16, 16 + 20, 20 + 4, 20 + 20  | 2     |
+| non-absolute + absolute                    | 2     |
+| absolute + non-absolute                    | 3     |
+| absolute + absolute                        | 3     |
 
 #### FB — conditional branch
 ```
@@ -452,7 +451,7 @@ cycle counts are described in the ISA section.
 
 **Labels.**
 - A label marks the address of the next emitted word (instruction or data). The label may stand on
-  its own line or before an instruction or data on the same line. 
+  its own line or before an instruction or data on the same line.
   Directives in between change label address and section.
 - A label may be used before its definition.
 - A label is local to its file unless it is exported with `.export`.
@@ -543,7 +542,7 @@ Each line becomes a statement, aliases are rewritten.
 
 Single pass compilation + fixup:
 
-An instruction is encoded right away. Its size comes from the format and operand modes, using the greedy packing.
+An instruction is encoded right away. Its size comes from the format and operand modes, using next-fit packing.
 If operand can not be determined right away(for example, address of label which has not been defined yet),
 operand is written as 0 and recorded as fixup.
 
@@ -724,7 +723,7 @@ Config:
 ```yaml
 memory_size: 4096   # bytes
 cache: true         # false: direct RAM
-tick_limit: 100000  
+tick_limit: 100000
 input:              # interrupt schedule: [tick, char]
   - [10, "h"]
   - [25, "i"]

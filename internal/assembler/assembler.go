@@ -28,17 +28,15 @@ var (
 	ErrUndefinedExport      = errors.New("exported symbol not defined")
 	ErrWrongSection         = errors.New("wrong section")
 	ErrUndefinedSymbol      = errors.New("undefined symbol")
+	ErrSectionTooLarge      = errors.New("section too large")
 )
 
 const (
 	minNumber = math.MinInt32  // -2^31
 	maxNumber = math.MaxUint32 // 2^32 - 1
-)
 
-type symbolUse struct {
-	name      string
-	lineIndex int
-}
+	maxSectionSize = 1 << 20
+)
 
 type fixup struct {
 	Relocation
@@ -60,7 +58,6 @@ type assembler struct {
 	lineIndex int
 	labelLine int
 
-	uses   []symbolUse
 	fixups []fixup
 }
 
@@ -93,13 +90,6 @@ func (p *assembler) assemble() (*ObjectFile, error) {
 	for _, s := range p.objectFile.Symbols {
 		if s.Binding == Export && s.Section == "" {
 			undefined = append(undefined, s.Name)
-		}
-	}
-
-	for _, u := range p.uses {
-		if _, ok := p.symbolIndex[u.name]; !ok {
-			return nil, fmt.Errorf("line %d: %w: %s is neither defined nor imported",
-				p.lineMap[u.lineIndex], ErrUndefinedSymbol, u.name)
 		}
 	}
 
@@ -203,16 +193,13 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		res := make([]byte, 4)
 		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
 
-		p.objectFile.Relocations = append(p.objectFile.Relocations, Relocation{
-			Section: p.currentSection,
-			Offset:  p.dataCounter,
-			Bit:     0,
-			Width:   32,
-			Kind:    Abs32,
-			Symbol:  tokens[1].Value,
-		})
-		p.uses = append(p.uses, symbolUse{
-			name:      tokens[1].Value,
+		p.fixups = append(p.fixups, fixup{
+			Section:   Data,
+			Offset:    p.dataCounter,
+			Bit:       0,
+			Width:     32,
+			Kind:      Abs32,
+			Symbol:    tokens[1].Value,
 			lineIndex: p.lineIndex,
 		})
 
@@ -247,6 +234,10 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 
 		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
 		dataSize = len(res)
+	}
+
+	if p.dataCounter+dataSize > maxSectionSize {
+		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, Data, maxSectionSize)
 	}
 
 	p.resolveLabel()
@@ -318,6 +309,12 @@ func stringToBytes(str string) []byte {
 	return res
 }
 
+var aliases = map[string]string{
+	"asl":  "lsl",
+	"push": "mov",
+	"pop":  "mov",
+}
+
 func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	if p.currentSection != Text {
 		return fmt.Errorf("%w: instructions are only allowed in %s, current section is %s",
@@ -331,50 +328,68 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 		return fmt.Errorf("%w: expected name, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
 	}
 
-	opcode, ok := isa.Opcodes[tokens[0].Value]
+	mnemonic := tokens[0].Value
+	name := mnemonic
+	if realMnemonic, ok := aliases[mnemonic]; ok {
+		name = realMnemonic
+	}
+
+	opcode, ok := isa.Opcodes[name]
 	if !ok {
 		return fmt.Errorf("%w: expected opcode, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
 	}
 
-	instruction := isa.Instruction{
-		OpInfo: opcode,
-	}
+	// collect operands
 	prev := 1
 	operands := make([]operand, 0)
+	addOperand := func(t []tokenizer.Token) error {
+		op, err := parseOperand(t)
+		if err != nil {
+			return fmt.Errorf("%s: argument %d: %w", mnemonic, len(operands)+1, err)
+		}
+		operands = append(operands, op)
+		return nil
+	}
 
 	for i := 1; i < len(tokens); i++ {
-		switch tokens[i].Kind {
-		case tokenizer.COMMA:
-			currOperand, err := parseOperand(tokens[prev:i])
-			if err != nil {
+		if tokens[i].Kind == tokenizer.COMMA {
+			if err := addOperand(tokens[prev:i]); err != nil {
 				return err
 			}
-
-			operands = append(operands, currOperand)
-			instruction.Arguments = append(instruction.Arguments, currOperand.arg)
 			prev = i + 1
-		default:
-
+		}
+	}
+	if len(tokens[prev:]) != 0 {
+		if err := addOperand(tokens[prev:]); err != nil {
+			return err
 		}
 	}
 
-	if len(tokens[prev:]) != 0 {
-		currOperand, err := parseOperand(tokens[prev:])
-		if err != nil {
-			return err
-		}
+	operands, err := rewriteAlias(mnemonic, operands)
+	if err != nil {
+		return err
+	}
+	if err := mapOperands(opcode.Format, operands); err != nil {
+		return fmt.Errorf("%s: %w", mnemonic, err)
+	}
 
-		operands = append(operands, currOperand)
-		instruction.Arguments = append(instruction.Arguments, currOperand.arg)
+	instruction := isa.Instruction{OpInfo: opcode}
+	for _, op := range operands {
+		instruction.Arguments = append(instruction.Arguments, op.arg)
 	}
 
 	words, positions, err := instruction.Encode()
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", mnemonic, err)
 	}
 
-	p.objectFile.Sections["text"].writeAt(p.textCounter, wordsToBytes(words))
+	if p.textCounter+4*len(words) > maxSectionSize {
+		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, Text, maxSectionSize)
+	}
+
+	p.objectFile.Sections[Text].writeAt(p.textCounter, wordsToBytes(words))
 	p.resolveLabel()
+	p.addLineToListing(p.textCounter)
 
 	for i, op := range operands {
 		if op.label == "" {
@@ -397,6 +412,54 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	return nil
 }
 
+func rewriteAlias(mnemonic string, operands []operand) ([]operand, error) {
+	const rsp = 0
+	switch mnemonic {
+	case "push", "pop":
+		if len(operands) != 1 {
+			return nil, fmt.Errorf("%w: %s expects 1, got %d", isa.ErrArgumentCount, mnemonic, len(operands))
+		}
+	}
+
+	switch mnemonic {
+	case "push":
+		dst := operand{arg: isa.Argument{Mode: isa.PreDecrement, Value: rsp}}
+		return []operand{dst, operands[0]}, nil
+	case "pop":
+		src := operand{arg: isa.Argument{Mode: isa.PostIncrement, Value: rsp}}
+		return []operand{operands[0], src}, nil
+	}
+	return operands, nil
+}
+
+func mapOperands(format isa.Format, operands []operand) error {
+	for i := range operands {
+		op := &operands[i]
+		bareName := op.label != "" && op.arg.Mode == isa.Immediate
+
+		switch format {
+		case isa.FB:
+			if op.bareAt {
+				return fmt.Errorf("%w: argument %d: branches take a bare label, not @", ErrInvalidOperand, i+1)
+			}
+			if bareName {
+				op.arg.Mode = isa.PCRelative
+			}
+
+		case isa.FJ:
+			if bareName {
+				op.arg.Mode = isa.DirectMemory
+			}
+
+		default:
+			if op.bareAt {
+				return fmt.Errorf("%w: argument %d: @name is only allowed in jump and call", ErrInvalidOperand, i+1)
+			}
+		}
+	}
+	return nil
+}
+
 // converts words to bytes as little-endian
 func wordsToBytes(words []uint32) []byte {
 	res := make([]byte, 0, 4*len(words))
@@ -411,7 +474,7 @@ func (p *assembler) addLineToListing(offset int) {
 		Section: p.currentSection,
 		Offset:  offset,
 		Line:    p.lineMap[p.lineIndex],
-		Text:    p.lines[p.lineIndex],
+		Text:    strings.TrimSpace(p.lines[p.lineIndex]),
 	})
 }
 
@@ -491,6 +554,9 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		val, err := parseNumber(argument.Value)
 		if err != nil {
 			return fmt.Errorf("%s: %w", directive.Value, err)
+		}
+		if val > maxSectionSize {
+			return fmt.Errorf("%w: %s %d exceeds %d", ErrNumberRange, directive.Value, val, maxSectionSize)
 		}
 
 		if p.currentSection == Text {

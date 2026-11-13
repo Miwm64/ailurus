@@ -9,6 +9,7 @@ var (
 	ErrArgumentCount        = errors.New("wrong number of arguments")
 	ErrFormatUnsupported    = errors.New("format not supported")
 	ErrImmediateDestination = errors.New("immediate value is not allowed as destination")
+	ErrPushmMode            = errors.New("arguments must be registers, and must not be rsp")
 	ErrImmediateOperand     = errors.New("immediate not allowed as first operand")
 	ErrPortMode             = errors.New("port must be an immediate")
 	ErrBranchMode           = errors.New("branch target must be PC-relative")
@@ -24,6 +25,10 @@ const (
 	f2AreaSize     = 20
 	kShift         = 25
 	branchAreaSize = 16
+	pushmAreaSize  = 20
+	countShift     = 22
+
+	rspNumber = 0
 )
 
 var (
@@ -56,6 +61,8 @@ func (p *Instruction) Encode() ([]uint32, []EncodedPosition, error) {
 		return p.encodeFB()
 	case FJ:
 		return p.encodeFJ()
+	case FP:
+		return p.encodeFP()
 	default:
 		return nil, nil, fmt.Errorf("%w: %d", ErrFormatUnsupported, p.OpInfo.Format)
 	}
@@ -190,4 +197,20 @@ func (p *Instruction) encodeFJ() ([]uint32, []EncodedPosition, error) {
 	}
 
 	return nextFitPackArguments(p.Arguments, mainWord, branchAreaSize)
+}
+
+func (p *Instruction) encodeFP() ([]uint32, []EncodedPosition, error) {
+	if len(p.Arguments) > 16 || len(p.Arguments) < 1 {
+		return nil, nil, fmt.Errorf("%w: FP expects 1-16, got %d", ErrArgumentCount, len(p.Arguments))
+	}
+
+	for _, arg := range p.Arguments {
+		if arg.Mode != Register || arg.Value == rspNumber {
+			return nil, nil, fmt.Errorf("%w: got mode %d, register %d", ErrPushmMode, arg.Mode, arg.Value)
+		}
+	}
+
+	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
+	mainWord |= uint32(len(p.Arguments)-1) << countShift
+	return nextFitPackArguments(p.Arguments, mainWord, pushmAreaSize)
 }

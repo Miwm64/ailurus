@@ -100,6 +100,8 @@ Stack grows down. `pushm` / `popm` both go in list order, so restoring needs the
 pushm r1, r2   ; push r1, then r2
 popm  r2, r1   ; pop into r2, then r1
 ```
+rsp can not be pushed or poped via pushm, popm.
+
 
 #### IO
 | Instruction   | Meaning        | Format | Flags       |
@@ -251,6 +253,8 @@ word1: [31:26 OPCODE][25:22 COUNT][21:20 padding][19:0 reg0..reg4, reg0 at [3:0]
 ext:   [31:0 next 8 registers]
 ```
 COUNT = number of registers − 1 (1–16 registers).
+
+It is not allowed to push rsp.
 
 | Registers | Words |
 |-----------|-------|

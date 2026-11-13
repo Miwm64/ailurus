@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Miwm64/ailurus/internal/isa"
 	"github.com/Miwm64/ailurus/internal/tokenizer"
 )
 
@@ -39,6 +40,11 @@ type symbolUse struct {
 	lineIndex int
 }
 
+type fixup struct {
+	Relocation
+	lineIndex int
+}
+
 type assembler struct {
 	lineMap    map[int]int
 	lines      []string
@@ -54,7 +60,8 @@ type assembler struct {
 	lineIndex int
 	labelLine int
 
-	uses []symbolUse
+	uses   []symbolUse
+	fixups []fixup
 }
 
 func newAssembler(source string, file string, lineMap map[int]int) *assembler {
@@ -312,13 +319,91 @@ func stringToBytes(str string) []byte {
 }
 
 func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
-	instructionSize := 0
-	// TODO check if instruction
+	if p.currentSection != Text {
+		return fmt.Errorf("%w: instructions are only allowed in %s, current section is %s",
+			ErrWrongSection, Text, p.currentSection)
+	}
 
+	if len(tokens) < 1 {
+		return nil
+	}
+	if tokens[0].Kind != tokenizer.NAME {
+		return fmt.Errorf("%w: expected name, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
+	}
+
+	opcode, ok := isa.Opcodes[tokens[0].Value]
+	if !ok {
+		return fmt.Errorf("%w: expected opcode, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
+	}
+
+	instruction := isa.Instruction{
+		OpInfo: opcode,
+	}
+	prev := 1
+	operands := make([]operand, 0)
+
+	for i := 1; i < len(tokens); i++ {
+		switch tokens[i].Kind {
+		case tokenizer.COMMA:
+			currOperand, err := parseOperand(tokens[prev:i])
+			if err != nil {
+				return err
+			}
+
+			operands = append(operands, currOperand)
+			instruction.Arguments = append(instruction.Arguments, currOperand.arg)
+			prev = i + 1
+		default:
+
+		}
+	}
+
+	if len(tokens[prev:]) != 0 {
+		currOperand, err := parseOperand(tokens[prev:])
+		if err != nil {
+			return err
+		}
+
+		operands = append(operands, currOperand)
+		instruction.Arguments = append(instruction.Arguments, currOperand.arg)
+	}
+
+	words, positions, err := instruction.Encode()
+	if err != nil {
+		return err
+	}
+
+	p.objectFile.Sections["text"].writeAt(p.textCounter, wordsToBytes(words))
 	p.resolveLabel()
 
-	p.textCounter += instructionSize
+	for i, op := range operands {
+		if op.label == "" {
+			continue
+		}
+		pos := positions[i]
+		p.fixups = append(p.fixups, fixup{
+			Section:   Text,
+			Offset:    p.textCounter + 4*pos.Word,
+			Bit:       pos.Offset,
+			Width:     pos.Width,
+			Kind:      relocationKind(op.arg.Mode),
+			Symbol:    op.label,
+			PCNext:    p.textCounter + 4*len(words),
+			lineIndex: p.lineIndex,
+		})
+	}
+
+	p.textCounter += 4 * len(words)
 	return nil
+}
+
+// converts words to bytes as little-endian
+func wordsToBytes(words []uint32) []byte {
+	res := make([]byte, 0, 4*len(words))
+	for _, w := range words {
+		res = binary.LittleEndian.AppendUint32(res, w)
+	}
+	return res
 }
 
 func (p *assembler) addLineToListing(offset int) {

@@ -1,6 +1,10 @@
 package assembler
 
-import "encoding/hex"
+import (
+	"encoding/hex"
+
+	"github.com/Miwm64/ailurus/internal/isa"
+)
 
 type Section string
 
@@ -89,4 +93,17 @@ func (h *HexBytes) UnmarshalText(text []byte) error {
 	*h = make([]byte, len(text)/2)
 	_, err := hex.Decode(*h, text)
 	return err
+}
+
+func relocationKind(argumentMode isa.Mode) RelocationKind {
+	switch argumentMode {
+	case isa.PCRelative:
+		return PCRel16
+	case isa.DirectMemory:
+		return Abs32
+	case isa.Immediate:
+		return Imm16
+	default:
+		panic("invalid argument mode")
+	}
 }

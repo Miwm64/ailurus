@@ -11,15 +11,19 @@ var (
 	ErrImmediateDestination = errors.New("immediate value is not allowed as destination")
 	ErrImmediateOperand     = errors.New("immediate not allowed as first operand")
 	ErrPortMode             = errors.New("port must be an immediate")
+	ErrBranchMode           = errors.New("branch target must be PC-relative")
+	ErrJumpMode             = errors.New("jump target must be PC-relative or absolute")
 )
 
 const (
-	opcodeShift = 26
-	capacity    = 32
-	mode1Shift  = 23
-	mode2Shift  = 20
-	f1AreaSize  = 23
-	f2AreaSize  = 20
+	opcodeShift    = 26
+	capacity       = 32
+	mode1Shift     = 23
+	mode2Shift     = 20
+	f1AreaSize     = 23
+	f2AreaSize     = 20
+	kShift         = 25
+	branchAreaSize = 16
 )
 
 var (
@@ -48,6 +52,10 @@ func (p *Instruction) Encode() ([]uint32, []EncodedPosition, error) {
 		return p.encodeF1()
 	case F2:
 		return p.encodeF2()
+	case FB:
+		return p.encodeFB()
+	case FJ:
+		return p.encodeFJ()
 	default:
 		return nil, nil, fmt.Errorf("%w: %d", ErrFormatUnsupported, p.OpInfo.Format)
 	}
@@ -152,4 +160,34 @@ func (p *Instruction) checkF2Modes() error {
 		}
 	}
 	return nil
+}
+
+func (p *Instruction) encodeFB() ([]uint32, []EncodedPosition, error) {
+	if len(p.Arguments) != 1 {
+		return nil, nil, fmt.Errorf("%w: FB expects 1, got %d", ErrArgumentCount, len(p.Arguments))
+	}
+	if mode := p.Arguments[0].Mode; mode != PCRelative {
+		return nil, nil, fmt.Errorf("%w: got mode %d", ErrBranchMode, mode)
+	}
+
+	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
+	return nextFitPackArguments(p.Arguments, mainWord, branchAreaSize)
+}
+
+func (p *Instruction) encodeFJ() ([]uint32, []EncodedPosition, error) {
+	if len(p.Arguments) != 1 {
+		return nil, nil, fmt.Errorf("%w: FJ expects 1, got %d", ErrArgumentCount, len(p.Arguments))
+	}
+
+	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
+	switch mode := p.Arguments[0].Mode; mode {
+	case PCRelative:
+		mainWord |= 1 << kShift // K = 1
+	case DirectMemory:
+		// K = 0
+	default:
+		return nil, nil, fmt.Errorf("%w: got mode %d", ErrJumpMode, mode)
+	}
+
+	return nextFitPackArguments(p.Arguments, mainWord, branchAreaSize)
 }

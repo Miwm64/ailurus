@@ -6,6 +6,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+
+	"github.com/Miwm64/ailurus/internal/tokenizer"
 )
 
 var ErrNestedMacroCall = errors.New("macro call inside a macro expansion")
@@ -27,9 +29,6 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 	origins := make([]int, len(lines))
 	fromMacro := make([]bool, len(lines))
 
-	lineMap = make(map[int]int)
-	outLine := 0
-
 	for i := range origins {
 		origins[i] = i + 1
 	}
@@ -41,12 +40,15 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 
 	var currentMacro *Macro
 
+	var out []string
+	lineMap = map[int]int{}
+
 	for i := 0; i < len(lines); i++ {
 		var l []string
 
 		l, skips, currentMacro, err = handleLine(lines[i], fromMacro[i], skips, currentMacro, defines, macros)
 		if err != nil {
-			return "", nil, fmt.Errorf("line %d: %w", origins[i], err)
+			return "", nil, fmt.Errorf("preprocess: line %d: %w", origins[i], err)
 		}
 
 		if len(l) == 0 {
@@ -54,11 +56,9 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 		}
 
 		if l[0] != "" {
-			outLine++
-			lineMap[outLine] = origins[i]
+			lineMap[len(out)] = origins[i]                    // index this line WILL have
+			out = append(out, strings.TrimSuffix(l[0], "\n")) // normalise: no trailing "\n"
 		}
-
-		res += l[0]
 
 		if len(l) == 1 {
 			continue
@@ -78,7 +78,7 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 		return "", nil, ErrUnclosedIf
 	}
 
-	return strings.TrimSuffix(res, "\n"), lineMap, nil
+	return strings.Join(out, "\n"), lineMap, nil
 }
 
 func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacro *Macro,
@@ -106,18 +106,18 @@ func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacr
 		return nil, skips, currentMacro, handleDefine(line, defines)
 	}
 
-	tokens, err := tokenize(line)
+	tokens, err := tokenizer.Tokenize(line)
 	if err != nil || len(tokens) == 0 {
 		return nil, skips, currentMacro, err
 	}
 
-	if tokens[0].kind == PREPROCESSOR_DIRECTIVE && tokens[0].value == "#macro" {
+	if tokens[0].Kind == tokenizer.PREPROCESSOR_DIRECTIVE && tokens[0].Value == "#macro" {
 		m, err := handleMacroHeader(tokens, macros)
 
 		return nil, skips, m, err
 	}
 
-	if tokens[0].kind == PREPROCESSOR_DIRECTIVE {
+	if tokens[0].Kind == tokenizer.PREPROCESSOR_DIRECTIVE {
 		l, frames, err := handleConditions(tokens, skips, defines)
 
 		return []string{l}, frames, currentMacro, err
@@ -128,16 +128,16 @@ func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacr
 	return lines, skips, currentMacro, err
 }
 
-func handleNormalLine(tokens []token, fromMacro bool, defines map[string]string,
+func handleNormalLine(tokens []tokenizer.Token, fromMacro bool, defines map[string]string,
 	macros map[string]*Macro) ([]string, error) {
 
 	label, call := "", 0
-	if len(tokens) >= 2 && tokens[0].kind == NAME && tokens[1].kind == COLON {
-		label, call = tokens[0].value+":\n", 2
+	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
+		label, call = tokens[0].Value+":\n", 2
 	}
 
-	if call < len(tokens) && tokens[call].kind == NAME {
-		if macro, ok := macros[tokens[call].value]; ok {
+	if call < len(tokens) && tokens[call].Kind == tokenizer.NAME {
+		if macro, ok := macros[tokens[call].Value]; ok {
 			if fromMacro {
 				return nil, fmt.Errorf("%w: %s", ErrNestedMacroCall, macro.Name)
 			}
@@ -156,17 +156,17 @@ func handleNormalLine(tokens []token, fromMacro bool, defines map[string]string,
 	for _, tok := range tokens {
 		res.WriteString(" ")
 
-		switch tok.kind {
-		case PREPROCESSOR_DIRECTIVE, LBRACE, RBRACE:
-			return nil, fmt.Errorf("%w: %s", ErrUnexpectedChar, tok.value)
-		case NAME:
-			if value, ok := defines[tok.value]; ok {
+		switch tok.Kind {
+		case tokenizer.PREPROCESSOR_DIRECTIVE, tokenizer.LBRACE, tokenizer.RBRACE:
+			return nil, fmt.Errorf("%w: %s", tokenizer.ErrUnexpectedChar, tok.Value)
+		case tokenizer.NAME:
+			if value, ok := defines[tok.Value]; ok {
 				res.WriteString(value)
 
 				break
 			}
 
-			res.WriteString(tok.value)
+			res.WriteString(tok.Value)
 		default:
 			res.WriteString(tokenText(tok))
 		}
@@ -178,7 +178,7 @@ func handleNormalLine(tokens []token, fromMacro bool, defines map[string]string,
 }
 
 // splitArguments joins the tokens between commas into one argument each.
-func splitArguments(tokens []token) []string {
+func splitArguments(tokens []tokenizer.Token) []string {
 	if len(tokens) == 0 {
 		return nil
 	}
@@ -187,7 +187,7 @@ func splitArguments(tokens []token) []string {
 	parts := make([]string, 0)
 
 	for _, tok := range tokens {
-		if tok.kind == COMMA {
+		if tok.Kind == tokenizer.COMMA {
 			args = append(args, strings.Join(parts, " "))
 			parts = parts[:0]
 
@@ -200,12 +200,12 @@ func splitArguments(tokens []token) []string {
 	return append(args, strings.Join(parts, " "))
 }
 
-func tokenText(tok token) string {
-	if tok.kind == STRING {
-		return "\"" + tok.value + "\""
+func tokenText(tok tokenizer.Token) string {
+	if tok.Kind == tokenizer.STRING {
+		return "\"" + tok.Value + "\""
 	}
 
-	return tok.value
+	return tok.Value
 }
 
 func isBraceLine(line string, brace byte) bool {

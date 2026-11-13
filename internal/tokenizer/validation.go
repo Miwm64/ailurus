@@ -1,6 +1,6 @@
-package preprocessor
+package tokenizer
 
-func validateName(str string) bool {
+func ValidateName(str string) bool {
 	if str == "" {
 		return false
 	}
@@ -47,7 +47,7 @@ var reserved = map[string]struct{}{
 	"data": {}, "text": {},
 }
 
-func isReserved(str string) bool {
+func IsReserved(str string) bool {
 	_, ok := reserved[str]
 
 	return ok

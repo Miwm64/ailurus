@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+
+	"github.com/Miwm64/ailurus/internal/tokenizer"
 )
 
 var (
@@ -71,16 +73,16 @@ func (p *Macro) AddRawLine(line string) {
 	p.RawLines = append(p.RawLines, line)
 }
 
-func handleMacroHeader(tokens []token, macros map[string]*Macro) (*Macro, error) {
-	brace := len(tokens) == 5 && tokens[4].kind == LBRACE
+func handleMacroHeader(tokens []tokenizer.Token, macros map[string]*Macro) (*Macro, error) {
+	brace := len(tokens) == 5 && tokens[4].Kind == tokenizer.LBRACE
 
 	if (len(tokens) != 4 && !brace) ||
-		tokens[1].kind != NAME || tokens[2].kind != COMMA || tokens[3].kind != NUMBER {
+		tokens[1].Kind != tokenizer.NAME || tokens[2].Kind != tokenizer.COMMA || tokens[3].Kind != tokenizer.NUMBER {
 		return nil, ErrBadMacroHeader
 	}
 
-	name := tokens[1].value
-	if isReserved(name) {
+	name := tokens[1].Value
+	if tokenizer.IsReserved(name) {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidName, name)
 	}
 
@@ -88,9 +90,9 @@ func handleMacroHeader(tokens []token, macros map[string]*Macro) (*Macro, error)
 		return nil, fmt.Errorf("%w: %s", ErrMacroRedefined, name)
 	}
 
-	count, err := strconv.ParseUint(tokens[3].value, 0, 8)
+	count, err := strconv.ParseUint(tokens[3].Value, 0, 8)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrBadMacroHeader, tokens[3].value)
+		return nil, fmt.Errorf("%w: %s", ErrBadMacroHeader, tokens[3].Value)
 	}
 
 	m := NewMacro(name, nil, int(count))

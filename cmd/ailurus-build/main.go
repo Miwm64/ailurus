@@ -20,13 +20,19 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	err = io.WriteFile("programs/"+testFile, res)
+	err = io.WriteFile("programs/obj_res.asm", res)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	_, err = assembler.Assemble(testFile, res, lineMap)
+	objectFile, err := assembler.Assemble(testFile, res, lineMap)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = io.WriteJSON("programs/obj.o", objectFile)
 	if err != nil {
 		fmt.Println(err)
 	}
+
 }

@@ -14,19 +14,25 @@ var (
 	ErrPortMode             = errors.New("port must be an immediate")
 	ErrBranchMode           = errors.New("branch target must be PC-relative")
 	ErrJumpMode             = errors.New("jump target must be PC-relative or absolute")
+	ErrMultipleIncDec       = errors.New("only one operand may use + / -")
+	ErrIncDecReuse          = errors.New("register used with + / - appears in another operand")
 )
 
 const (
-	opcodeShift    = 26
-	capacity       = 32
-	mode1Shift     = 23
-	mode2Shift     = 20
-	f1AreaSize     = 23
-	f2AreaSize     = 20
-	kShift         = 25
-	branchAreaSize = 16
-	pushmAreaSize  = 20
-	countShift     = 22
+	opcodeShift     = 26
+	capacity        = 32
+	mode1Shift      = 23
+	mode2Shift      = 20
+	f1AreaSize      = 23
+	f2AreaSize      = 20
+	kShift          = 25
+	branchAreaSize  = 16
+	pushmAreaSize   = 20
+	countShift      = 22
+	faCountShift    = 23
+	modeBits        = 3
+	maxAddmOperands = 7
+	faAreaSize      = 0
 
 	rspNumber = 0
 )
@@ -63,6 +69,8 @@ func (p *Instruction) Encode() ([]uint32, []EncodedPosition, error) {
 		return p.encodeFJ()
 	case FP:
 		return p.encodeFP()
+	case FA:
+		return p.encodeFA()
 	default:
 		return nil, nil, fmt.Errorf("%w: %d", ErrFormatUnsupported, p.OpInfo.Format)
 	}
@@ -134,7 +142,9 @@ func (p *Instruction) encodeF2() ([]uint32, []EncodedPosition, error) {
 	if err := p.checkF2Modes(); err != nil {
 		return nil, nil, err
 	}
-
+	if err := checkIncDec(p.Arguments); err != nil {
+		return nil, nil, err
+	}
 	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
 	mainWord |= uint32(p.Arguments[0].Mode) << mode1Shift
 	mainWord |= uint32(p.Arguments[1].Mode) << mode2Shift
@@ -213,4 +223,57 @@ func (p *Instruction) encodeFP() ([]uint32, []EncodedPosition, error) {
 	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
 	mainWord |= uint32(len(p.Arguments)-1) << countShift
 	return nextFitPackArguments(p.Arguments, mainWord, pushmAreaSize)
+}
+
+func (p *Instruction) encodeFA() ([]uint32, []EncodedPosition, error) {
+	n := len(p.Arguments)
+	if n < 1 || n > maxAddmOperands {
+		return nil, nil, fmt.Errorf("%w: FA expects 1-%d, got %d", ErrArgumentCount, maxAddmOperands, n)
+	}
+	if dst := p.Arguments[0]; dst.Mode == Immediate {
+		return nil, nil, fmt.Errorf("%w: got %d", ErrImmediateDestination, dst.Value)
+	}
+	if err := checkIncDec(p.Arguments); err != nil {
+		return nil, nil, err
+	}
+
+	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
+	mainWord |= uint32(n-1) << faCountShift
+	for i, a := range p.Arguments {
+		mainWord |= uint32(a.Mode) << (modeBits * i)
+	}
+
+	return nextFitPackArguments(p.Arguments, mainWord, faAreaSize)
+}
+
+func checkIncDec(arguments []Argument) error {
+	incDec := -1
+	for i, a := range arguments {
+		if a.Mode != PostIncrement && a.Mode != PreDecrement {
+			continue
+		}
+		if incDec != -1 {
+			return fmt.Errorf("%w: operands %d and %d", ErrMultipleIncDec, incDec+1, i+1)
+		}
+		incDec = i
+	}
+	if incDec == -1 {
+		return nil
+	}
+
+	reg := arguments[incDec].Value
+	for i, a := range arguments {
+		if i != incDec && usesRegister(a) && a.Value == reg {
+			return fmt.Errorf("%w: register %d in operands %d and %d", ErrIncDecReuse, reg, incDec+1, i+1)
+		}
+	}
+	return nil
+}
+
+func usesRegister(a Argument) bool {
+	switch a.Mode {
+	case Register, RegisterIndirect, PostIncrement, PreDecrement, RegisterRelative:
+		return true
+	}
+	return false
 }

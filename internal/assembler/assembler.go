@@ -97,6 +97,30 @@ func (p *assembler) assemble() (*ObjectFile, error) {
 		return nil, fmt.Errorf("%w: %s", ErrUndefinedExport, strings.Join(undefined, ", "))
 	}
 
+	for _, f := range p.fixups {
+		idx, ok := p.symbolIndex[f.Symbol]
+		if !ok {
+			return nil, fmt.Errorf("line %d: %w: %s is neither defined nor imported",
+				p.lineMap[f.lineIndex], ErrUndefinedSymbol, f.Symbol)
+		}
+
+		symbol := p.objectFile.Symbols[idx]
+		if f.Kind != PCRel16 || symbol.Binding == Import || symbol.Section != f.Section {
+			p.objectFile.Relocations = append(p.objectFile.Relocations, f.Relocation)
+			continue
+		}
+
+		value := symbol.Offset - f.PCNext
+		if value < math.MinInt16 || value > math.MaxInt16 {
+			return nil, fmt.Errorf("line %d: %w: %s is %d bytes away, does not fit in 16 bits",
+				p.lineMap[f.lineIndex], ErrNumberRange, f.Symbol, value)
+		}
+
+		section := *p.objectFile.Sections[f.Section]
+		word := binary.LittleEndian.Uint32(section[f.Offset:])
+		binary.LittleEndian.PutUint32(section[f.Offset:], isa.PatchField(word, f.Bit, f.Width, uint32(value)))
+	}
+
 	return p.objectFile, nil
 }
 

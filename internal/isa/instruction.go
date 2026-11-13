@@ -277,3 +277,12 @@ func usesRegister(a Argument) bool {
 	}
 	return false
 }
+
+func PatchField(word uint32, bit, width int, value uint32) uint32 {
+	if bit < 0 || width <= 0 || bit+width > 32 {
+		panic(fmt.Sprintf("isa: invalid field bit=%d width=%d", bit, width))
+	}
+
+	mask := uint32((uint64(1)<<width - 1) << bit)
+	return word&^mask | (value<<bit)&mask
+}

@@ -1,17 +1,19 @@
 package linker
 
-import "github.com/Miwm64/ailurus/internal/assembler"
+import (
+	"github.com/Miwm64/ailurus/internal/isa"
+)
 
 type Linker interface {
-	addObjectFile(*assembler.ObjectFile)
+	addObjectFile(*isa.ObjectFile)
 	link() ([]byte, []ListingEntry, error)
 }
 
 type linker struct {
-	objectFiles []*assembler.ObjectFile
+	objectFiles []*isa.ObjectFile
 }
 
-func (l *linker) addObjectFile(objectFile *assembler.ObjectFile) {
+func (l *linker) addObjectFile(objectFile *isa.ObjectFile) {
 
 }
 
@@ -20,4 +22,7 @@ func (l *linker) link() ([]byte, []ListingEntry, error) {
 }
 
 type ListingEntry struct {
+	Address  uint32
+	Word     uint32
+	Mnemonic string
 }

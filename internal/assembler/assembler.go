@@ -39,20 +39,20 @@ const (
 )
 
 type fixup struct {
-	Relocation
+	isa.Relocation
 	lineIndex int
 }
 
 type assembler struct {
 	lineMap    map[int]int
 	lines      []string
-	objectFile *ObjectFile
+	objectFile *isa.ObjectFile
 
 	symbolIndex map[string]int // name -> index in objectFile.Symbols
 
 	dataCounter    int
 	textCounter    int
-	currentSection Section
+	currentSection isa.Section
 	currentLabel   string
 
 	lineIndex int
@@ -65,13 +65,13 @@ func newAssembler(source string, file string, lineMap map[int]int) *assembler {
 	return &assembler{
 		lineMap:        lineMap,
 		lines:          strings.Split(file, "\n"),
-		objectFile:     newObjectFile(source),
+		objectFile:     isa.NewObjectFile(source),
 		symbolIndex:    make(map[string]int),
-		currentSection: Text,
+		currentSection: isa.Text,
 	}
 }
 
-func (p *assembler) assemble() (*ObjectFile, error) {
+func (p *assembler) assemble() (*isa.ObjectFile, error) {
 	for i, line := range p.lines {
 		p.lineIndex = i
 		line = strings.TrimSpace(line)
@@ -88,7 +88,7 @@ func (p *assembler) assemble() (*ObjectFile, error) {
 
 	var undefined []string
 	for _, s := range p.objectFile.Symbols {
-		if s.Binding == Export && s.Section == "" {
+		if s.Binding == isa.Export && s.Section == "" {
 			undefined = append(undefined, s.Name)
 		}
 	}
@@ -105,7 +105,7 @@ func (p *assembler) assemble() (*ObjectFile, error) {
 		}
 
 		symbol := p.objectFile.Symbols[idx]
-		if f.Kind != PCRel16 || symbol.Binding == Import || symbol.Section != f.Section {
+		if f.Kind != isa.PCRel16 || symbol.Binding == isa.Import || symbol.Section != f.Section {
 			p.objectFile.Relocations = append(p.objectFile.Relocations, f.Relocation)
 			continue
 		}
@@ -182,9 +182,9 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 	directive := tokens[0]
 	dataSize := 0
 
-	if p.currentSection != Data {
+	if p.currentSection != isa.Data {
 		return fmt.Errorf("%w: %s is only allowed in %s, current section is %s",
-			ErrWrongSection, directive.Value, Data, p.currentSection)
+			ErrWrongSection, directive.Value, isa.Data, p.currentSection)
 	}
 
 	switch directive.Value {
@@ -199,7 +199,7 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		chars := stringToBytes(tokens[1].Value)
 		res := binary.LittleEndian.AppendUint32(nil, uint32(len(chars)))
 		res = append(res, bytesToWords(chars)...)
-		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
+		p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
 
 		dataSize = len(res)
 	case ".ref":
@@ -215,14 +215,14 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		}
 
 		res := make([]byte, 4)
-		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
+		p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
 
 		p.fixups = append(p.fixups, fixup{
-			Section:   Data,
+			Section:   isa.Data,
 			Offset:    p.dataCounter,
 			Bit:       0,
 			Width:     32,
-			Kind:      Abs32,
+			Kind:      isa.Abs32,
 			Symbol:    tokens[1].Value,
 			lineIndex: p.lineIndex,
 		})
@@ -256,12 +256,12 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 			}
 		}
 
-		p.objectFile.Sections[Data].writeAt(p.dataCounter, res)
+		p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
 		dataSize = len(res)
 	}
 
 	if p.dataCounter+dataSize > maxSectionSize {
-		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, Data, maxSectionSize)
+		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, isa.Data, maxSectionSize)
 	}
 
 	p.resolveLabel()
@@ -340,9 +340,9 @@ var aliases = map[string]string{
 }
 
 func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
-	if p.currentSection != Text {
+	if p.currentSection != isa.Text {
 		return fmt.Errorf("%w: instructions are only allowed in %s, current section is %s",
-			ErrWrongSection, Text, p.currentSection)
+			ErrWrongSection, isa.Text, p.currentSection)
 	}
 
 	if len(tokens) < 1 {
@@ -408,10 +408,10 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	}
 
 	if p.textCounter+4*len(words) > maxSectionSize {
-		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, Text, maxSectionSize)
+		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, isa.Text, maxSectionSize)
 	}
 
-	p.objectFile.Sections[Text].writeAt(p.textCounter, wordsToBytes(words))
+	p.objectFile.Sections[isa.Text].WriteAt(p.textCounter, wordsToBytes(words))
 	p.resolveLabel()
 	p.addLineToListing(p.textCounter)
 
@@ -421,11 +421,11 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 		}
 		pos := positions[i]
 		p.fixups = append(p.fixups, fixup{
-			Section:   Text,
+			Section:   isa.Text,
 			Offset:    p.textCounter + 4*pos.Word,
 			Bit:       pos.Offset,
 			Width:     pos.Width,
-			Kind:      relocationKind(op.arg.Mode),
+			Kind:      isa.ModeToRelocationKind(op.arg.Mode),
 			Symbol:    op.label,
 			PCNext:    p.textCounter + 4*len(words),
 			lineIndex: p.lineIndex,
@@ -494,7 +494,7 @@ func wordsToBytes(words []uint32) []byte {
 }
 
 func (p *assembler) addLineToListing(offset int) {
-	p.objectFile.Lines = append(p.objectFile.Lines, Line{
+	p.objectFile.Lines = append(p.objectFile.Lines, isa.Line{
 		Section: p.currentSection,
 		Offset:  offset,
 		Line:    p.lineMap[p.lineIndex],
@@ -508,7 +508,7 @@ func (p *assembler) resolveLabel() {
 	}
 
 	labelIndex := p.symbolIndex[p.currentLabel]
-	if p.currentSection == Text {
+	if p.currentSection == isa.Text {
 		p.objectFile.Symbols[labelIndex].Offset = p.textCounter
 	} else {
 		p.objectFile.Symbols[labelIndex].Offset = p.dataCounter
@@ -528,9 +528,9 @@ func (p *assembler) handleLabel(labelName string) error {
 
 	if i, ok := p.symbolIndex[labelName]; ok {
 		switch p.objectFile.Symbols[i].Binding {
-		case Import:
+		case isa.Import:
 			return fmt.Errorf("%w: %s is imported, cannot be defined", ErrSymbolConflict, labelName)
-		case Local:
+		case isa.Local:
 			return fmt.Errorf("%w: %s is already defined", ErrSymbolConflict, labelName)
 		}
 
@@ -546,9 +546,9 @@ func (p *assembler) handleLabel(labelName string) error {
 	p.currentLabel = labelName
 	p.labelLine = p.lineIndex
 	p.symbolIndex[labelName] = len(p.objectFile.Symbols)
-	p.objectFile.Symbols = append(p.objectFile.Symbols, Symbol{
+	p.objectFile.Symbols = append(p.objectFile.Symbols, isa.Symbol{
 		Name:    labelName,
-		Binding: Local,
+		Binding: isa.Local,
 	})
 	return nil
 }
@@ -569,7 +569,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		if argument.Value != "data" && argument.Value != "text" {
 			return fmt.Errorf("%w: expected 'data' or 'text', got %s", ErrUnknownSection, argument.Value)
 		}
-		p.currentSection = Section(argument.Value)
+		p.currentSection = isa.Section(argument.Value)
 	case ".org":
 		if argument.Kind != tokenizer.NUMBER {
 			return fmt.Errorf("%w: %s expects number, got %s", ErrArgumentKind, directive.Value, argument.Kind)
@@ -583,7 +583,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 			return fmt.Errorf("%w: %s %d exceeds %d", ErrNumberRange, directive.Value, val, maxSectionSize)
 		}
 
-		if p.currentSection == Text {
+		if p.currentSection == isa.Text {
 			p.textCounter = int(val)
 		} else {
 			p.dataCounter = int(val)
@@ -598,16 +598,16 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		}
 
 		if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
-			if p.objectFile.Symbols[labelIndex].Binding != Import {
+			if p.objectFile.Symbols[labelIndex].Binding != isa.Import {
 				return fmt.Errorf("%w: %s is defined in this file, cannot be imported", ErrSymbolConflict, argument.Value)
 			}
 			return nil // repeated import: allowed
 		}
 
 		p.symbolIndex[argument.Value] = len(p.objectFile.Symbols)
-		p.objectFile.Symbols = append(p.objectFile.Symbols, Symbol{
+		p.objectFile.Symbols = append(p.objectFile.Symbols, isa.Symbol{
 			Name:    argument.Value,
-			Binding: Import,
+			Binding: isa.Import,
 		})
 	case ".export":
 		if argument.Kind != tokenizer.NAME {
@@ -619,21 +619,21 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		}
 
 		if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
-			if p.objectFile.Symbols[labelIndex].Binding == Import {
+			if p.objectFile.Symbols[labelIndex].Binding == isa.Import {
 				return fmt.Errorf("%w: %s is imported in this file, cannot be exported", ErrSymbolConflict, argument.Value)
 			}
 
-			if p.objectFile.Symbols[labelIndex].Binding == Local {
-				p.objectFile.Symbols[labelIndex].Binding = Export
+			if p.objectFile.Symbols[labelIndex].Binding == isa.Local {
+				p.objectFile.Symbols[labelIndex].Binding = isa.Export
 			}
 
 			return nil // repeated export: allowed
 		}
 
 		p.symbolIndex[argument.Value] = len(p.objectFile.Symbols)
-		p.objectFile.Symbols = append(p.objectFile.Symbols, Symbol{
+		p.objectFile.Symbols = append(p.objectFile.Symbols, isa.Symbol{
 			Name:    argument.Value,
-			Binding: Export,
+			Binding: isa.Export,
 		})
 	default:
 		return fmt.Errorf("%w: %q", ErrUnknownDirective, directive.Value)

@@ -2,7 +2,15 @@ package linker
 
 import "github.com/Miwm64/ailurus/internal/isa"
 
-type Linker interface {
-	AddObjectFile(*isa.ObjectFile)
-	Link() ([]byte, []ListingEntry, error)
+func Link(objs []*isa.ObjectFile) ([]byte, []ListingEntry, error) {
+	l := linker{
+		objectFiles: objs,
+	}
+
+	err := l.firstPass()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return nil, nil, nil
 }

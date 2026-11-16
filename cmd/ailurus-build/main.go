@@ -11,6 +11,12 @@ import (
 )
 
 func main() {
+	_, err := parseConfig()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	testFile := "obj.asm"
 	test, err := io.ReadFile("programs/" + testFile)
 	if err != nil {

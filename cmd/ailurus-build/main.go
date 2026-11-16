@@ -37,12 +37,10 @@ func main() {
 		fmt.Println(err)
 	}
 
-	bin, entries, err := linker.Link([]*isa.ObjectFile{objectFile})
+	_, _, err = linker.Link([]*isa.ObjectFile{objectFile})
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("%s\n", bin)
-	fmt.Printf("%s\n", entries)
 
 }

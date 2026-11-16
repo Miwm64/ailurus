@@ -13,6 +13,7 @@ var (
 )
 
 type config struct {
+	inputFiles  []string
 	outputFile  string
 	listingFile string
 	defines     map[string]string
@@ -40,9 +41,12 @@ func parseConfig() (config, error) {
 		return nil
 	})
 	flag.Parse()
-
 	cfg.stdlib = !noStdlib
+	cfg.inputFiles = flag.Args()
+
 	switch {
+	case len(cfg.inputFiles) == 0:
+		return config{}, errNoInput
 	case flag.NArg() == 0:
 		return config{}, errNoInput
 	case cfg.assembleOnly && cfg.preprocessOnly:

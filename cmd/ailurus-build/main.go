@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/Miwm64/ailurus/internal/assembler"
 	"github.com/Miwm64/ailurus/internal/io"
@@ -11,41 +13,44 @@ import (
 )
 
 func main() {
-	_, err := parseConfig()
+	cfg, err := parseConfig()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	testFile := "obj.asm"
-	test, err := io.ReadFile("programs/" + testFile)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	res, lineMap, err := preprocessor.Preprocess(test, make(map[string]string))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	err = io.WriteFile("programs/obj_res.asm", res)
-	if err != nil {
-		fmt.Println(err)
+	objects := make([]*isa.ObjectFile, 0)
+	var errs []error
+
+	for _, file := range cfg.inputFiles {
+		test, err := io.ReadFile(file)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		res, lineMap, err := preprocessor.Preprocess(test, cfg.defines)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		objectFile, err := assembler.Assemble(file, res, lineMap)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		objects = append(objects, objectFile)
 	}
 
-	objectFile, err := assembler.Assemble(testFile, res, lineMap)
-	if err != nil {
-		fmt.Println(err)
+	if err := errors.Join(errs...); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		return
 	}
-	err = io.WriteJSON("programs/obj.o", objectFile)
-	if err != nil {
-		fmt.Println(err)
-	}
 
-	_, _, err = linker.Link([]*isa.ObjectFile{objectFile})
+	_, _, err = linker.Link(objects)
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		return
 	}
 

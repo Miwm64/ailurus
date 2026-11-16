@@ -1,8 +1,7 @@
 .import print
-.export _start
 .section text
 .org 0x10
-_start :
+start :
 mov r1 , ( @ msg )
 call print
 loop :

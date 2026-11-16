@@ -5,6 +5,8 @@ import (
 
 	"github.com/Miwm64/ailurus/internal/assembler"
 	"github.com/Miwm64/ailurus/internal/io"
+	"github.com/Miwm64/ailurus/internal/isa"
+	"github.com/Miwm64/ailurus/internal/linker"
 	"github.com/Miwm64/ailurus/internal/preprocessor"
 )
 
@@ -34,5 +36,13 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	bin, entries, err := linker.Link([]*isa.ObjectFile{objectFile})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("%s\n", bin)
+	fmt.Printf("%s\n", entries)
 
 }

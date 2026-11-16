@@ -9,6 +9,7 @@ import (
 
 var (
 	ErrDuplicateExport = errors.New("duplicate export")
+	ErrNoStart         = errors.New("no exported _start")
 )
 
 type bases struct {
@@ -56,9 +57,19 @@ func (p *linker) firstPass() error {
 			}
 			p.globals[s.Name] = symRef{file: i, sec: s.Section, off: uint32(s.Offset)}
 		}
-
 	}
-	return nil
+
+	dataStart := align4(dataRel)
+
+	for _, b := range p.base {
+		b.data += dataStart
+	}
+	p.size = dataStart + dataRel
+
+	if _, ok := p.globals["_start"]; !ok {
+		errs = append(errs, ErrNoStart)
+	}
+	return errors.Join(errs...)
 }
 
 func align4(number uint32) uint32 {

@@ -14,6 +14,7 @@ import (
 	"github.com/Miwm64/ailurus/internal/isa"
 	"github.com/Miwm64/ailurus/internal/linker"
 	"github.com/Miwm64/ailurus/internal/preprocessor"
+	"github.com/Miwm64/ailurus/internal/stdlib"
 )
 
 func main() {
@@ -75,7 +76,7 @@ func main() {
 	}
 
 	if cfg.stdlib && linking {
-		res, lineMap, err := preprocessor.Preprocess("", map[string]string{})
+		res, lineMap, err := preprocessor.Preprocess(stdlib.Source, map[string]string{})
 		if err != nil {
 			errs = append(errs, err)
 		} else if lib, err := assembler.Assemble("stdlib", res, lineMap); err != nil {

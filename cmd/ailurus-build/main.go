@@ -5,6 +5,8 @@ import (
 
 	"github.com/Miwm64/ailurus/internal/assembler"
 	"github.com/Miwm64/ailurus/internal/io"
+	"github.com/Miwm64/ailurus/internal/isa"
+	"github.com/Miwm64/ailurus/internal/linker"
 	"github.com/Miwm64/ailurus/internal/preprocessor"
 )
 
@@ -33,6 +35,12 @@ func main() {
 	err = io.WriteJSON("programs/obj.o", objectFile)
 	if err != nil {
 		fmt.Println(err)
+	}
+
+	_, _, err = linker.Link([]*isa.ObjectFile{objectFile})
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 
 }

@@ -1,9 +1,7 @@
-package assembler
+package isa
 
 import (
 	"encoding/hex"
-
-	"github.com/Miwm64/ailurus/internal/isa"
 )
 
 type Section string
@@ -64,7 +62,7 @@ type Line struct {
 
 type HexBytes []byte
 
-func (p *HexBytes) writeAt(offset int, data []byte) {
+func (p *HexBytes) WriteAt(offset int, data []byte) {
 	if end := offset + len(data); end > len(*p) {
 		*p = append(*p, make([]byte, end-len(*p))...)
 	}
@@ -72,7 +70,7 @@ func (p *HexBytes) writeAt(offset int, data []byte) {
 	copy((*p)[offset:], data)
 }
 
-func newObjectFile(source string) *ObjectFile {
+func NewObjectFile(source string) *ObjectFile {
 	return &ObjectFile{
 		Version: 1,
 		Source:  source,
@@ -95,13 +93,13 @@ func (h *HexBytes) UnmarshalText(text []byte) error {
 	return err
 }
 
-func relocationKind(argumentMode isa.Mode) RelocationKind {
+func ModeToRelocationKind(argumentMode Mode) RelocationKind {
 	switch argumentMode {
-	case isa.PCRelative:
+	case PCRelative:
 		return PCRel16
-	case isa.DirectMemory:
+	case DirectMemory:
 		return Abs32
-	case isa.Immediate:
+	case Immediate:
 		return Imm16
 	default:
 		panic("invalid argument mode")

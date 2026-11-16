@@ -1,3 +1,5 @@
+![CI](https://github.com/Miwm64/ailurus/actions/workflows/ci.yml/badge.svg)
+
 # Ailurus
 Author: Mikhail Dobkes
 

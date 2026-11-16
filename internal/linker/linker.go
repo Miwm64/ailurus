@@ -40,11 +40,11 @@ func (p *linker) firstPass() error {
 	for i, o := range p.objectFiles {
 		textCurr = align4(textCurr)
 		p.base[i].text = textCurr
-		textCurr += uint32(len(*o.Sections["text"]))
+		textCurr += uint32(len(*o.Sections[isa.Text]))
 
 		dataRel = align4(dataRel)
 		p.base[i].data = dataRel
-		dataRel += uint32(len(*o.Sections["data"]))
+		dataRel += uint32(len(*o.Sections[isa.Data]))
 
 		for _, s := range o.Symbols {
 			if s.Binding != isa.Export {
@@ -59,10 +59,10 @@ func (p *linker) firstPass() error {
 		}
 	}
 
-	dataStart := align4(dataRel)
+	dataStart := align4(textCurr)
 
-	for _, b := range p.base {
-		b.data += dataStart
+	for i := range p.base {
+		p.base[i].data += dataStart
 	}
 	p.size = dataStart + dataRel
 

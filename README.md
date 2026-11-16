@@ -21,6 +21,10 @@ Assembly language, which supports labels, sections, user-defined macros, constan
 The project supports separate translation. \
 The linker resolves symbols across translation units using symbol tables and address relocation. 
 
+### Standard library
+Project includes stdlib, which provides helper function for string manipulations and IO
+
+
 ### ISA
 The VM implements a CISC instruction set with complex instructions:
 - Arithmetic operations that take operands from both registers and memory in a single instruction.

@@ -12,5 +12,5 @@ func Link(objs []*isa.ObjectFile) ([]byte, []ListingEntry, error) {
 		return nil, nil, err
 	}
 
-	return nil, nil, nil
+	return l.secondPass()
 }

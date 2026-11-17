@@ -137,7 +137,7 @@ func formatJournal(records []vm.Record, jc journalConfig, source map[uint32]stri
 			b.WriteString(r.TickLine() + "\n")
 		}
 		if r.InstrDone {
-			b.WriteString(r.InstrLine(source[r.InstrAddr]) + "\n")
+			b.WriteString(r.InstructionLine(source[r.InstrAddr]) + "\n")
 		}
 	}
 	return b.String()

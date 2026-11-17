@@ -58,7 +58,7 @@ type cacheMemory struct {
 	plru    uint16 // 15 tree bits
 	state   cacheState
 	effAddr uint32
-	filled  uint8  // words filled so far
+	filled  uint8 // words filled so far
 	victim  uint8
 }
 
@@ -70,10 +70,10 @@ func (p *cacheMemory) control(req memReq, hit, ramDone bool) cacheSignals {
 	panic("TODO")
 }
 
-func (p *cacheMemory) compute(req memReq) memOut {
+func (p *cacheMemory) outputs(req memReq) memOut {
 	panic("TODO")
 }
 
-func (p *cacheMemory) latch(req memReq) {
+func (p *cacheMemory) clock(req memReq) {
 	panic("TODO")
 }

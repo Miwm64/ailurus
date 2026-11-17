@@ -1,6 +1,9 @@
 package vm
 
-// TODO: match the scheme's ALU operation list (docs: "TODO: ALU operations").
+import (
+	"math/bits"
+)
+
 type aluOp uint8
 
 const (
@@ -27,6 +30,11 @@ const (
 	aluMod
 )
 
+const (
+	wordBits = 32
+	signBit  = wordBits - 1
+)
+
 type flags struct {
 	n, z, v, c bool
 }
@@ -47,6 +55,38 @@ type aluOut struct {
 	divZero bool
 }
 
-func alu(op aluOp, a, b uint32, carry bool) aluOut {
-	panic("TODO")
+func arithm(op aluOp, a, b uint32, carry bool) aluOut {
+	var cin uint32
+	if carry {
+		cin = 1
+	}
+
+	switch op {
+	case aluAdd:
+		return add(a, b, 0)
+	case aluAddC:
+		return add(a, b, cin)
+	case aluInc:
+		return add(a, 1, 0)
+	case aluSub:
+		return sub(a, b, 0)
+	case aluSubC:
+		return sub(a, b, cin)
+	case aluDec:
+		return sub(a, 1, 0)
+	default: // aluNeg
+		return sub(0, a, 0)
+	}
+}
+
+func add(a, b, cin uint32) aluOut {
+	r, c := bits.Add32(a, b, cin)
+	v := ((a ^ r) & (b ^ r)) >> signBit
+	return aluOut{result: r, flags: flags{v: v == 1, c: c == 1}}
+}
+
+func sub(a, b, bin uint32) aluOut {
+	r, borrow := bits.Sub32(a, b, bin)
+	v := ((a ^ b) & (a ^ r)) >> signBit
+	return aluOut{result: r, flags: flags{v: v == 1, c: borrow == 1}}
 }

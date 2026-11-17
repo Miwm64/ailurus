@@ -86,34 +86,23 @@ func (p *Instruction) encodeF0() ([]uint32, []EncodedPosition, error) {
 }
 
 func nextFitPackArguments(arguments []Argument, mainWord uint32, mainWordSize int) ([]uint32, []EncodedPosition, error) {
+	modes := make([]Mode, len(arguments))
+	for i, a := range arguments {
+		modes[i] = a.Mode
+	}
+	positions := layout(mainWordSize, modes)
+
 	words := []uint32{mainWord}
-	positions := make([]EncodedPosition, 0, len(arguments))
-
-	current := 0
-	used := 0
-	limit := mainWordSize
-
 	for i, a := range arguments {
 		bits, err := a.Bits()
 		if err != nil {
 			return nil, nil, fmt.Errorf("argument %d: %w", i+1, err)
 		}
-		width := a.Mode.Width()
-
-		if used+width > limit {
+		at := positions[i]
+		if at.Word == len(words) {
 			words = append(words, 0)
-			current = len(words) - 1
-			used = 0
-			limit = capacity
 		}
-
-		words[current] |= bits << used
-		positions = append(positions, EncodedPosition{
-			Word:   current,
-			Offset: used,
-			Width:  width,
-		})
-		used += width
+		words[at.Word] |= bits << at.Offset
 	}
 
 	return words, positions, nil

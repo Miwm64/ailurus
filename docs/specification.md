@@ -11,6 +11,10 @@
 - RAM reads/writes any 4 consecutive bytes in one access. All data accesses are 32-bit words.
 - Code and data should be aligned to 4: unaligned accesses work, but bypass the cache (see [Cache](#cache)).
 
+### PS layout
+`[7] N  [6] Z  [5] V  [4] C  [2] IE`, other bits 0. IE is bit 2 so `ei` loads it with the
+`data_mux` constant 4.
+
 ### Operand modes
 
 | # | Mode               | Syntax                  | Operand size (bits) | Notes                                                        |
@@ -182,15 +186,16 @@ if irq_pending == 1 and IE == 1:
 - 16 lines × 16 bytes, fully associative, tree-PLRU replacement.
 - Write-through, no-allocate on write miss.
 - Reset clears all valid bits.
+- Modeled at the controller-FSM level: each state's action follows the FSM table below.
 
-| ID | Access              | Action                                                                                       | Ticks | Tick notes                               |
-|----|---------------------|----------------------------------------------------------------------------------------------|-------|------------------------------------------|
-| R1 | Aligned read, hit   | Return word from `data_array` (picked by `addr[3:2]`)                                        | 1     | cache access                             |
-| R2 | Aligned read, miss  | Pick victim (invalid first, then tree-PLRU), burst-fill line, write tag + valid, return word | 14    | 10 first word + 3×1 burst + 1 cache read |
-| R3 | Unaligned read      | Bypass: single RAM read, cache untouched                                                     | 10    | one RAM access                           |
-| W1 | Aligned write, hit  | Write word to `data_array` and RAM                                                           | 10    | RAM write; cache write in parallel       |
-| W2 | Aligned write, miss | Write to RAM only                                                                            | 10    | one RAM access                           |
-| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 10–12 | RAM write + 1 tick per invalidated line  |
+| ID | Access              | Action                                                                                       | Ticks | Tick notes                                      |
+|----|---------------------|----------------------------------------------------------------------------------------------|-------|-------------------------------------------------|
+| R1 | Aligned read, hit   | Return word from `data_array` (picked by `addr[3:2]`)                                        | 1     | cache access                                    |
+| R2 | Aligned read, miss  | Pick victim (invalid first, then tree-PLRU), burst-fill line, write tag + valid, return word | 15    | IDLE + 10 first word + 3×1 burst + 1 cache read |
+| R3 | Unaligned read      | Bypass: single RAM read, cache untouched                                                     | 11    | IDLE + one RAM access                           |
+| W1 | Aligned write, hit  | Write word to `data_array` and RAM                                                           | 11    | IDLE + RAM write; cache write in parallel       |
+| W2 | Aligned write, miss | Write to RAM only                                                                            | 11    | IDLE + one RAM access                           |
+| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 12–13 | IDLE + RAM write + 1 tick per invalidated line  |
 
 ### Instruction formats
 
@@ -719,6 +724,7 @@ ailurus-run prog.bin [-l prog.lst] [-c config.yaml]
 | Flag      | Meaning                                                             |
 |-----------|---------------------------------------------------------------------|
 | `-l FILE` | file from `ailurus-build`: maps addresses to source for the journal |
+| `-j FILE` | journal output file                                                 |
 | `-c FILE` | simulator config                                                    |
 
 Output: the output buffer and the journal.
@@ -731,6 +737,10 @@ tick_limit: 100000
 input:              # interrupt schedule: [tick, char]
   - [10, "h"]
   - [25, "i"]
+journal:
+  mode: tick      # instr | tick
+  from_tick: 0     # tick lines only inside [from_tick, to_tick]
+  to_tick: 400
 ```
 
 ### Datapath
@@ -747,7 +757,35 @@ input:              # interrupt schedule: [tick, char]
   port 0 and raises `request_interrupt`.
 - To CU: `ready`, `div_zero`, PS, MDR, `request_interrupt`.
 
-TODO: ALU operations
+#### ALU operations
+
+`alu_op` — 5 bits. Inputs: A (ALU_A_MUX), B (ALU_B_MUX), carry-in (PS.C).
+
+| Op       | Result                     | Used by                                                                                              |
+|----------|----------------------------|------------------------------------------------------------------------------------------------------|
+| `pass_a` | A                          | PC push (`call`, interrupt entry); memory operand via MDR (PS ← stack on `iret`); register via out_a |
+| `pass_b` | B                          | immediate; `clr` (B = 0); IO data (`in`); PS push (interrupt entry); register via out_b; TMP         |
+| `add`    | A + B                      | `add`, `addm`, addresses, `(r)+`, stack pop                                                          |
+| `addc`   | A + B + C                  | `addc`                                                                                               |
+| `sub`    | A − B                      | `sub`, `cmp`, `-(r)`, stack push                                                                     |
+| `subc`   | A − B − C                  | `subc`                                                                                               |
+| `inc`    | A + 1                      | `inc`                                                                                                |
+| `dec`    | A − 1                      | `dec`                                                                                                |
+| `neg`    | −A                         | `neg`                                                                                                |
+| `and`    | A & B                      | `and`, `test`                                                                                        |
+| `or`     | A \| B                     | `or`                                                                                                 |
+| `xor`    | A ^ B                      | `xor`                                                                                                |
+| `not`    | ~A                         | `not`                                                                                                |
+| `lsl`    | A << (B mod 32)            | `lsl`, `asl`                                                                                         |
+| `lsr`    | A >> (B mod 32), zero-fill | `lsr`                                                                                                |
+| `asr`    | A >> (B mod 32), sign-fill | `asr`                                                                                                |
+| `mull`   | (A × B) [31:0]             | `mull`                                                                                               |
+| `mulh`   | (A × B) [63:32], signed    | `mulh`                                                                                               |
+| `umulh`  | (A × B) [63:32], unsigned  | `umulh`                                                                                              |
+| `div`    | A / B, signed, truncated   | `div`                                                                                                |
+| `mod`    | A % B, signed              | `mod`                                                                                                |
+
+- `div`/`mod` with B = 0: `div_zero` = 1, no division.
 
 ### ControlUnit
 
@@ -809,3 +847,5 @@ Controller FSM:
 | `WRITE`    | `ram_op = write` at `addr`; aligned hit — also write data_array; on `ram_done`: aligned → `ready`  | aligned → `IDLE`; unaligned → `INV1`                             |
 | `INV1`     | compare `addr`; hit → clear valid                                                                  | spans 2 lines → `INV2`; otherwise → `IDLE`                       |
 | `INV2`     | compare `addr + 4`; hit → clear valid; `ready`. For unaligned writes spanning 2 lines              | `IDLE`                                                           |
+
+- `ram_op` depends only on the FSM state: a RAM access starts in the state after IDLE.

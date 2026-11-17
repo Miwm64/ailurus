@@ -49,17 +49,17 @@ func handleConditions(
 	tokens []tokenizer.Token,
 	skips []conditionFrame,
 	defines map[string]string,
-) (string, []conditionFrame, error) {
+) ([]conditionFrame, error) {
 	directive := tokens[0].Value
 
 	switch directive {
 	case "#ifdef", "#ifndef":
-		if len(tokens) < 2 || tokens[1].Kind != tokenizer.NAME {
-			return "", skips, fmt.Errorf("%w after %s", ErrExpectedName, directive)
+		if len(tokens) < 2 || tokens[1].Kind != tokenizer.Name {
+			return skips, fmt.Errorf("%w after %s", ErrExpectedName, directive)
 		}
 
 		if len(tokens) > 2 {
-			return "", skips, fmt.Errorf("%w after %s %s", ErrUnexpectedArgs, directive, tokens[1].Value)
+			return skips, fmt.Errorf("%w after %s %s", ErrUnexpectedArgs, directive, tokens[1].Value)
 		}
 
 		_, defined := defines[tokens[1].Value]
@@ -73,16 +73,16 @@ func handleConditions(
 
 	case "#else":
 		if len(tokens) != 1 {
-			return "", skips, fmt.Errorf("%w after %s", ErrUnexpectedArgs, directive)
+			return skips, fmt.Errorf("%w after %s", ErrUnexpectedArgs, directive)
 		}
 
 		if len(skips) == 0 {
-			return "", skips, ErrElseWithoutIf
+			return skips, ErrElseWithoutIf
 		}
 
 		top := &skips[len(skips)-1]
 		if top.elseUsed {
-			return "", skips, ErrDuplicateElse
+			return skips, ErrDuplicateElse
 		}
 
 		top.skip = !top.skip
@@ -90,20 +90,20 @@ func handleConditions(
 
 	case "#endif":
 		if len(tokens) != 1 {
-			return "", skips, fmt.Errorf("%w after %s", ErrUnexpectedArgs, directive)
+			return skips, fmt.Errorf("%w after %s", ErrUnexpectedArgs, directive)
 		}
 
 		if len(skips) == 0 {
-			return "", skips, ErrEndifWithoutIf
+			return skips, ErrEndifWithoutIf
 		}
 
 		skips = skips[:len(skips)-1]
 
 	default:
-		return "", skips, fmt.Errorf("%w: %s", ErrUnknownDirective, directive)
+		return skips, fmt.Errorf("%w: %s", ErrUnknownDirective, directive)
 	}
 
-	return "", skips, nil
+	return skips, nil
 }
 
 // no open macro

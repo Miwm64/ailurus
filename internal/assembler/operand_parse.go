@@ -24,19 +24,19 @@ func parseOperand(tokens []tokenizer.Token) (operand, error) {
 	}
 
 	// -(rX)
-	if match(tokens, tokenizer.MINUS, tokenizer.LPAREN, tokenizer.NAME, tokenizer.RPAREN) {
+	if match(tokens, tokenizer.Minus, tokenizer.LParen, tokenizer.Name, tokenizer.RParen) {
 		if reg, ok := parseRegister(tokens[2].Value); ok {
 			return operand{arg: isa.Argument{Mode: isa.PreDecrement, Value: reg}}, nil
 		}
 	}
 
 	// @name
-	if match(tokens, tokenizer.AT, tokenizer.NAME) {
+	if match(tokens, tokenizer.At, tokenizer.Name) {
 		return labelOperand(isa.PCRelative, tokens[1].Value, true)
 	}
 
 	// rX or name
-	if match(tokens, tokenizer.NAME) {
+	if match(tokens, tokenizer.Name) {
 		if reg, ok := parseRegister(tokens[0].Value); ok {
 			return operand{arg: isa.Argument{Mode: isa.Register, Value: reg}}, nil
 		}
@@ -46,7 +46,7 @@ func parseOperand(tokens []tokenizer.Token) (operand, error) {
 
 	// number, -number, "c"
 	switch tokens[0].Kind {
-	case tokenizer.NUMBER, tokenizer.MINUS, tokenizer.STRING:
+	case tokenizer.Number, tokenizer.Minus, tokenizer.String:
 		val, used, err := parseValue(tokens)
 		if err != nil {
 			return operand{}, err
@@ -59,7 +59,7 @@ func parseOperand(tokens []tokenizer.Token) (operand, error) {
 		return operand{arg: isa.Argument{Mode: isa.Immediate, Value: int(val)}}, nil
 	}
 
-	if tokens[0].Kind == tokenizer.LPAREN {
+	if tokens[0].Kind == tokenizer.LParen {
 		return parseMemoryOperand(tokens)
 	}
 
@@ -70,11 +70,11 @@ func parseOperand(tokens []tokenizer.Token) (operand, error) {
 func parseMemoryOperand(tokens []tokenizer.Token) (operand, error) {
 	switch {
 	// (@name)
-	case match(tokens, tokenizer.LPAREN, tokenizer.AT, tokenizer.NAME, tokenizer.RPAREN):
+	case match(tokens, tokenizer.LParen, tokenizer.At, tokenizer.Name, tokenizer.RParen):
 		return labelOperand(isa.PCRelative, tokens[2].Value, false)
 
 	// (number)
-	case match(tokens, tokenizer.LPAREN, tokenizer.NUMBER, tokenizer.RPAREN):
+	case match(tokens, tokenizer.LParen, tokenizer.Number, tokenizer.RParen):
 		val, err := parseNumber(tokens[1].Value)
 		if err != nil {
 			return operand{}, err
@@ -83,7 +83,7 @@ func parseMemoryOperand(tokens []tokenizer.Token) (operand, error) {
 		return operand{arg: isa.Argument{Mode: isa.DirectMemory, Value: int(val)}}, nil
 
 	// (rX), (name)
-	case match(tokens, tokenizer.LPAREN, tokenizer.NAME, tokenizer.RPAREN):
+	case match(tokens, tokenizer.LParen, tokenizer.Name, tokenizer.RParen):
 		if reg, ok := parseRegister(tokens[1].Value); ok {
 			return operand{arg: isa.Argument{Mode: isa.RegisterIndirect, Value: reg}}, nil
 		}
@@ -91,14 +91,14 @@ func parseMemoryOperand(tokens []tokenizer.Token) (operand, error) {
 		return labelOperand(isa.DirectMemory, tokens[1].Value, false)
 
 	// (rX)+
-	case match(tokens, tokenizer.LPAREN, tokenizer.NAME, tokenizer.RPAREN, tokenizer.PLUS):
+	case match(tokens, tokenizer.LParen, tokenizer.Name, tokenizer.RParen, tokenizer.Plus):
 		if reg, ok := parseRegister(tokens[1].Value); ok {
 			return operand{arg: isa.Argument{Mode: isa.PostIncrement, Value: reg}}, nil
 		}
 
 	// (rX+n), (rX-n)
-	case match(tokens, tokenizer.LPAREN, tokenizer.NAME, tokenizer.PLUS, tokenizer.NUMBER, tokenizer.RPAREN),
-		match(tokens, tokenizer.LPAREN, tokenizer.NAME, tokenizer.MINUS, tokenizer.NUMBER, tokenizer.RPAREN):
+	case match(tokens, tokenizer.LParen, tokenizer.Name, tokenizer.Plus, tokenizer.Number, tokenizer.RParen),
+		match(tokens, tokenizer.LParen, tokenizer.Name, tokenizer.Minus, tokenizer.Number, tokenizer.RParen):
 		reg, ok := parseRegister(tokens[1].Value)
 		if !ok {
 			break
@@ -109,7 +109,7 @@ func parseMemoryOperand(tokens []tokenizer.Token) (operand, error) {
 			return operand{}, err
 		}
 
-		if tokens[2].Kind == tokenizer.MINUS {
+		if tokens[2].Kind == tokenizer.Minus {
 			off = -off
 		}
 

@@ -137,7 +137,7 @@ func (p *assembler) handleLine(line string) error {
 	// label
 	hasLabel := false
 
-	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
+	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.Name && tokens[1].Kind == tokenizer.Colon {
 		err := p.handleLabel(tokens[0].Value)
 		if err != nil {
 			return err
@@ -147,7 +147,7 @@ func (p *assembler) handleLine(line string) error {
 		hasLabel = true
 	}
 
-	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
+	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.Name && tokens[1].Kind == tokenizer.Colon {
 		return fmt.Errorf("%w: %s defined on the same line as %s", ErrMultipleLabels, tokens[0].Value, p.currentLabel)
 	}
 
@@ -157,7 +157,7 @@ func (p *assembler) handleLine(line string) error {
 
 	// main part
 	switch tokens[0].Kind {
-	case tokenizer.ASSEMBLER_DIRECTIVE:
+	case tokenizer.AssemblerDirective:
 		switch tokens[0].Value {
 		case ".word", ".pstr", ".ref":
 			err := p.handleData(tokens)
@@ -179,7 +179,7 @@ func (p *assembler) handleLine(line string) error {
 				return err
 			}
 		}
-	case tokenizer.NAME:
+	case tokenizer.Name:
 		err := p.handleInstruction(tokens)
 		if err != nil {
 			return err
@@ -206,12 +206,12 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 			return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
 		}
 
-		if tokens[1].Kind != tokenizer.STRING {
+		if tokens[1].Kind != tokenizer.String {
 			return fmt.Errorf(
 				"%w: %s expects %s, got %s",
 				ErrArgumentKind,
 				directive.Value,
-				tokenizer.STRING,
+				tokenizer.String,
 				tokens[1].Kind,
 			)
 		}
@@ -227,12 +227,12 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 			return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
 		}
 
-		if tokens[1].Kind != tokenizer.NAME {
+		if tokens[1].Kind != tokenizer.Name {
 			return fmt.Errorf(
 				"%w: %s expects %s, got %s",
 				ErrArgumentKind,
 				directive.Value,
-				tokenizer.NAME,
+				tokenizer.Name,
 				tokens[1].Kind,
 			)
 		}
@@ -276,14 +276,14 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 				break
 			}
 
-			if args[i].Kind != tokenizer.COMMA {
+			if args[i].Kind != tokenizer.Comma {
 				return fmt.Errorf("%w: %s expects %s between values, got %s %q",
-					ErrUnexpectedToken, directive.Value, tokenizer.COMMA, args[i].Kind, args[i].Value)
+					ErrUnexpectedToken, directive.Value, tokenizer.Comma, args[i].Kind, args[i].Value)
 			}
 
 			i++
 			if i == len(args) {
-				return fmt.Errorf("%w: %s ends with %s", ErrUnexpectedToken, directive.Value, tokenizer.COMMA)
+				return fmt.Errorf("%w: %s ends with %s", ErrUnexpectedToken, directive.Value, tokenizer.Comma)
 			}
 		}
 
@@ -304,19 +304,19 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 
 func parseValue(tokens []tokenizer.Token) (int64, int, error) {
 	switch tokens[0].Kind {
-	case tokenizer.NUMBER:
+	case tokenizer.Number:
 		val, err := parseNumber(tokens[0].Value)
 
 		return val, 1, err
-	case tokenizer.MINUS:
-		if len(tokens) < 2 || tokens[1].Kind != tokenizer.NUMBER {
-			return 0, 0, fmt.Errorf("%w: %s must be followed by %s", ErrArgumentKind, tokenizer.MINUS, tokenizer.NUMBER)
+	case tokenizer.Minus:
+		if len(tokens) < 2 || tokens[1].Kind != tokenizer.Number {
+			return 0, 0, fmt.Errorf("%w: %s must be followed by %s", ErrArgumentKind, tokenizer.Minus, tokenizer.Number)
 		}
 
 		val, err := parseNumber("-" + tokens[1].Value)
 
 		return val, 2, err
-	case tokenizer.STRING:
+	case tokenizer.String:
 		chars := stringToBytes(tokens[0].Value)
 		if len(chars) != 1 {
 			return 0, 0, fmt.Errorf("%w: char literal %q must be exactly 1 character", ErrArgumentKind, tokens[0].Value)
@@ -388,7 +388,7 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 		return nil
 	}
 
-	if tokens[0].Kind != tokenizer.NAME {
+	if tokens[0].Kind != tokenizer.Name {
 		return fmt.Errorf("%w: expected name, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
 	}
 
@@ -419,7 +419,7 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	}
 
 	for i := 1; i < len(tokens); i++ {
-		if tokens[i].Kind == tokenizer.COMMA {
+		if tokens[i].Kind == tokenizer.Comma {
 			err := addOperand(tokens[prev:i])
 			if err != nil {
 				return err
@@ -623,7 +623,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 
 	switch directive.Value {
 	case ".section":
-		if argument.Kind != tokenizer.NAME {
+		if argument.Kind != tokenizer.Name {
 			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
 		}
 
@@ -633,7 +633,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 
 		p.currentSection = isa.Section(argument.Value)
 	case ".org":
-		if argument.Kind != tokenizer.NUMBER {
+		if argument.Kind != tokenizer.Number {
 			return fmt.Errorf("%w: %s expects number, got %s", ErrArgumentKind, directive.Value, argument.Kind)
 		}
 
@@ -653,7 +653,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		}
 
 	case ".import":
-		if argument.Kind != tokenizer.NAME {
+		if argument.Kind != tokenizer.Name {
 			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
 		}
 
@@ -679,7 +679,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 			Binding: isa.Import,
 		})
 	case ".export":
-		if argument.Kind != tokenizer.NAME {
+		if argument.Kind != tokenizer.Name {
 			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
 		}
 

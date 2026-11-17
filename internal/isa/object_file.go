@@ -82,16 +82,16 @@ func NewObjectFile(source string) *ObjectFile {
 	}
 }
 
-func (h HexBytes) MarshalText() ([]byte, error) {
-	res := make([]byte, len(h)*2)
-	hex.Encode(res, h)
+func (p HexBytes) MarshalText() ([]byte, error) {
+	res := make([]byte, len(p)*2)
+	hex.Encode(res, p)
 
 	return res, nil
 }
 
-func (h *HexBytes) UnmarshalText(text []byte) error {
-	*h = make([]byte, len(text)/2)
-	_, err := hex.Decode(*h, text)
+func (p *HexBytes) UnmarshalText(text []byte) error {
+	*p = make([]byte, len(text)/2)
+	_, err := hex.Decode(*p, text)
 
 	return fmt.Errorf("unmarshall: %w", err)
 }

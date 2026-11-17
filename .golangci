@@ -2,13 +2,6 @@ version: "2"
 
 linters:
     default: all
-    exclusions:
-        rules:
-          # temporary: simulator stubs, remove when the simulator is wired up
-          - path: internal/vm/
-            linters:
-              - unused
-              - godox
     disable:
         # needs an explicit allow-list of imports
         - depguard

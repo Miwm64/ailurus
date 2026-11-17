@@ -138,10 +138,37 @@ type controlUnit struct {
 	fault      error
 }
 
-func (p *controlUnit) outputs(regs dpRegs) signals {
-	panic("TODO")
+func (p *controlUnit) dataMux(sel uint8, regs dpRegs) uint32 {
+	switch sel {
+	case dataImm:
+		return p.field(regs).value
+	case dataFour:
+		return 4
+	default: // dataZero
+		return 0
+	}
 }
 
-func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in ioOut, irqReq bool) {
-	panic("TODO")
+func (p *controlUnit) pcMux(sig signals, regs dpRegs, fe fieldOut) uint32 {
+	if sig.selPCMux == pcFromMDR {
+		return regs.mdr
+	}
+	if sig.selAddMux == addOffset {
+		return p.pc + fe.value
+	}
+	return p.pc + 4
+}
+
+func (p *controlUnit) idxMux(sel uint8) uint8 {
+	if sel == idxInc {
+		return p.idx + 1
+	}
+	return 0
+}
+
+func posMux(sel uint8, fe fieldOut) uint8 {
+	if sel == posNext {
+		return fe.posNext
+	}
+	return 0
 }

@@ -27,8 +27,13 @@ const (
 	stOFDst0
 	stOFDst1
 	stOFDst2
-	stOFDstExt // MDR ← mem[MAR], PC ← PC + 4, IDX ← IDX + 1, POS ← 0: the next instruction word
+	stOFDstExt // MDR ← mem[MAR], PC ← PC + 4, IDX ← IDX + 1, POS ← 0
 	stOFSrc0
+	stOFSrc1
+	stOFSrc2
+	stOFSrcExt
+	stOFSrcEnd  // TMP ← source, MAR ← MAR_DST
+	stOFDstRead // MDR ← mem[MAR]
 
 	// execute, writeback
 	stExec0 // first execute step, by opcode
@@ -41,24 +46,29 @@ const (
 )
 
 var stepNames = [...]string{
-	stReset0:   "reset0",
-	stReset1:   "reset1",
-	stIRQ0:     "irq0",
-	stFetch0:   "fetch0",
-	stFetch1:   "fetch1",
-	stFetch2:   "fetch2",
-	stOFDst0:   "of_dst0",
-	stOFDst1:   "of_dst1",
-	stOFDst2:   "of_dst2",
-	stOFDstExt: "of_dst_ext",
-	stOFSrc0:   "of_src0",
-	stExec0:    "exec0",
-	stExec1:    "exec1",
-	stExec2:    "exec2",
-	stExec3:    "exec3",
-	stExec4:    "exec4",
-	stExec5:    "exec5",
-	stWB0:      "wb0",
+	stReset0:    "reset0",
+	stReset1:    "reset1",
+	stIRQ0:      "irq0",
+	stFetch0:    "fetch0",
+	stFetch1:    "fetch1",
+	stFetch2:    "fetch2",
+	stOFDst0:    "of_dst0",
+	stOFDst1:    "of_dst1",
+	stOFDst2:    "of_dst2",
+	stOFDstExt:  "of_dst_ext",
+	stOFSrc0:    "of_src0",
+	stOFSrc1:    "of_src1",
+	stOFSrc2:    "of_src2",
+	stOFSrcExt:  "of_src_ext",
+	stOFSrcEnd:  "of_src_end",
+	stOFDstRead: "of_dst_rd",
+	stExec0:     "exec0",
+	stExec1:     "exec1",
+	stExec2:     "exec2",
+	stExec3:     "exec3",
+	stExec4:     "exec4",
+	stExec5:     "exec5",
+	stWB0:       "wb0",
 }
 
 func (s cuStep) String() string {
@@ -175,12 +185,12 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
 		sig.selIdx, sig.latchIdx = idxZero, true
 		sig.selPos, sig.latchPos = posZero, true
-	case stOFDstExt:
+	case stOFDstExt, stOFSrcExt:
 		sig.memOp, sig.latchMDR = memRead, true
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
 		sig.selIdx, sig.latchIdx = idxInc, true
 		sig.selPos, sig.latchPos = posZero, true
-	case stOFDst0, stOFDst1, stOFDst2, stExec0, stExec1, stExec2, stExec3, stExec4, stExec5, stWB0:
+	default: // operand fetch, execute, writeback
 		sig = p.execute(sig, fe)
 	}
 
@@ -203,6 +213,9 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 		return
 	case in.fault != nil:
 		p.stop(in.fault)
+		return
+	case out.divZero:
+		p.stop(fmt.Errorf("%w: %s", ErrDivZero, isa.Mnemonics[p.opcode()]))
 		return
 	case sig.memOp != memNone && !mem.ready:
 		return // waiting for memory
@@ -245,12 +258,12 @@ func (p *controlUnit) next(fe fieldOut) cuStep {
 		return stFetch2
 	case stFetch2:
 		return stOFDst0
+	case stReset1:
+		return stFetch0
 	case stOFDstExt:
 		return stOFDst0
-	case stOFDst0, stOFDst1, stOFDst2, stExec0, stExec1, stExec2, stExec3, stExec4, stExec5, stWB0:
+	default: // operand fetch, execute, writeback
 		return p.nextExec(fe)
-	default: // stReset1, end of an instruction
-		return stFetch0
 	}
 }
 
@@ -287,7 +300,6 @@ func (p *controlUnit) pcMux(sig signals, regs dpRegs, fe fieldOut) uint32 {
 	return p.pc + 4
 }
 
-// regMux: REG_A_MUX / REG_W_MUX(FIELD_EXT reg | DST_REG | 0 = rsp).
 func (p *controlUnit) regMux(sel uint8, fe fieldOut) uint8 {
 	switch sel {
 	case regField:

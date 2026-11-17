@@ -15,6 +15,10 @@ var (
 	opIRet = mustOpcode("iret")
 	opEI   = mustOpcode("ei")
 	opDI   = mustOpcode("di")
+	opCmp  = mustOpcode("cmp")
+	opTest = mustOpcode("test")
+	opIn   = mustOpcode("in")
+	opOut  = mustOpcode("out")
 )
 
 // mustOpcode: the opcode of a mnemonic; a typo panics at init.
@@ -32,21 +36,73 @@ type aluCtl struct {
 }
 
 const (
-	flagsNZV  = maskN | maskZ | maskV
+	flagsNZ   = maskN | maskZ
+	flagsNZC  = flagsNZ | maskC
+	flagsNZV  = flagsNZ | maskV
 	flagsNZVC = flagsNZV | maskC
 )
 
 var aluControl = map[isa.Opcode]aluCtl{
-	mustOpcode("clr"): {aluPassB, flagsNZVC}, // B = data 0
+	// F1: B = data 0
+	mustOpcode("clr"): {aluPassB, flagsNZVC},
 	mustOpcode("not"): {aluNot, flagsNZVC},
 	mustOpcode("inc"): {aluInc, flagsNZV},
 	mustOpcode("dec"): {aluDec, flagsNZV},
 	mustOpcode("neg"): {aluNeg, flagsNZVC},
+
+	// F2: A = destination, B = source
+	mustOpcode("mov"):   {aluPassB, flagsNZ},
+	mustOpcode("and"):   {aluAnd, flagsNZVC},
+	mustOpcode("or"):    {aluOr, flagsNZVC},
+	mustOpcode("xor"):   {aluXor, flagsNZVC},
+	mustOpcode("add"):   {aluAdd, flagsNZVC},
+	mustOpcode("addc"):  {aluAddC, flagsNZVC},
+	mustOpcode("sub"):   {aluSub, flagsNZVC},
+	mustOpcode("subc"):  {aluSubC, flagsNZVC},
+	mustOpcode("mulh"):  {aluMulH, flagsNZ},
+	mustOpcode("umulh"): {aluUMulH, flagsNZ},
+	mustOpcode("mull"):  {aluMulL, flagsNZ},
+	mustOpcode("div"):   {aluDiv, flagsNZ},
+	mustOpcode("mod"):   {aluMod, flagsNZ},
+	mustOpcode("cmp"):   {aluSub, flagsNZVC},
+	mustOpcode("test"):  {aluAnd, flagsNZVC},
+	mustOpcode("lsl"):   {aluLsl, flagsNZC},
+	mustOpcode("lsr"):   {aluLsr, flagsNZC},
+	mustOpcode("asr"):   {aluAsr, flagsNZC},
 }
 
-// addrSteps: OF steps that put a memory operand's address into MAR, by mode; MDR ← mem[MAR] follows.
+// shape: the decoder's view of an F1 / F2 instruction, from IR.
+type shape struct {
+	dstMem  bool
+	hasSrc  bool
+	srcMem  bool
+	srcExt  bool // source in a later word than the destination
+	srcTMP  bool // of_src_end puts the source into TMP
+	readDst bool // all but mov, clr
+	write   bool // all but cmp, test
+}
+
+func (p *controlUnit) shape() shape {
+	modes, positions, _ := isa.Layout(p.ir)
+	op := p.opcode()
+	s := shape{
+		dstMem: isMemory(modes[0]),
+		write:  op != opCmp && op != opTest,
+	}
+	s.readDst = s.dstMem && aluControl[op].op != aluPassB
+	if len(modes) == 2 {
+		s.hasSrc, s.srcMem, s.srcExt = true, isMemory(modes[1]), positions[1].Word > positions[0].Word
+		s.srcTMP = s.srcMem || s.srcExt && s.dstMem
+	}
+	return s
+}
+
+func isMemory(m isa.Mode) bool {
+	return m != isa.Register && m != isa.Immediate
+}
+
 var addrSteps = [...]cuStep{
-	isa.DirectMemory:     1, // MAR ← MDR (the address, read by of_dst_ext)
+	isa.DirectMemory:     1, // MAR ← MDR
 	isa.PCRelative:       1, // MAR ← PC + offset
 	isa.RegisterIndirect: 1, // MAR ← r
 	isa.PostIncrement:    2, // MAR ← r; r ← r + 4
@@ -89,13 +145,13 @@ func memOperand(sig signals, fe fieldOut, i cuStep) signals {
 
 func (p *controlUnit) execute(sig signals, fe fieldOut) signals {
 	if p.step == stOFDst0 && p.decode(fe) != nil {
-		return sig // no signals: the CU faults on this tick
+		return sig // faults in clock
 	}
 	switch f, ok := p.format(); {
 	case ok && f == isa.F0:
 		return p.execF0(sig)
-	case ok && f == isa.F1:
-		return p.execF1(sig, fe)
+	case ok && (f == isa.F1 || f == isa.F2):
+		return p.execALU(sig, fe)
 	}
 	return sig
 }
@@ -103,8 +159,8 @@ func (p *controlUnit) execute(sig signals, fe fieldOut) signals {
 // nextExec: next step after fetch
 func (p *controlUnit) nextExec(fe fieldOut) cuStep {
 	switch f, _ := p.format(); f {
-	case isa.F1:
-		return p.nextF1(fe)
+	case isa.F1, isa.F2:
+		return p.nextALU(fe)
 	default: // F0
 		return p.nextF0()
 	}
@@ -162,44 +218,127 @@ func (p *controlUnit) nextF0() cuStep {
 	return stFetch0
 }
 
-func (p *controlUnit) execF1(sig signals, fe fieldOut) signals {
-	reg := fe.mode == isa.Register
-	switch {
-	case p.step == stWB0:
-		sig.selALUB, sig.aluOp, sig.memOp = aluBTMP, aluPassB, memWrite
-	case p.step == stExec0:
-		ctl := aluControl[p.opcode()]
-		sig.selALUB, sig.selDataMux, sig.aluOp = aluBData, dataZero, ctl.op
-		sig.selPS, sig.latchPS = psFlags, ctl.flags
-		if reg {
-			sig.selRegA, sig.selALUA = regDst, aluAOutA
-			sig.selRegW, sig.latchReg = regDst, true
+// execALU: F1 / F2. A = destination, B = source (F1: data 0).
+func (p *controlUnit) execALU(sig signals, fe fieldOut) signals {
+	s := p.shape()
+
+	switch p.step {
+	case stOFDst0, stOFDst1, stOFDst2: // register: DST_REG ← r; memory: address → MAR
+		i := p.step - stOFDst0
+		if s.dstMem {
+			sig = memOperand(sig, fe, i)
 		} else {
-			sig.selALUA = aluAMDR
-			sig.selTMP, sig.latchTMP = tmpResult, true
+			sig.latchDstReg = true
 		}
-	case reg: // of_dst0
-		sig.latchDstReg = true
-	default:
-		sig = memOperand(sig, fe, p.step-stOFDst0)
+		if fe.fits && (!s.dstMem || i == addrSteps[fe.mode]-1) { // last destination step: POS → source
+			sig.selPos, sig.latchPos = posNext, true
+		}
+	case stOFSrc0, stOFSrc1, stOFSrc2: // memory source → MDR
+		i := p.step - stOFSrc0
+		sig = memOperand(sig, fe, i)
+		sig.latchMARDst = s.dstMem && (!fe.fits || !s.srcExt && i == 0) // first source step only
+	case stOFSrcEnd: // TMP ← source, MAR ← MAR_DST
+		sig.selTMP, sig.latchTMP = tmpMDR, true
+		if !s.srcMem { // register / immediate from the next word: TMP ← pass_b
+			sig = sourceB(sig, fe)
+			sig.aluOp, sig.selTMP = aluPassB, tmpResult
+		}
+		if s.dstMem {
+			sig.selMAR, sig.latchMAR = marMARDst, true
+		}
+	case stOFDstRead: // MDR ← mem[MAR]
+		sig.memOp, sig.latchMDR = memRead, true
+	case stExec0: // DST_REG register / TMP ← A op B, flags
+		ctl := aluControl[p.opcode()]
+		sig.aluOp = ctl.op
+		sig.selPS, sig.latchPS = psFlags, ctl.flags
+
+		if s.dstMem {
+			sig.selALUA = aluAMDR
+		} else {
+			sig.selRegA, sig.selALUA = regDst, aluAOutA
+		}
+
+		switch {
+		case !s.hasSrc:
+			sig.selALUB, sig.selDataMux = aluBData, dataZero
+		case s.srcTMP:
+			sig.selALUB = aluBTMP
+		default:
+			sig = sourceB(sig, fe)
+		}
+
+		switch {
+		case !s.write:
+		case s.dstMem:
+			sig.selTMP, sig.latchTMP = tmpResult, true
+		default:
+			sig.selRegW, sig.latchReg = regDst, true
+		}
+	case stWB0: // mem[MAR] ← TMP
+		sig.selALUB, sig.aluOp, sig.memOp = aluBTMP, aluPassB, memWrite
 	}
 	return sig
 }
 
-// nextF1: of_dst, exec0, wb0.
-func (p *controlUnit) nextF1(fe fieldOut) cuStep {
-	reg := fe.mode == isa.Register
-	switch {
-	case p.step == stExec0 && !reg:
-		return stWB0
-	case p.step == stExec0, p.step == stWB0:
-		return stFetch0
-	case !fe.fits:
-		return stOFDstExt
-	case reg, p.step-stOFDst0 == addrSteps[fe.mode]:
+// sourceB: register / immediate source → ALU B.
+func sourceB(sig signals, fe fieldOut) signals {
+	if fe.mode == isa.Immediate {
+		sig.selALUB, sig.selDataMux = aluBData, dataImm
+	} else { // reg_b straight from FIELD_EXT
+		sig.selALUB = aluBOutB
+	}
+	return sig
+}
+
+func (p *controlUnit) nextALU(fe fieldOut) cuStep {
+	s := p.shape()
+	operandsDone := stExec0
+	if s.readDst {
+		operandsDone = stOFDstRead
+	}
+
+	switch p.step {
+	case stOFDst0, stOFDst1, stOFDst2:
+		switch {
+		case !fe.fits:
+			return stOFDstExt
+		case s.dstMem && p.step-stOFDst0 < addrSteps[fe.mode]-1:
+			return p.step + 1
+		case s.srcMem || s.srcExt:
+			return stOFSrc0
+		default:
+			return operandsDone
+		}
+	case stOFSrc0, stOFSrc1, stOFSrc2:
+		switch {
+		case !fe.fits:
+			return stOFSrcExt
+		case p.step-stOFSrc0 < addrSteps[fe.mode]:
+			return p.step + 1
+		default:
+			return stOFSrcEnd
+		}
+	case stOFSrcExt:
+		switch {
+		case s.srcMem:
+			return stOFSrc0
+		case s.dstMem:
+			return stOFSrcEnd
+		default:
+			return stExec0
+		}
+	case stOFSrcEnd:
+		return operandsDone
+	case stOFDstRead:
 		return stExec0
-	default:
-		return p.step + 1
+	case stExec0:
+		if s.dstMem && s.write {
+			return stWB0
+		}
+		return stFetch0
+	default: // stWB0
+		return stFetch0
 	}
 }
 
@@ -209,9 +348,11 @@ func (p *controlUnit) decode(fe fieldOut) error {
 	switch {
 	case !ok:
 		return fmt.Errorf("%w: 0x%02X at PC %#x", ErrBadOpcode, op, p.pc-4)
-	case f == isa.F1 && fe.mode == isa.Immediate:
+	case op == opIn, op == opOut:
+		return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])
+	case (f == isa.F1 || f == isa.F2) && fe.mode == isa.Immediate:
 		return fmt.Errorf("%w: immediate destination at PC %#x", ErrBadOpcode, p.pc-4)
-	case f == isa.F0, f == isa.F1:
+	case f == isa.F0, f == isa.F1, f == isa.F2:
 		return nil
 	default:
 		return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])

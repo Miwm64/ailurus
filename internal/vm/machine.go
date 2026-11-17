@@ -25,6 +25,7 @@ type Machine struct {
 	// journal annotations
 	irqDepth  int
 	instrAddr uint32
+	prevStep  cuStep
 }
 
 // builds a machine with image loaded at address 0

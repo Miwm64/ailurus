@@ -84,5 +84,58 @@ func bit(f bool) int {
 }
 
 func (p *Machine) snapshot(sig signals, mem memOut) Record {
-	panic("TODO")
+	prev, now := p.prevStep, p.cu.step
+	p.prevStep = now
+
+	if prev == stFetch0 {
+		p.instrAddr = p.cu.pc
+	}
+	done := p.cu.halted || instrStep(prev) && (now == stFetch0 || now == stIRQ0)
+	if now == stIRQ0 && prev != stIRQ0 {
+		p.irqDepth++
+	}
+	if done && !p.cu.halted && p.cu.opcode() == opIRet {
+		p.irqDepth--
+	}
+
+	ps := p.dp.ps
+	return Record{
+		Tick: p.tick, Step: prev.String(),
+		PC: p.cu.pc, IR: p.cu.ir, MAR: p.dp.mar, MDR: p.dp.mdr,
+		Idx: p.cu.idx, Pos: p.cu.pos,
+		Regs: p.dp.regs,
+		N:    ps.n, Z: ps.z, V: ps.v, C: ps.c, IE: ps.ie,
+		IRQPending: p.cu.irqPending, IRQDepth: p.irqDepth,
+		Mem: mem.event, IO: p.io.event, Signals: activeSignals(sig),
+		InstrDone: done, InstrAddr: p.instrAddr,
+	}
+}
+
+func instrStep(s cuStep) bool {
+	switch s {
+	case stReset0, stReset1, stIRQ0, stFetch0, stFetch1, stFetch2:
+		return false
+	default:
+		return true
+	}
+}
+
+func activeSignals(sig signals) string {
+	var names []string
+	for _, s := range []struct {
+		on   bool
+		name string
+	}{
+		{sig.latchReg, "latch_reg_w"}, {sig.latchMAR, "latch_mar"}, {sig.latchMARDst, "latch_mar_dst"},
+		{sig.latchMDR, "latch_mdr"}, {sig.latchTMP, "latch_tmp"}, {sig.latchPS != 0, "latch_ps"},
+		{sig.latchIR, "latch_ir"}, {sig.latchPC, "latch_pc"}, {sig.latchIdx, "latch_idx"},
+		{sig.latchPos, "latch_pos"}, {sig.clearIRQ, "clear_irq"},
+		{sig.memOp == memRead, "mem_op=read"}, {sig.memOp == memWrite, "mem_op=write"},
+		{sig.ioOp == ioRead, "io_op=read"}, {sig.ioOp == ioWrite, "io_op=write"},
+	} {
+		if s.on {
+			names = append(names, s.name)
+		}
+	}
+	return strings.Join(names, " ")
 }

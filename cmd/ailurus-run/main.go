@@ -15,28 +15,59 @@ func main() {
 		os.Exit(2)
 	}
 
-	configContents, err := io.ReadFile(cfg.configFile)
+	configSrc := ""
+	if cfg.configFile != "" {
+		configSrc, err = io.ReadFile(cfg.configFile)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+	machineCfg, journalCfg, err := parseMachineConfig(configSrc)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 
-	codeContents, err := io.ReadBytes(cfg.configFile)
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+	source := map[uint32]string{}
+	if cfg.listingFile != "" {
+		listingSrc, err := io.ReadFile(cfg.listingFile)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		source, err = parseListing(listingSrc)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 
-	machineParams, _, err := parseMachineConfig(configContents)
-
+	image, err := io.ReadBytes(cfg.imageFile)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		os.Exit(1)
 	}
-
-	_, err = vm.New(codeContents, machineParams)
+	machine, err := vm.New(image, machineCfg)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
+	runErr := machine.Run()
+
+	if cfg.journalFile != "" {
+		journal := formatJournal(machine.Journal(), journalCfg, source)
+		err := io.WriteFile(cfg.journalFile, journal)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+	_, _ = os.Stdout.Write(machine.Output())
+
+	if runErr != nil {
+		_, _ = fmt.Fprintln(os.Stderr, runErr)
+		os.Exit(1)
+	}
 }

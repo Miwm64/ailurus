@@ -138,6 +138,42 @@ type controlUnit struct {
 	fault      error
 }
 
+// next_step
+func (p *controlUnit) next() cuStep {
+	switch p.step {
+	case stReset0:
+		return stReset1
+	case stFetch0:
+		return stFetch1
+	case stFetch1:
+		return stFetch2
+	case stFetch2:
+		return stExec0
+	default: // stReset1, end of an instruction
+		return stFetch0
+	}
+}
+
+func (p *controlUnit) decode() error {
+	op := p.opcode()
+	if _, ok := isa.Mnemonics[op]; !ok {
+		return fmt.Errorf("%w: 0x%02X at PC %#x", ErrBadOpcode, op, p.pc-4)
+	}
+	return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])
+}
+
+func (p *controlUnit) opcode() isa.Opcode {
+	return isa.Opcode(p.ir >> irOpcodeShift)
+}
+
+func (p *controlUnit) field(regs dpRegs) fieldOut {
+	return fieldExt(fieldIn{ir: p.ir, mdr: regs.mdr, idx: p.idx, pos: p.pos})
+}
+
+func (p *controlUnit) stop(err error) {
+	p.halted, p.fault = true, err
+}
+
 func (p *controlUnit) dataMux(sel uint8, regs dpRegs) uint32 {
 	switch sel {
 	case dataImm:

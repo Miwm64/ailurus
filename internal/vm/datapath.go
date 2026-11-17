@@ -135,8 +135,7 @@ func (p *dataPath) outputs(sig signals, ioData uint32) dpOut {
 		panic(fmt.Sprintf("datapath: bad sel_alu_b %d", sig.selALUB))
 	}
 
-	res := alu(sig.aluOp, a, b, p.ps.c)
-	return dpOut{result: res.result, flags: res.flags, divZero: res.divZero}
+	return dpOut(alu(sig.aluOp, a, b, p.ps.c))
 }
 
 func (p *dataPath) clock(sig signals, out dpOut, mem memOut) {

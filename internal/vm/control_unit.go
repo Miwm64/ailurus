@@ -168,7 +168,7 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
 		sig.selIdx, sig.latchIdx = idxZero, true
 		sig.selPos, sig.latchPos = posZero, true
-	case stExec0, stExec1, stExec2, stExec3, stExec4, stExec5:
+	case stOFDst0, stExec0, stExec1, stExec2, stExec3, stExec4, stExec5:
 		sig = p.execute(sig)
 	}
 
@@ -183,6 +183,7 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 		p.irqPending = true
 	}
 
+	fe := p.field(regs)
 	switch {
 	case p.halted:
 		return
@@ -194,18 +195,16 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 		return
 	case sig.memOp != memNone && !mem.ready:
 		return // waiting for memory
-	case p.step == stExec0:
-		if err := p.decode(); err != nil {
+	case p.step == stOFDst0:
+		if err := p.decode(fe); err != nil {
 			p.stop(err)
 			return
 		}
-		if p.opcode() == opHalt {
-			p.halted = true
-			return
-		}
+	case p.step == stExec0 && p.opcode() == opHalt:
+		p.halted = true
+		return
 	}
 
-	fe := p.field(regs)
 	if sig.latchIR {
 		p.ir = regs.mdr
 	}
@@ -234,9 +233,9 @@ func (p *controlUnit) next() cuStep {
 	case stFetch1:
 		return stFetch2
 	case stFetch2:
-		return stExec0
-	case stExec0, stExec1, stExec2, stExec3, stExec4, stExec5:
-		return p.nextF0()
+		return stOFDst0
+	case stOFDst0, stExec0, stExec1, stExec2, stExec3, stExec4, stExec5:
+		return p.nextExec()
 	default: // stReset1, end of an instruction
 		return stFetch0
 	}

@@ -1,6 +1,6 @@
 .export _start
 
 _start:
-    ei
-    di
+    inc r1
+    neg r1
     halt

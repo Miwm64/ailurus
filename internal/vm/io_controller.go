@@ -5,6 +5,15 @@ const (
 	portOut = 1
 )
 
+// ioOp: io_op from the CU (2 bits).
+type ioOp uint8
+
+const (
+	ioNone ioOp = iota
+	ioRead
+	ioWrite
+)
+
 type ioOut struct {
 	data  uint32
 	fault error

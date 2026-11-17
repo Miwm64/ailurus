@@ -36,6 +36,15 @@ const (
 	psResult
 )
 
+// PS word layout
+const (
+	psIE = 1 << 2
+	psC  = 1 << 4
+	psV  = 1 << 5
+	psZ  = 1 << 6
+	psN  = 1 << 7
+)
+
 type psReg struct {
 	ie bool
 	flags
@@ -43,12 +52,31 @@ type psReg struct {
 
 // packs PS into a 32-bit word
 func (p psReg) word() uint32 {
-	panic("TODO")
+	var w uint32
+	if p.ie {
+		w |= psIE
+	}
+	if p.c {
+		w |= psC
+	}
+	if p.v {
+		w |= psV
+	}
+	if p.z {
+		w |= psZ
+	}
+	if p.n {
+		w |= psN
+	}
+	return w
 }
 
 // unpacks a 32-bit word into PS
 func psFromWord(w uint32) psReg {
-	panic("TODO")
+	return psReg{
+		ie: w&psIE != 0,
+		n:  w&psN != 0, z: w&psZ != 0, v: w&psV != 0, c: w&psC != 0,
+	}
 }
 
 // outputs that leave the DataPath

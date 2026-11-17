@@ -72,9 +72,9 @@ type signals struct {
 	latchPS                                   flagMask // latch_n, _z, _v, _c, _ie
 
 	// memory and IO
-	memOp      memOp
-	ioRd, ioWr bool
-	port       uint16
+	memOp memOp
+	ioOp  ioOp
+	port  uint16
 
 	// CU internal
 	latchIR    bool

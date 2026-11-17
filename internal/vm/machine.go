@@ -58,7 +58,7 @@ func (p *Machine) Run() error {
 func (p *Machine) Tick() {
 	// 1. latched outputs
 	regs := p.dp.registers()
-	irqReq := p.io.request()
+	irqReq := p.io.isRequestInterrupt()
 
 	// 2. control logic: the part that doesn't depend on ready / div_zero
 	sig := p.cu.outputs(regs)

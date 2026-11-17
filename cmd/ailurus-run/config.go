@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -21,6 +22,7 @@ const (
 	journalTick  = "tick"
 
 	inputEntryLen = 2
+	listingFields = 3 // address - HEXCODE - mnemonic
 )
 
 var (
@@ -29,6 +31,7 @@ var (
 	errBadInput        = errors.New("bad input entry")
 	errBadJournalMode  = errors.New("journal mode must be instr or tick")
 	errBadJournalRange = errors.New("journal: from_tick > to_tick")
+	errBadListing      = errors.New("bad listing line")
 )
 
 type config struct {
@@ -122,4 +125,36 @@ func parseInput(raw [][]any) ([]vm.InputEvent, error) {
 		events = append(events, vm.InputEvent{Tick: uint64(tick), Char: char[0]})
 	}
 	return events, nil
+}
+
+func formatJournal(records []vm.Record, jc journalConfig, source map[uint32]string) string {
+	var b strings.Builder
+	for _, r := range records {
+		if r.Tick < jc.FromTick || r.Tick > jc.ToTick {
+			continue
+		}
+		if jc.Mode == journalTick {
+			b.WriteString(r.TickLine() + "\n")
+		}
+		if r.InstrDone {
+			b.WriteString(r.InstrLine(source[r.InstrAddr]) + "\n")
+		}
+	}
+	return b.String()
+}
+
+func parseListing(src string) (map[uint32]string, error) {
+	source := map[uint32]string{}
+	for i, line := range strings.Split(src, "\n") {
+		fields := strings.SplitN(line, " - ", listingFields)
+		if len(fields) < listingFields {
+			continue
+		}
+		addr, err := strconv.ParseUint(fields[0], 16, 32)
+		if err != nil {
+			return nil, fmt.Errorf("%w %d: %w", errBadListing, i+1, err)
+		}
+		source[uint32(addr)] = fields[2]
+	}
+	return source, nil
 }

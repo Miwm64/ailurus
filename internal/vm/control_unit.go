@@ -93,12 +93,18 @@ const (
 	dataZero
 )
 
+// sel_reg_a_mux, sel_reg_w_mux
+const (
+	regField = iota // FIELD_EXT reg
+	regDst          // DST_REG
+	regRSP          // constant 0 = rsp
+)
+
 type signals struct {
 	// register file
-	regA, regB uint8
-	regW       uint8
+	regA, regB uint8 // REG_A_MUX, FIELD_EXT reg
+	regW       uint8 // REG_W_MUX
 	latchReg   bool
-	forceRSP   bool
 
 	// dataPath muxes
 	selALUA uint8
@@ -118,16 +124,19 @@ type signals struct {
 	port  uint16
 
 	// CU internal
-	latchIR    bool
-	latchPC    bool
-	latchPos   bool
-	latchIdx   bool
-	clearIRQ   bool
-	selAddMux  uint8
-	selPCMux   uint8
-	selPos     uint8
-	selIdx     uint8
-	selDataMux uint8
+	latchIR     bool
+	latchPC     bool
+	latchPos    bool
+	latchIdx    bool
+	latchDstReg bool
+	clearIRQ    bool
+	selAddMux   uint8
+	selPCMux    uint8
+	selPos      uint8
+	selIdx      uint8
+	selDataMux  uint8
+	selRegA     uint8
+	selRegW     uint8
 
 	// to Datapath
 	data uint32 // data_mux output
@@ -138,6 +147,7 @@ type controlUnit struct {
 	pc, ir     uint32
 	step       cuStep
 	idx, pos   uint8
+	dstReg     uint8
 	irqPending bool
 	halted     bool
 	fault      error
@@ -162,6 +172,8 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 		sig = p.execute(sig)
 	}
 
+	fe := p.field(regs)
+	sig.regA, sig.regB, sig.regW = p.regMux(sig.selRegA, fe), fe.reg, p.regMux(sig.selRegW, fe)
 	sig.data = p.dataMux(sig.selDataMux, regs)
 	return sig
 }
@@ -205,6 +217,9 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 	}
 	if sig.latchPos {
 		p.pos = posMux(sig.selPos, fe)
+	}
+	if sig.latchDstReg {
+		p.dstReg = fe.reg
 	}
 	p.step = p.next()
 }
@@ -258,6 +273,17 @@ func (p *controlUnit) pcMux(sig signals, regs dpRegs, fe fieldOut) uint32 {
 		return p.pc + fe.value
 	}
 	return p.pc + 4
+}
+
+func (p *controlUnit) regMux(sel uint8, fe fieldOut) uint8 {
+	switch sel {
+	case regField:
+		return fe.reg
+	case regDst:
+		return p.dstReg
+	default: // regRSP
+		return 0
+	}
 }
 
 func (p *controlUnit) idxMux(sel uint8) uint8 {

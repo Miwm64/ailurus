@@ -33,6 +33,7 @@ func (p *controlUnit) execute(sig signals) signals {
 	return sig
 }
 
+// execF0: ei / di set IE; ret pops PC; iret pops PS, then PC. Stack: rsp = reg #0.
 func (p *controlUnit) execF0(sig signals) signals {
 	switch op := p.opcode(); {
 	case op == opEI, op == opDI:

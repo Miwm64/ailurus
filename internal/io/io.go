@@ -14,6 +14,14 @@ func ReadFile(path string) (string, error) {
 	return string(dat), nil
 }
 
+func ReadBytes(path string) ([]byte, error) {
+	dat, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return dat, nil
+}
+
 func WriteFile(path string, data string) error {
 	err := os.WriteFile(path, []byte(data), 0644)
 	return err

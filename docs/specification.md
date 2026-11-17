@@ -719,6 +719,7 @@ ailurus-run prog.bin [-l prog.lst] [-c config.yaml]
 | Flag      | Meaning                                                             |
 |-----------|---------------------------------------------------------------------|
 | `-l FILE` | file from `ailurus-build`: maps addresses to source for the journal |
+| `-j FILE` | journal output file                                                 |
 | `-c FILE` | simulator config                                                    |
 
 Output: the output buffer and the journal.
@@ -731,6 +732,10 @@ tick_limit: 100000
 input:              # interrupt schedule: [tick, char]
   - [10, "h"]
   - [25, "i"]
+journal:
+  mode: tick      # instr | tick
+  from_tick: 0     # tick lines only inside [from_tick, to_tick]
+  to_tick: 400
 ```
 
 ### Datapath

@@ -7,6 +7,12 @@ import (
 
 const regsPerLine = 8
 
+const (
+	irqWidth = len("irq=1 pending")
+	memWidth = len("unaligned read")
+	ioWidth  = len("out 'a', in 'b'")
+)
+
 // machine state right after a tick.
 type Record struct {
 	Tick       uint64
@@ -28,20 +34,9 @@ type Record struct {
 }
 
 func (r Record) TickLine() string {
-	var b strings.Builder
-
-	_, _ = fmt.Fprintf(&b, "%7d %-10s PC=%08X IR=%08X MAR=%08X MDR=%08X IDX=%d POS=%2d %s",
-		r.Tick, r.Step, r.PC, r.IR, r.MAR, r.MDR, r.Idx, r.Pos, r.irq())
-	if r.Mem != "" {
-		_, _ = fmt.Fprintf(&b, " mem:%s", r.Mem)
-	}
-	if r.IO != "" {
-		_, _ = fmt.Fprintf(&b, " io:%s", r.IO)
-	}
-	if r.Signals != "" {
-		_, _ = fmt.Fprintf(&b, " | %s", r.Signals)
-	}
-	return b.String()
+	return fmt.Sprintf("%7d %-10s PC=%08X IR=%08X MAR=%08X MDR=%08X IDX=%d POS=%2d %-*s mem:%-*s io:%-*s | %s",
+		r.Tick, r.Step, r.PC, r.IR, r.MAR, r.MDR, r.Idx, r.Pos,
+		irqWidth, r.irq(), memWidth, orDash(r.Mem), ioWidth, orDash(r.IO), orDash(r.Signals))
 }
 
 func (r Record) InstructionLine(source string) string {
@@ -67,6 +62,13 @@ func (r Record) irq() string {
 		return fmt.Sprintf("irq=%d pending", r.IRQDepth)
 	}
 	return fmt.Sprintf("irq=%d", r.IRQDepth)
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
 }
 
 func regName(i int) string {
@@ -121,8 +123,7 @@ func instrStep(s cuStep) bool {
 }
 
 func activeSignals(sig signals) string {
-	var names []string
-	for _, s := range []struct {
+	signalNames := []struct {
 		on   bool
 		name string
 	}{
@@ -132,7 +133,10 @@ func activeSignals(sig signals) string {
 		{sig.latchPos, "latch_pos"}, {sig.clearIRQ, "clear_irq"},
 		{sig.memOp == memRead, "mem_op=read"}, {sig.memOp == memWrite, "mem_op=write"},
 		{sig.ioOp == ioRead, "io_op=read"}, {sig.ioOp == ioWrite, "io_op=write"},
-	} {
+	}
+
+	var names []string
+	for _, s := range signalNames {
 		if s.on {
 			names = append(names, s.name)
 		}

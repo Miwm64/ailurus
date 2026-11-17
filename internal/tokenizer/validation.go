@@ -5,7 +5,7 @@ func ValidateName(str string) bool {
 		return false
 	}
 
-	for i := 0; i < len(str); i++ {
+	for i := range len(str) {
 		c := str[i]
 		isLetter := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 		isDigit := c >= '0' && c <= '9'

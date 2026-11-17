@@ -71,6 +71,7 @@ func parseConfig() (config, error) {
 	default:
 		return config{}, errManyImages
 	}
+
 	return cfg, nil
 }
 
@@ -84,6 +85,7 @@ func parseMachineConfig(src string) (vm.Config, journalConfig, error) {
 
 	dec := yaml.NewDecoder(strings.NewReader(src))
 	dec.KnownFields(true)
+
 	if err := dec.Decode(&parsed); err != nil && !errors.Is(err, io.EOF) {
 		return vm.Config{}, journalConfig{}, fmt.Errorf("config: %w", err)
 	}
@@ -114,47 +116,60 @@ func parseInput(raw [][]any) ([]vm.InputEvent, error) {
 		if len(pair) != inputEntryLen {
 			return nil, fmt.Errorf("%w %d: want [tick, \"c\"]", errBadInput, i)
 		}
+
 		tick, okTick := pair[0].(int)
+
 		char, okChar := pair[1].(string)
 		if !okTick || !okChar || tick < 0 || len(char) != 1 {
 			return nil, fmt.Errorf("%w %d: want [tick, \"c\"]", errBadInput, i)
 		}
+
 		if i > 0 && uint64(tick) <= events[i-1].Tick {
 			return nil, fmt.Errorf("%w %d: ticks must be ascending", errBadInput, i)
 		}
+
 		events = append(events, vm.InputEvent{Tick: uint64(tick), Char: char[0]})
 	}
+
 	return events, nil
 }
 
 func formatJournal(records []vm.Record, jc journalConfig, source map[uint32]string) string {
 	var b strings.Builder
+
 	for _, r := range records {
 		if r.Tick < jc.FromTick || r.Tick > jc.ToTick {
 			continue
 		}
+
 		if jc.Mode == journalTick {
 			b.WriteString(r.TickLine() + "\n")
 		}
+
 		if r.InstrDone {
 			b.WriteString(r.InstructionLine(source[r.InstrAddr]) + "\n")
 		}
 	}
+
 	return b.String()
 }
 
 func parseListing(src string) (map[uint32]string, error) {
 	source := map[uint32]string{}
+
 	for i, line := range strings.Split(src, "\n") {
 		fields := strings.SplitN(line, " - ", listingFields)
 		if len(fields) < listingFields {
 			continue
 		}
+
 		addr, err := strconv.ParseUint(fields[0], 16, 32)
 		if err != nil {
 			return nil, fmt.Errorf("%w %d: %w", errBadListing, i+1, err)
 		}
+
 		source[uint32(addr)] = fields[2]
 	}
+
 	return source, nil
 }

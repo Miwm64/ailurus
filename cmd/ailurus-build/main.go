@@ -21,57 +21,74 @@ func main() {
 	cfg, err := parseConfig()
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
+
 		os.Exit(2)
 	}
+
 	linking := !cfg.assembleOnly && !cfg.preprocessOnly
 
 	objects := make([]*isa.ObjectFile, 0)
+
 	var errs []error
 
 	for _, file := range cfg.inputFiles {
 		src, err := io.ReadFile(file)
 		if err != nil {
 			errs = append(errs, err)
+
 			continue
 		}
 
 		if filepath.Ext(file) == ".o" {
 			if !linking {
 				errs = append(errs, fmt.Errorf("%s: object file is only accepted when linking", file))
+
 				continue
 			}
+
 			var obj isa.ObjectFile
-			if err := json.Unmarshal([]byte(src), &obj); err != nil {
+
+			err := json.Unmarshal([]byte(src), &obj)
+			if err != nil {
 				errs = append(errs, fmt.Errorf("%s: %w", file, err))
+
 				continue
 			}
+
 			objects = append(objects, &obj)
+
 			continue
 		}
 
 		res, lineMap, err := preprocessor.Preprocess(src, maps.Clone(cfg.defines))
 		if err != nil {
 			errs = append(errs, err)
+
 			continue
 		}
 
 		if cfg.preprocessOnly {
 			_, _ = fmt.Println(res)
+
 			continue
 		}
 
 		objectFile, err := assembler.Assemble(file, res, lineMap)
 		if err != nil {
 			errs = append(errs, err)
+
 			continue
 		}
 
 		if cfg.assembleOnly {
-			if err := io.WriteJSON(strings.TrimSuffix(file, ".asm")+".o", objectFile); err != nil {
+			err := io.WriteJSON(strings.TrimSuffix(file, ".asm")+".o", objectFile)
+			if err != nil {
 				errs = append(errs, err)
 			}
+
 			continue
 		}
+
 		objects = append(objects, objectFile)
 	}
 
@@ -88,8 +105,10 @@ func main() {
 
 	if err := errors.Join(errs...); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
+
 		os.Exit(1)
 	}
+
 	if !linking {
 		return
 	}
@@ -97,16 +116,21 @@ func main() {
 	image, listing, err := linker.Link(objects)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
+
 		os.Exit(1)
 	}
 
 	if err := os.WriteFile(cfg.outputFile, image, 0o644); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
+
 		os.Exit(1)
 	}
+
 	if cfg.listingFile != "" {
-		if err := os.WriteFile(cfg.listingFile, []byte(formatListing(listing)), 0o644); err != nil {
+		err := os.WriteFile(cfg.listingFile, []byte(formatListing(listing)), 0o644)
+		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
+
 			os.Exit(1)
 		}
 	}
@@ -114,12 +138,15 @@ func main() {
 
 func formatListing(entries []linker.ListingEntry) string {
 	var b strings.Builder
+
 	for _, e := range entries {
 		line := fmt.Sprintf("%08X - %08X", e.Address, e.Word)
 		if e.Mnemonic != "" {
 			line += " - " + e.Mnemonic
 		}
+
 		b.WriteString(line + "\n")
 	}
+
 	return b.String()
 }

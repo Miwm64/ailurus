@@ -75,8 +75,8 @@ func NewObjectFile(source string) *ObjectFile {
 		Version: 1,
 		Source:  source,
 		Sections: map[Section]*HexBytes{
-			Data: &HexBytes{},
-			Text: &HexBytes{},
+			Data: {},
+			Text: {},
 		},
 	}
 }
@@ -84,12 +84,14 @@ func NewObjectFile(source string) *ObjectFile {
 func (h HexBytes) MarshalText() ([]byte, error) {
 	res := make([]byte, len(h)*2)
 	hex.Encode(res, h)
+
 	return res, nil
 }
 
 func (h *HexBytes) UnmarshalText(text []byte) error {
 	*h = make([]byte, len(text)/2)
 	_, err := hex.Decode(*h, text)
+
 	return err
 }
 

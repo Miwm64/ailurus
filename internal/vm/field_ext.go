@@ -50,10 +50,13 @@ func fieldExt(in fieldIn) fieldOut {
 		if in.idx > 0 {
 			word = in.ext
 		}
+
 		bits := word >> at.Offset & uint32(uint64(1)<<at.Width-1)
 		out.value, out.reg = decodeField(out.mode, bits)
+
 		return out
 	}
+
 	return fieldOut{}
 }
 

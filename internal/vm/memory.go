@@ -10,7 +10,7 @@ const (
 )
 
 // interface for datapath or control unit to interact with
-// 2 implementations: cacheMemory and direct
+// 2 implementations: cacheMemory and direct.
 type memory interface {
 	outputs(req memReq) memOut
 	clock(req memReq)

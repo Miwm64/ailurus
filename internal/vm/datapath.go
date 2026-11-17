@@ -2,7 +2,7 @@ package vm
 
 import "fmt"
 
-// sel_alu_a
+// sel_alu_a.
 const (
 	aluAOutA = iota
 	aluAPC
@@ -10,7 +10,7 @@ const (
 	aluAData
 )
 
-// sel_alu_b
+// sel_alu_b.
 const (
 	aluBOutB = iota
 	aluBTMP
@@ -19,7 +19,7 @@ const (
 	aluBIO
 )
 
-// sel_mar
+// sel_mar.
 const (
 	marResult = iota
 	marPC
@@ -27,19 +27,19 @@ const (
 	marMARDst
 )
 
-// sel_tmp
+// sel_tmp.
 const (
 	tmpMDR = iota
 	tmpResult
 )
 
-// sel_ps_mux
+// sel_ps_mux.
 const (
 	psFlags = iota
 	psResult
 )
 
-// PS word layout
+// PS word layout.
 const (
 	psIE = 1 << 2
 	psC  = 1 << 4
@@ -53,28 +53,33 @@ type psReg struct {
 	flags
 }
 
-// packs PS into a 32-bit word
+// packs PS into a 32-bit word.
 func (p psReg) word() uint32 {
 	var w uint32
 	if p.ie {
 		w |= psIE
 	}
+
 	if p.c {
 		w |= psC
 	}
+
 	if p.v {
 		w |= psV
 	}
+
 	if p.z {
 		w |= psZ
 	}
+
 	if p.n {
 		w |= psN
 	}
+
 	return w
 }
 
-// unpacks a 32-bit word into PS
+// unpacks a 32-bit word into PS.
 func psFromWord(w uint32) psReg {
 	return psReg{
 		ie: w&psIE != 0,
@@ -82,7 +87,7 @@ func psFromWord(w uint32) psReg {
 	}
 }
 
-// outputs that leave the DataPath
+// outputs that leave the DataPath.
 type dpRegs struct {
 	mar, mdr uint32
 	ps       psReg
@@ -144,18 +149,23 @@ func (p *dataPath) clock(sig signals, out dpOut, mem memOut) {
 	if sig.latchReg {
 		p.regs[sig.regW] = out.result
 	}
+
 	if sig.latchMAR {
 		p.mar = old.marMux(sig, out.result)
 	}
+
 	if sig.latchMARDst {
 		p.marDst = old.mar
 	}
+
 	if sig.latchMDR && mem.ready {
 		p.mdr = mem.data
 	}
+
 	if sig.latchTMP {
 		p.tmp = old.tmpMux(sig.selTMP, out.result)
 	}
+
 	p.ps = latchPS(old.ps, old.psMux(sig.selPS, out), sig.latchPS)
 }
 
@@ -200,17 +210,22 @@ func latchPS(ps, src psReg, mask flagMask) psReg {
 	if mask&maskN != 0 {
 		ps.n = src.n
 	}
+
 	if mask&maskZ != 0 {
 		ps.z = src.z
 	}
+
 	if mask&maskV != 0 {
 		ps.v = src.v
 	}
+
 	if mask&maskC != 0 {
 		ps.c = src.c
 	}
+
 	if mask&maskIE != 0 {
 		ps.ie = src.ie
 	}
+
 	return ps
 }

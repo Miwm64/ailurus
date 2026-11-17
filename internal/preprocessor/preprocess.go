@@ -35,12 +35,14 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 
 	defines := make(map[string]string)
 	maps.Copy(defines, globalDefines)
+
 	macros := make(map[string]*Macro)
 	skips := make([]conditionFrame, 0)
 
 	var currentMacro *Macro
 
 	var out []string
+
 	lineMap = map[int]int{}
 
 	for i := 0; i < len(lines); i++ {
@@ -130,7 +132,6 @@ func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacr
 
 func handleNormalLine(tokens []tokenizer.Token, fromMacro bool, defines map[string]string,
 	macros map[string]*Macro) ([]string, error) {
-
 	label, call := "", 0
 	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
 		label, call = tokens[0].Value+":\n", 2

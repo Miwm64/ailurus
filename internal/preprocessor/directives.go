@@ -45,7 +45,11 @@ func handleDefine(line string, defines map[string]string) error {
 	return nil
 }
 
-func handleConditions(tokens []tokenizer.Token, skips []conditionFrame, defines map[string]string) (string, []conditionFrame, error) {
+func handleConditions(
+	tokens []tokenizer.Token,
+	skips []conditionFrame,
+	defines map[string]string,
+) (string, []conditionFrame, error) {
 	directive := tokens[0].Value
 
 	switch directive {
@@ -59,6 +63,7 @@ func handleConditions(tokens []tokenizer.Token, skips []conditionFrame, defines 
 		}
 
 		_, defined := defines[tokens[1].Value]
+
 		skip := !defined
 		if directive == "#ifndef" {
 			skip = defined

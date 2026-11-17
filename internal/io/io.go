@@ -11,6 +11,7 @@ func ReadFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(dat), nil
 }
 
@@ -19,11 +20,13 @@ func ReadBytes(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return dat, nil
 }
 
 func WriteFile(path string, data string) error {
 	err := os.WriteFile(path, []byte(data), 0644)
+
 	return err
 }
 
@@ -32,6 +35,8 @@ func WriteJSON(path string, v any) error {
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", path, err)
 	}
+
 	data = append(data, '\n')
+
 	return os.WriteFile(path, data, 0o644)
 }

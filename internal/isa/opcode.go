@@ -82,7 +82,7 @@ var Opcodes = map[string]OpInfo{
 	"out":   {0x3B, F2},
 }
 
-// reverse table
+// reverse table.
 var Mnemonics = buildMnemonics()
 
 func buildMnemonics() map[Opcode]string {
@@ -91,10 +91,13 @@ func buildMnemonics() map[Opcode]string {
 		if other, ok := m[info.Opcode]; ok {
 			panic(fmt.Sprintf("isa: opcode 0x%02X used by both %q and %q", info.Opcode, other, name))
 		}
+
 		if info.Opcode > 0x3F {
 			panic(fmt.Sprintf("isa: opcode 0x%02X of %q does not fit in 6 bits", info.Opcode, name))
 		}
+
 		m[info.Opcode] = name
 	}
+
 	return m
 }

@@ -15,7 +15,7 @@ const (
 	stReset0 cuStep = iota // MDR ← mem[MAR]; reset leaves MAR = 0
 	stReset1               // PC ← MDR
 
-	// interrupt entry: push PC, push PS, IE ← 0, PC ← mem[0x4]
+	// interrupt entry: push PC, push PS, IE ← 0, PC ← mem[0x4].
 	stIRQ0 // rsp, MAR ← rsp − 4; irq_pending ← 0
 	stIRQ1 // mem[MAR] ← PC
 	stIRQ2 // rsp, MAR ← rsp − 4
@@ -24,12 +24,12 @@ const (
 	stIRQ5 // MDR ← mem[MAR], IE ← 0
 	stIRQ6 // PC ← MDR
 
-	// instruction fetch: IR ← mem[PC], PC ← PC + 4
+	// instruction fetch: IR ← mem[PC], PC ← PC + 4.
 	stFetch0 // MAR ← PC
 	stFetch1 // MDR ← mem[MAR]
 	stFetch2 // IR ← MDR, PC ← PC + 4, IDX ← 0, POS ← 0
 
-	// operand fetch: destination, then sources
+	// operand fetch: destination, then sources.
 	stOFDst0
 	stOFDst1
 	stOFDst2
@@ -43,7 +43,7 @@ const (
 	stOFSrcEnd  // TMP ← source, MAR ← MAR_DST
 	stOFDstRead // MDR ← mem[MAR]
 
-	// execute, writeback
+	// execute, writeback.
 	stExec0 // first execute step, by opcode
 	stExec1
 	stExec2
@@ -91,41 +91,42 @@ func (s cuStep) String() string {
 	if int(s) < len(stepNames) && stepNames[s] != "" {
 		return stepNames[s]
 	}
+
 	return fmt.Sprintf("step%d", s)
 }
 
-// sel_add_mux
+// sel_add_mux.
 const (
 	addFour = iota
 	addOffset
 )
 
-// sel_pc_mux
+// sel_pc_mux.
 const (
 	pcFromAdd = iota
 	pcFromMDR
 )
 
-// sel_pos
+// sel_pos.
 const (
 	posZero = iota
 	posNext
 )
 
-// sel_idx
+// sel_idx.
 const (
 	idxZero = iota
 	idxInc
 )
 
-// sel_data_mux
+// sel_data_mux.
 const (
 	dataImm = iota
 	dataFour
 	dataZero
 )
 
-// sel_reg_a_mux, sel_reg_w_mux
+// sel_reg_a_mux, sel_reg_w_mux.
 const (
 	regField = iota // FIELD_EXT reg
 	regDst          // DST_REG
@@ -230,6 +231,7 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 
 	sig.regA, sig.regB, sig.regW = p.regMux(sig.selRegA, fe), fe.reg, p.regMux(sig.selRegW, fe)
 	sig.data = dataMux(sig.selDataMux, fe)
+
 	return sig
 }
 
@@ -238,6 +240,7 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 	if sig.clearIRQ {
 		p.irqPending = false
 	}
+
 	if irqReq {
 		p.irqPending = true
 	}
@@ -248,50 +251,62 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 		return
 	case mem.fault != nil:
 		p.stop(mem.fault)
+
 		return
 	case in.fault != nil:
 		p.stop(in.fault)
+
 		return
 	case out.divZero:
 		p.stop(fmt.Errorf("%w: %s", ErrDivZero, isa.Mnemonics[p.opcode()]))
+
 		return
 	case sig.memOp != memNone && !mem.ready:
 		return // waiting for memory
 	case p.step == stOFDst0:
-		if err := p.decode(fe); err != nil {
+		err := p.decode(fe)
+		if err != nil {
 			p.stop(err)
+
 			return
 		}
 	case p.step == stExec0 && p.opcode() == opHalt:
 		p.halted = true
+
 		return
 	}
 
 	if sig.latchIR {
 		p.ir = regs.mdr
 	}
+
 	if sig.latchPC {
 		p.pc = p.pcMux(sig, regs, fe)
 	}
+
 	if sig.latchIdx {
 		p.idx = p.idxMux(sig.selIdx)
 	}
+
 	if sig.latchPos {
 		p.pos = posMux(sig.selPos, fe)
 	}
+
 	if sig.latchDstReg {
 		p.dstReg = fe.reg
 	}
+
 	if sig.latchExt {
 		p.ext = mem.data
 	}
+
 	p.step = p.next(fe)
 	if p.step == stFetch0 && pending && regs.ps.ie { // interrupt check: after an instruction
 		p.step = stIRQ0
 	}
 }
 
-// next_step
+// next_step.
 func (p *controlUnit) next(fe fieldOut) cuStep {
 	switch p.step {
 	case stReset0:
@@ -338,9 +353,11 @@ func (p *controlUnit) pcMux(sig signals, regs dpRegs, fe fieldOut) uint32 {
 	if sig.selPCMux == pcFromMDR {
 		return regs.mdr
 	}
+
 	if sig.selAddMux == addOffset {
 		return p.pc + fe.value
 	}
+
 	return p.pc + 4
 }
 
@@ -359,6 +376,7 @@ func (p *controlUnit) idxMux(sel uint8) uint8 {
 	if sel == idxInc {
 		return p.idx + 1
 	}
+
 	return 0
 }
 
@@ -366,5 +384,6 @@ func posMux(sel uint8, fe fieldOut) uint8 {
 	if sel == posNext {
 		return fe.posNext
 	}
+
 	return 0
 }

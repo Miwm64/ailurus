@@ -75,5 +75,6 @@ func joinEvents(a, b string) string {
 	if a == "" {
 		return b
 	}
+
 	return a + ", " + b
 }

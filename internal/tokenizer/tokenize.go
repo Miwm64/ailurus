@@ -46,6 +46,7 @@ func (k Kind) String() string {
 	if k < 0 || int(k) >= len(kindNames) {
 		return fmt.Sprintf("Kind(%d)", int(k))
 	}
+
 	return kindNames[k]
 }
 

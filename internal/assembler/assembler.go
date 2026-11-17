@@ -40,6 +40,7 @@ const (
 
 type fixup struct {
 	isa.Relocation
+
 	lineIndex int
 }
 
@@ -75,6 +76,7 @@ func (p *assembler) assemble() (*isa.ObjectFile, error) {
 	for i, line := range p.lines {
 		p.lineIndex = i
 		line = strings.TrimSpace(line)
+
 		err := p.handleLine(line)
 		if err != nil {
 			return nil, fmt.Errorf("line %d: %w", p.lineMap[i], err)
@@ -87,6 +89,7 @@ func (p *assembler) assemble() (*isa.ObjectFile, error) {
 	}
 
 	var undefined []string
+
 	for _, s := range p.objectFile.Symbols {
 		if s.Binding == isa.Export && s.Section == "" {
 			undefined = append(undefined, s.Name)
@@ -107,6 +110,7 @@ func (p *assembler) assemble() (*isa.ObjectFile, error) {
 		symbol := p.objectFile.Symbols[idx]
 		if f.Kind != isa.PCRel16 || symbol.Binding == isa.Import || symbol.Section != f.Section {
 			p.objectFile.Relocations = append(p.objectFile.Relocations, f.Relocation)
+
 			continue
 		}
 
@@ -132,11 +136,13 @@ func (p *assembler) handleLine(line string) error {
 
 	// label
 	hasLabel := false
+
 	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
 		err := p.handleLabel(tokens[0].Value)
 		if err != nil {
 			return err
 		}
+
 		tokens = tokens[2:]
 		hasLabel = true
 	}
@@ -144,6 +150,7 @@ func (p *assembler) handleLine(line string) error {
 	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
 		return fmt.Errorf("%w: %s defined on the same line as %s", ErrMultipleLabels, tokens[0].Value, p.currentLabel)
 	}
+
 	if len(tokens) == 0 {
 		return nil
 	}
@@ -159,8 +166,14 @@ func (p *assembler) handleLine(line string) error {
 			}
 		default:
 			if hasLabel {
-				return fmt.Errorf("%w: %s cannot follow label %s", ErrLabelBeforeDirective, tokens[0].Value, p.currentLabel)
+				return fmt.Errorf(
+					"%w: %s cannot follow label %s",
+					ErrLabelBeforeDirective,
+					tokens[0].Value,
+					p.currentLabel,
+				)
 			}
+
 			err := p.handleDirective(tokens)
 			if err != nil {
 				return err
@@ -192,8 +205,15 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		if len(tokens) != 2 {
 			return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
 		}
+
 		if tokens[1].Kind != tokenizer.STRING {
-			return fmt.Errorf("%w: %s expects %s, got %s", ErrArgumentKind, directive.Value, tokenizer.STRING, tokens[1].Kind)
+			return fmt.Errorf(
+				"%w: %s expects %s, got %s",
+				ErrArgumentKind,
+				directive.Value,
+				tokenizer.STRING,
+				tokens[1].Kind,
+			)
 		}
 
 		chars := stringToBytes(tokens[1].Value)
@@ -206,8 +226,15 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		if len(tokens) != 2 {
 			return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
 		}
+
 		if tokens[1].Kind != tokenizer.NAME {
-			return fmt.Errorf("%w: %s expects %s, got %s", ErrArgumentKind, directive.Value, tokenizer.NAME, tokens[1].Kind)
+			return fmt.Errorf(
+				"%w: %s expects %s, got %s",
+				ErrArgumentKind,
+				directive.Value,
+				tokenizer.NAME,
+				tokens[1].Kind,
+			)
 		}
 
 		if tokenizer.IsReserved(tokens[1].Value) {
@@ -235,21 +262,25 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		}
 
 		var res []byte
+
 		for i := 0; i < len(args); {
 			val, n, err := parseValue(args[i:])
 			if err != nil {
 				return fmt.Errorf("%s: %w", directive.Value, err)
 			}
+
 			res = binary.LittleEndian.AppendUint32(res, uint32(val))
 			i += n
 
 			if i == len(args) {
 				break
 			}
+
 			if args[i].Kind != tokenizer.COMMA {
 				return fmt.Errorf("%w: %s expects %s between values, got %s %q",
 					ErrUnexpectedToken, directive.Value, tokenizer.COMMA, args[i].Kind, args[i].Value)
 			}
+
 			i++
 			if i == len(args) {
 				return fmt.Errorf("%w: %s ends with %s", ErrUnexpectedToken, directive.Value, tokenizer.COMMA)
@@ -267,6 +298,7 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 	p.resolveLabel()
 	p.addLineToListing(p.dataCounter)
 	p.dataCounter += dataSize
+
 	return nil
 }
 
@@ -274,18 +306,22 @@ func parseValue(tokens []tokenizer.Token) (int64, int, error) {
 	switch tokens[0].Kind {
 	case tokenizer.NUMBER:
 		val, err := parseNumber(tokens[0].Value)
+
 		return val, 1, err
 	case tokenizer.MINUS:
 		if len(tokens) < 2 || tokens[1].Kind != tokenizer.NUMBER {
 			return 0, 0, fmt.Errorf("%w: %s must be followed by %s", ErrArgumentKind, tokenizer.MINUS, tokenizer.NUMBER)
 		}
+
 		val, err := parseNumber("-" + tokens[1].Value)
+
 		return val, 2, err
 	case tokenizer.STRING:
 		chars := stringToBytes(tokens[0].Value)
 		if len(chars) != 1 {
 			return 0, 0, fmt.Errorf("%w: char literal %q must be exactly 1 character", ErrArgumentKind, tokens[0].Value)
 		}
+
 		return int64(chars[0]), 1, nil
 	default:
 		return 0, 0, fmt.Errorf("%w: expected value, got %s %q", ErrArgumentKind, tokens[0].Kind, tokens[0].Value)
@@ -294,17 +330,19 @@ func parseValue(tokens []tokenizer.Token) (int64, int, error) {
 
 func bytesToWords(in []byte) (out []byte) {
 	out = make([]byte, len(in)*4)
-	for i := 0; i < len(in); i++ {
+	for i := range in {
 		out[i*4] = in[i]
 		out[i*4+1] = 0
 		out[i*4+2] = 0
 		out[i*4+3] = 0
 	}
+
 	return out
 }
 
 func stringToBytes(str string) []byte {
 	var res []byte
+
 	for i := 0; i < len(str); i += 1 {
 		if str[i] == '\\' && i < len(str)-1 {
 			switch str[i+1] {
@@ -330,6 +368,7 @@ func stringToBytes(str string) []byte {
 			res = append(res, str[i])
 		}
 	}
+
 	return res
 }
 
@@ -348,11 +387,13 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	if len(tokens) < 1 {
 		return nil
 	}
+
 	if tokens[0].Kind != tokenizer.NAME {
 		return fmt.Errorf("%w: expected name, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
 	}
 
 	mnemonic := tokens[0].Value
+
 	name := mnemonic
 	if realMnemonic, ok := aliases[mnemonic]; ok {
 		name = realMnemonic
@@ -371,20 +412,26 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 		if err != nil {
 			return fmt.Errorf("%s: argument %d: %w", mnemonic, len(operands)+1, err)
 		}
+
 		operands = append(operands, op)
+
 		return nil
 	}
 
 	for i := 1; i < len(tokens); i++ {
 		if tokens[i].Kind == tokenizer.COMMA {
-			if err := addOperand(tokens[prev:i]); err != nil {
+			err := addOperand(tokens[prev:i])
+			if err != nil {
 				return err
 			}
+
 			prev = i + 1
 		}
 	}
+
 	if len(tokens[prev:]) != 0 {
-		if err := addOperand(tokens[prev:]); err != nil {
+		err := addOperand(tokens[prev:])
+		if err != nil {
 			return err
 		}
 	}
@@ -393,6 +440,7 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	if err != nil {
 		return err
 	}
+
 	if err := mapOperands(opcode.Format, operands); err != nil {
 		return fmt.Errorf("%s: %w", mnemonic, err)
 	}
@@ -419,6 +467,7 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 		if op.label == "" {
 			continue
 		}
+
 		pos := positions[i]
 		p.fixups = append(p.fixups, fixup{
 			Section:   isa.Text,
@@ -433,11 +482,13 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	}
 
 	p.textCounter += 4 * len(words)
+
 	return nil
 }
 
 func rewriteAlias(mnemonic string, operands []operand) ([]operand, error) {
 	const rsp = 0
+
 	switch mnemonic {
 	case "push", "pop":
 		if len(operands) != 1 {
@@ -448,11 +499,14 @@ func rewriteAlias(mnemonic string, operands []operand) ([]operand, error) {
 	switch mnemonic {
 	case "push":
 		dst := operand{arg: isa.Argument{Mode: isa.PreDecrement, Value: rsp}}
+
 		return []operand{dst, operands[0]}, nil
 	case "pop":
 		src := operand{arg: isa.Argument{Mode: isa.PostIncrement, Value: rsp}}
+
 		return []operand{operands[0], src}, nil
 	}
+
 	return operands, nil
 }
 
@@ -466,6 +520,7 @@ func mapOperands(format isa.Format, operands []operand) error {
 			if op.bareAt {
 				return fmt.Errorf("%w: argument %d: branches take a bare label, not @", ErrInvalidOperand, i+1)
 			}
+
 			if bareName {
 				op.arg.Mode = isa.PCRelative
 			}
@@ -481,15 +536,17 @@ func mapOperands(format isa.Format, operands []operand) error {
 			}
 		}
 	}
+
 	return nil
 }
 
-// converts words to bytes as little-endian
+// converts words to bytes as little-endian.
 func wordsToBytes(words []uint32) []byte {
 	res := make([]byte, 0, 4*len(words))
 	for _, w := range words {
 		res = binary.LittleEndian.AppendUint32(res, w)
 	}
+
 	return res
 }
 
@@ -513,6 +570,7 @@ func (p *assembler) resolveLabel() {
 	} else {
 		p.objectFile.Symbols[labelIndex].Offset = p.dataCounter
 	}
+
 	p.objectFile.Symbols[labelIndex].Section = p.currentSection
 	p.currentLabel = ""
 }
@@ -540,6 +598,7 @@ func (p *assembler) handleLabel(labelName string) error {
 
 		p.currentLabel = labelName
 		p.labelLine = p.lineIndex
+
 		return nil
 	}
 
@@ -550,6 +609,7 @@ func (p *assembler) handleLabel(labelName string) error {
 		Name:    labelName,
 		Binding: isa.Local,
 	})
+
 	return nil
 }
 
@@ -558,6 +618,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 	if len(tokens) != 2 {
 		return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
 	}
+
 	argument := tokens[1]
 
 	switch directive.Value {
@@ -569,6 +630,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		if argument.Value != "data" && argument.Value != "text" {
 			return fmt.Errorf("%w: expected 'data' or 'text', got %s", ErrUnknownSection, argument.Value)
 		}
+
 		p.currentSection = isa.Section(argument.Value)
 	case ".org":
 		if argument.Kind != tokenizer.NUMBER {
@@ -579,6 +641,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", directive.Value, err)
 		}
+
 		if val > maxSectionSize {
 			return fmt.Errorf("%w: %s %d exceeds %d", ErrNumberRange, directive.Value, val, maxSectionSize)
 		}
@@ -593,14 +656,20 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 		if argument.Kind != tokenizer.NAME {
 			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
 		}
+
 		if argument.Value == "_start" || argument.Value == "_handler" {
 			return fmt.Errorf("%w: %s cannot be imported", ErrReservedSymbol, argument.Value)
 		}
 
 		if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
 			if p.objectFile.Symbols[labelIndex].Binding != isa.Import {
-				return fmt.Errorf("%w: %s is defined in this file, cannot be imported", ErrSymbolConflict, argument.Value)
+				return fmt.Errorf(
+					"%w: %s is defined in this file, cannot be imported",
+					ErrSymbolConflict,
+					argument.Value,
+				)
 			}
+
 			return nil // repeated import: allowed
 		}
 
@@ -620,7 +689,11 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 
 		if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
 			if p.objectFile.Symbols[labelIndex].Binding == isa.Import {
-				return fmt.Errorf("%w: %s is imported in this file, cannot be exported", ErrSymbolConflict, argument.Value)
+				return fmt.Errorf(
+					"%w: %s is imported in this file, cannot be exported",
+					ErrSymbolConflict,
+					argument.Value,
+				)
 			}
 
 			if p.objectFile.Symbols[labelIndex].Binding == isa.Local {
@@ -638,6 +711,7 @@ func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
 	default:
 		return fmt.Errorf("%w: %q", ErrUnknownDirective, directive.Value)
 	}
+
 	return nil
 }
 
@@ -653,6 +727,7 @@ func parseNumber(s string) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("%w %q: %w", ErrInvalidNumber, s, err)
 	}
+
 	if neg {
 		val = -val
 	}
@@ -660,5 +735,6 @@ func parseNumber(s string) (int64, error) {
 	if val < minNumber || val > maxNumber {
 		return 0, fmt.Errorf("%w: %q not in [%d, %d]", ErrNumberRange, s, minNumber, maxNumber)
 	}
+
 	return val, nil
 }

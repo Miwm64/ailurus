@@ -46,7 +46,7 @@ func (p psReg) word() uint32 {
 	panic("TODO")
 }
 
-// unpacks PS into a 32-bit word
+// unpacks a 32-bit word into PS
 func psFromWord(w uint32) psReg {
 	panic("TODO")
 }
@@ -77,6 +77,6 @@ func (p *dataPath) outputs(sig signals, ioData uint32) dpOut {
 	panic("TODO")
 }
 
-func (p *dataPath) clock(sig signals, comb dpOut, mem memOut) {
+func (p *dataPath) clock(sig signals, out dpOut, mem memOut) {
 	panic("TODO")
 }

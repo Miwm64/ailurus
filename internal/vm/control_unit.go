@@ -106,6 +106,6 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 	panic("TODO")
 }
 
-func (p *controlUnit) clock(sig signals, regs dpRegs, comb dpOut, mem memOut, in ioOut, irqReq bool) {
+func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in ioOut, irqReq bool) {
 	panic("TODO")
 }

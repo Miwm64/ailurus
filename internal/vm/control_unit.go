@@ -1,17 +1,12 @@
 package vm
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/Miwm64/ailurus/internal/isa"
 )
 
 const irOpcodeShift = 26 // IR[31:26]
-
-var errNotImplemented = errors.New("instruction not implemented yet")
-
-var opIRet = isa.Opcodes["iret"].Opcode
 
 type cuStep uint8
 
@@ -34,6 +29,11 @@ const (
 
 	// execute, writeback
 	stExec0 // first execute step, by opcode
+	stExec1
+	stExec2
+	stExec3
+	stExec4
+	stExec5
 	stWB0
 )
 
@@ -47,6 +47,11 @@ var stepNames = [...]string{
 	stOFDst0: "of_dst0",
 	stOFSrc0: "of_src0",
 	stExec0:  "exec0",
+	stExec1:  "exec1",
+	stExec2:  "exec2",
+	stExec3:  "exec3",
+	stExec4:  "exec4",
+	stExec5:  "exec5",
 	stWB0:    "wb0",
 }
 
@@ -153,15 +158,11 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
 		sig.selIdx, sig.latchIdx = idxZero, true
 		sig.selPos, sig.latchPos = posZero, true
-	case stExec0:
+	case stExec0, stExec1, stExec2, stExec3, stExec4, stExec5:
 		sig = p.execute(sig)
 	}
 
 	sig.data = p.dataMux(sig.selDataMux, regs)
-	return sig
-}
-
-func (p *controlUnit) execute(sig signals) signals {
 	return sig
 }
 
@@ -184,6 +185,10 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 	case p.step == stExec0:
 		if err := p.decode(); err != nil {
 			p.stop(err)
+			return
+		}
+		if p.opcode() == opHalt {
+			p.halted = true
 			return
 		}
 	}
@@ -215,17 +220,11 @@ func (p *controlUnit) next() cuStep {
 		return stFetch2
 	case stFetch2:
 		return stExec0
+	case stExec0, stExec1, stExec2, stExec3, stExec4, stExec5:
+		return p.nextF0()
 	default: // stReset1, end of an instruction
 		return stFetch0
 	}
-}
-
-func (p *controlUnit) decode() error {
-	op := p.opcode()
-	if _, ok := isa.Mnemonics[op]; !ok {
-		return fmt.Errorf("%w: 0x%02X at PC %#x", ErrBadOpcode, op, p.pc-4)
-	}
-	return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])
 }
 
 func (p *controlUnit) opcode() isa.Opcode {

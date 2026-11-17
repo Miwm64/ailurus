@@ -2,8 +2,6 @@ memory_size: 4096   # bytes
 cache: true         # false: direct RAM
 tick_limit: 100000
 input:              # interrupt schedule: [tick, char]
-  - [10, "h"]
-  - [25, "i"]
 journal:
   mode: tick      # instr | tick
   from_tick: 0     # tick lines only inside [from_tick, to_tick]

@@ -138,6 +138,72 @@ type controlUnit struct {
 	fault      error
 }
 
+func (p *controlUnit) outputs(regs dpRegs) signals {
+	sig := signals{pc: p.pc}
+
+	switch p.step {
+	case stReset0, stFetch1:
+		sig.memOp, sig.latchMDR = memRead, true
+	case stReset1:
+		sig.selPCMux, sig.latchPC = pcFromMDR, true
+	case stFetch0:
+		sig.selMAR, sig.latchMAR = marPC, true
+	case stFetch2:
+		sig.latchIR = true
+		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
+		sig.selIdx, sig.latchIdx = idxZero, true
+		sig.selPos, sig.latchPos = posZero, true
+	case stExec0:
+		sig = p.execute(sig)
+	}
+
+	sig.data = p.dataMux(sig.selDataMux, regs)
+	return sig
+}
+
+func (p *controlUnit) execute(sig signals) signals {
+	return sig
+}
+
+func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in ioOut, irqReq bool) {
+	if irqReq {
+		p.irqPending = true
+	}
+
+	switch {
+	case p.halted:
+		return
+	case mem.fault != nil:
+		p.stop(mem.fault)
+		return
+	case in.fault != nil:
+		p.stop(in.fault)
+		return
+	case sig.memOp != memNone && !mem.ready:
+		return // waiting for memory
+	case p.step == stExec0:
+		if err := p.decode(); err != nil {
+			p.stop(err)
+			return
+		}
+	}
+
+	fe := p.field(regs)
+	if sig.latchIR {
+		p.ir = regs.mdr
+	}
+	if sig.latchPC {
+		p.pc = p.pcMux(sig, regs, fe)
+	}
+	if sig.latchIdx {
+		p.idx = p.idxMux(sig.selIdx)
+	}
+	if sig.latchPos {
+		p.pos = posMux(sig.selPos, fe)
+	}
+	p.step = p.next()
+}
+
 // next_step
 func (p *controlUnit) next() cuStep {
 	switch p.step {

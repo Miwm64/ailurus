@@ -1,5 +1,7 @@
 package vm
 
+import "fmt"
+
 // sel_alu_a
 const (
 	aluAOutA = iota
@@ -98,7 +100,7 @@ type dataPath struct {
 }
 
 func (p *dataPath) registers() dpRegs {
-	panic("TODO")
+	return dpRegs{mar: p.mar, mdr: p.mdr, ps: p.ps}
 }
 
 func (p *dataPath) outputs(sig signals, ioData uint32) dpOut {
@@ -107,4 +109,60 @@ func (p *dataPath) outputs(sig signals, ioData uint32) dpOut {
 
 func (p *dataPath) clock(sig signals, out dpOut, mem memOut) {
 	panic("TODO")
+}
+
+func (p *dataPath) marMux(sig signals, result uint32) uint32 {
+	switch sig.selMAR {
+	case marResult:
+		return result
+	case marPC:
+		return sig.pc
+	case marMDR:
+		return p.mdr
+	case marMARDst:
+		return p.marDst
+	default:
+		panic(fmt.Sprintf("datapath: bad sel_mar %d", sig.selMAR))
+	}
+}
+
+func (p *dataPath) tmpMux(sel uint8, result uint32) uint32 {
+	switch sel {
+	case tmpMDR:
+		return p.mdr
+	case tmpResult:
+		return result
+	default:
+		panic(fmt.Sprintf("datapath: bad sel_tmp %d", sel))
+	}
+}
+
+func (p *dataPath) psMux(sel uint8, out dpOut) psReg {
+	switch sel {
+	case psFlags:
+		return psReg{ie: p.ps.ie, flags: out.flags}
+	case psResult:
+		return psFromWord(out.result)
+	default:
+		panic(fmt.Sprintf("datapath: bad sel_ps_mux %d", sel))
+	}
+}
+
+func latchPS(ps, src psReg, mask flagMask) psReg {
+	if mask&maskN != 0 {
+		ps.n = src.n
+	}
+	if mask&maskZ != 0 {
+		ps.z = src.z
+	}
+	if mask&maskV != 0 {
+		ps.v = src.v
+	}
+	if mask&maskC != 0 {
+		ps.c = src.c
+	}
+	if mask&maskIE != 0 {
+		ps.ie = src.ie
+	}
+	return ps
 }

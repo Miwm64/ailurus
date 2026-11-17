@@ -1,25 +1,61 @@
 package vm
 
+import (
+	"errors"
+	"fmt"
+
+	"github.com/Miwm64/ailurus/internal/isa"
+)
+
+const irOpcodeShift = 26 // IR[31:26]
+
+var errNotImplemented = errors.New("instruction not implemented yet")
+
+var opIRet = isa.Opcodes["iret"].Opcode
+
 type cuStep uint8
 
 const (
 	// reset: PC ← mem[0x0]
-	stReset0 cuStep = iota
+	stReset0 cuStep = iota // MDR ← mem[MAR]; reset leaves MAR = 0
+	stReset1               // PC ← MDR
 
 	// interrupt entry: push PC, push PS, IE ← 0, PC ← mem[0x4]
 	stIRQ0
 
 	// instruction fetch: IR ← mem[PC], PC ← PC + 4
-	stFetch0
+	stFetch0 // MAR ← PC
+	stFetch1 // MDR ← mem[MAR]
+	stFetch2 // IR ← MDR, PC ← PC + 4, IDX ← 0, POS ← 0
 
 	// operand fetch: destination, then sources
 	stOFDst0
 	stOFSrc0
 
 	// execute, writeback
-	stExec0
+	stExec0 // first execute step, by opcode
 	stWB0
 )
+
+var stepNames = [...]string{
+	stReset0: "reset0",
+	stReset1: "reset1",
+	stIRQ0:   "irq0",
+	stFetch0: "fetch0",
+	stFetch1: "fetch1",
+	stFetch2: "fetch2",
+	stOFDst0: "of_dst0",
+	stOFSrc0: "of_src0",
+	stExec0:  "exec0",
+	stWB0:    "wb0",
+}
+
+func (s cuStep) String() string {
+	if int(s) < len(stepNames) && stepNames[s] != "" {
+		return stepNames[s]
+	}
+	return fmt.Sprintf("step%d", s)
+}
 
 // sel_add_mux
 const (

@@ -21,22 +21,22 @@ func main() {
 		os.Exit(2)
 	}
 
-	codeContents, err := io.ReadFile(cfg.configFile)
+	codeContents, err := io.ReadBytes(cfg.configFile)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 
-	machineParams, journalParams, err := parseMachineConfig(configContents)
+	machineParams, _, err := parseMachineConfig(configContents)
 
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 
-	machine := vm.New()
-
-	fmt.Println(machineParams)
-	fmt.Println(journalParams)
+	_, err = vm.New(codeContents, machineParams)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+	}
 
 }

@@ -13,7 +13,7 @@ const (
 	ioWidth  = len("out 'a', in 'b'")
 )
 
-// machine state right after a tick.
+// Record machine state right after a tick.
 type Record struct {
 	Tick       uint64
 	Step       string

@@ -28,7 +28,7 @@ type Machine struct {
 	prevStep  cuStep
 }
 
-// builds a machine with image loaded at address 0.
+// New builds a machine with image loaded at address 0.
 func New(image []byte, cfg Config) (*Machine, error) {
 	r, err := newRAM(cfg.MemorySize, image)
 	if err != nil {
@@ -47,7 +47,7 @@ func New(image []byte, cfg Config) (*Machine, error) {
 	}, nil
 }
 
-// runs until halt or tick limit.
+// Run runs until halt or tick limit.
 func (p *Machine) Run() error {
 	for !p.cu.halted {
 		if p.tick >= p.limit {

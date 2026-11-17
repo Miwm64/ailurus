@@ -48,7 +48,7 @@ const (
 	maxAddress  = 1<<32 - 1
 )
 
-// returns bits ready to be shifted into instruction.
+// Bits returns bits ready to be shifted into instruction.
 func (a Argument) Bits() (uint32, error) {
 	switch a.Mode {
 	case Register, RegisterIndirect, PostIncrement, PreDecrement:

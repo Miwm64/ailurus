@@ -82,7 +82,7 @@ var Opcodes = map[string]OpInfo{
 	"out":   {0x3B, F2},
 }
 
-// reverse table.
+// Mnemonics reverse table.
 var Mnemonics = buildMnemonics()
 
 func buildMnemonics() map[Opcode]string {

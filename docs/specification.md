@@ -11,6 +11,10 @@
 - RAM reads/writes any 4 consecutive bytes in one access. All data accesses are 32-bit words.
 - Code and data should be aligned to 4: unaligned accesses work, but bypass the cache (see [Cache](#cache)).
 
+### PS layout
+`[7] N  [6] Z  [5] V  [4] C  [2] IE`, other bits 0. IE is bit 2 so `ei` loads it with the
+`data_mux` constant 4.
+
 ### Operand modes
 
 | # | Mode               | Syntax                  | Operand size (bits) | Notes                                                        |

@@ -90,3 +90,20 @@ func sub(a, b, bin uint32) aluOut {
 	v := ((a ^ b) & (a ^ r)) >> signBit
 	return aluOut{result: r, flags: flags{v: v == 1, c: borrow == 1}}
 }
+
+func logic(op aluOp, a, b uint32) uint32 {
+	switch op {
+	case aluPassA:
+		return a
+	case aluPassB:
+		return b
+	case aluAnd:
+		return a & b
+	case aluOr:
+		return a | b
+	case aluXor:
+		return a ^ b
+	default: // aluNot
+		return ^a
+	}
+}

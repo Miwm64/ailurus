@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"fmt"
 	"math/bits"
 )
 
@@ -53,6 +54,27 @@ type aluOut struct {
 	result  uint32
 	flags   flags
 	divZero bool
+}
+
+func alu(op aluOp, a, b uint32, carry bool) aluOut {
+	var out aluOut
+
+	switch op {
+	case aluAdd, aluAddC, aluSub, aluSubC, aluInc, aluDec, aluNeg:
+		out = arithm(op, a, b, carry)
+	case aluPassA, aluPassB, aluAnd, aluOr, aluXor, aluNot:
+		out = aluOut{result: logic(op, a, b)}
+	case aluLsl, aluLsr, aluAsr:
+		out = shift(op, a, b, carry)
+	case aluMulL, aluMulH, aluUMulH, aluDiv, aluMod:
+		out = mulDiv(op, a, b)
+	default:
+		panic(fmt.Sprintf("alu: unknown op %d", op))
+	}
+
+	out.flags.n = out.result>>signBit == 1
+	out.flags.z = out.result == 0
+	return out
 }
 
 func arithm(op aluOp, a, b uint32, carry bool) aluOut {
@@ -122,4 +144,26 @@ func shift(op aluOp, a, b uint32, carry bool) aluOut {
 	default: // aluAsr
 		return aluOut{result: uint32(int32(a) >> n), flags: flags{c: (a>>(n-1))&1 == 1}}
 	}
+}
+
+// INT_MIN / -1 = INT_MIN, INT_MIN % -1 = 0 (Go semantics).
+func mulDiv(op aluOp, a, b uint32) aluOut {
+	switch op {
+	case aluMulL:
+		return aluOut{result: a * b}
+	case aluMulH:
+		return aluOut{result: uint32((int64(int32(a)) * int64(int32(b))) >> wordBits)}
+	case aluUMulH:
+		hi, _ := bits.Mul32(a, b)
+		return aluOut{result: hi}
+	default:
+	}
+
+	if b == 0 {
+		return aluOut{divZero: true}
+	}
+	if op == aluDiv {
+		return aluOut{result: uint32(int32(a) / int32(b))}
+	}
+	return aluOut{result: uint32(int32(a) % int32(b))}
 }

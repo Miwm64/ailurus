@@ -747,7 +747,35 @@ input:              # interrupt schedule: [tick, char]
   port 0 and raises `request_interrupt`.
 - To CU: `ready`, `div_zero`, PS, MDR, `request_interrupt`.
 
-TODO: ALU operations
+#### ALU operations
+
+`alu_op` — 5 bits. Inputs: A (ALU_A_MUX), B (ALU_B_MUX), carry-in (PS.C).
+
+| Op       | Result                     | Used by                                                                                              |
+|----------|----------------------------|------------------------------------------------------------------------------------------------------|
+| `pass_a` | A                          | PC push (`call`, interrupt entry); memory operand via MDR (PS ← stack on `iret`); register via out_a |
+| `pass_b` | B                          | immediate; `clr` (B = 0); IO data (`in`); PS push (interrupt entry); register via out_b; TMP         |
+| `add`    | A + B                      | `add`, `addm`, addresses, `(r)+`, stack pop                                                          |
+| `addc`   | A + B + C                  | `addc`                                                                                               |
+| `sub`    | A − B                      | `sub`, `cmp`, `-(r)`, stack push                                                                     |
+| `subc`   | A − B − C                  | `subc`                                                                                               |
+| `inc`    | A + 1                      | `inc`                                                                                                |
+| `dec`    | A − 1                      | `dec`                                                                                                |
+| `neg`    | −A                         | `neg`                                                                                                |
+| `and`    | A & B                      | `and`, `test`                                                                                        |
+| `or`     | A \| B                     | `or`                                                                                                 |
+| `xor`    | A ^ B                      | `xor`                                                                                                |
+| `not`    | ~A                         | `not`                                                                                                |
+| `lsl`    | A << (B mod 32)            | `lsl`, `asl`                                                                                         |
+| `lsr`    | A >> (B mod 32), zero-fill | `lsr`                                                                                                |
+| `asr`    | A >> (B mod 32), sign-fill | `asr`                                                                                                |
+| `mull`   | (A × B) [31:0]             | `mull`                                                                                               |
+| `mulh`   | (A × B) [63:32], signed    | `mulh`                                                                                               |
+| `umulh`  | (A × B) [63:32], unsigned  | `umulh`                                                                                              |
+| `div`    | A / B, signed, truncated   | `div`                                                                                                |
+| `mod`    | A % B, signed              | `mod`                                                                                                |
+
+- `div`/`mod` with B = 0: `div_zero` = 1, no division.
 
 ### ControlUnit
 

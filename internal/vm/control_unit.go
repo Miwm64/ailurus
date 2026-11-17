@@ -25,6 +25,9 @@ const (
 
 	// operand fetch: destination, then sources
 	stOFDst0
+	stOFDst1
+	stOFDst2
+	stOFDstExt // MDR ← mem[MAR], PC ← PC + 4, IDX ← IDX + 1, POS ← 0: the next instruction word
 	stOFSrc0
 
 	// execute, writeback
@@ -38,21 +41,24 @@ const (
 )
 
 var stepNames = [...]string{
-	stReset0: "reset0",
-	stReset1: "reset1",
-	stIRQ0:   "irq0",
-	stFetch0: "fetch0",
-	stFetch1: "fetch1",
-	stFetch2: "fetch2",
-	stOFDst0: "of_dst0",
-	stOFSrc0: "of_src0",
-	stExec0:  "exec0",
-	stExec1:  "exec1",
-	stExec2:  "exec2",
-	stExec3:  "exec3",
-	stExec4:  "exec4",
-	stExec5:  "exec5",
-	stWB0:    "wb0",
+	stReset0:   "reset0",
+	stReset1:   "reset1",
+	stIRQ0:     "irq0",
+	stFetch0:   "fetch0",
+	stFetch1:   "fetch1",
+	stFetch2:   "fetch2",
+	stOFDst0:   "of_dst0",
+	stOFDst1:   "of_dst1",
+	stOFDst2:   "of_dst2",
+	stOFDstExt: "of_dst_ext",
+	stOFSrc0:   "of_src0",
+	stExec0:    "exec0",
+	stExec1:    "exec1",
+	stExec2:    "exec2",
+	stExec3:    "exec3",
+	stExec4:    "exec4",
+	stExec5:    "exec5",
+	stWB0:      "wb0",
 }
 
 func (s cuStep) String() string {
@@ -155,6 +161,7 @@ type controlUnit struct {
 
 func (p *controlUnit) outputs(regs dpRegs) signals {
 	sig := signals{pc: p.pc}
+	fe := p.field(regs)
 
 	switch p.step {
 	case stReset0, stFetch1:
@@ -168,11 +175,15 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
 		sig.selIdx, sig.latchIdx = idxZero, true
 		sig.selPos, sig.latchPos = posZero, true
-	case stOFDst0, stExec0, stExec1, stExec2, stExec3, stExec4, stExec5:
-		sig = p.execute(sig)
+	case stOFDstExt:
+		sig.memOp, sig.latchMDR = memRead, true
+		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
+		sig.selIdx, sig.latchIdx = idxInc, true
+		sig.selPos, sig.latchPos = posZero, true
+	case stOFDst0, stOFDst1, stOFDst2, stExec0, stExec1, stExec2, stExec3, stExec4, stExec5, stWB0:
+		sig = p.execute(sig, fe)
 	}
 
-	fe := p.field(regs)
 	sig.regA, sig.regB, sig.regW = p.regMux(sig.selRegA, fe), fe.reg, p.regMux(sig.selRegW, fe)
 	sig.data = p.dataMux(sig.selDataMux, regs)
 	return sig
@@ -220,11 +231,11 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 	if sig.latchDstReg {
 		p.dstReg = fe.reg
 	}
-	p.step = p.next()
+	p.step = p.next(fe)
 }
 
 // next_step
-func (p *controlUnit) next() cuStep {
+func (p *controlUnit) next(fe fieldOut) cuStep {
 	switch p.step {
 	case stReset0:
 		return stReset1
@@ -234,8 +245,10 @@ func (p *controlUnit) next() cuStep {
 		return stFetch2
 	case stFetch2:
 		return stOFDst0
-	case stOFDst0, stExec0, stExec1, stExec2, stExec3, stExec4, stExec5:
-		return p.nextExec()
+	case stOFDstExt:
+		return stOFDst0
+	case stOFDst0, stOFDst1, stOFDst2, stExec0, stExec1, stExec2, stExec3, stExec4, stExec5, stWB0:
+		return p.nextExec(fe)
 	default: // stReset1, end of an instruction
 		return stFetch0
 	}
@@ -274,6 +287,7 @@ func (p *controlUnit) pcMux(sig signals, regs dpRegs, fe fieldOut) uint32 {
 	return p.pc + 4
 }
 
+// regMux: REG_A_MUX / REG_W_MUX(FIELD_EXT reg | DST_REG | 0 = rsp).
 func (p *controlUnit) regMux(sel uint8, fe fieldOut) uint8 {
 	switch sel {
 	case regField:

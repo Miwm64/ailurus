@@ -44,21 +44,67 @@ var aluControl = map[isa.Opcode]aluCtl{
 	mustOpcode("neg"): {aluNeg, flagsNZVC},
 }
 
-func (p *controlUnit) execute(sig signals) signals {
+// addrSteps: OF steps that put a memory operand's address into MAR, by mode; MDR ← mem[MAR] follows.
+var addrSteps = [...]cuStep{
+	isa.DirectMemory:     1, // MAR ← MDR (the address, read by of_dst_ext)
+	isa.PCRelative:       1, // MAR ← PC + offset
+	isa.RegisterIndirect: 1, // MAR ← r
+	isa.PostIncrement:    2, // MAR ← r; r ← r + 4
+	isa.PreDecrement:     1, // r, MAR ← r − 4
+	isa.RegisterRelative: 1, // MAR ← r + offset
+}
+
+func memOperand(sig signals, fe fieldOut, i cuStep) signals {
+	switch {
+	case !fe.fits: // MAR ← PC
+		sig.selMAR, sig.latchMAR = marPC, true
+		return sig
+	case i == addrSteps[fe.mode]: // MDR ← mem[MAR]
+		sig.memOp, sig.latchMDR = memRead, true
+		return sig
+	case fe.mode == isa.DirectMemory: // MAR ← MDR
+		sig.selMAR, sig.latchMAR = marMDR, true
+		return sig
+	}
+
+	sig.selRegA, sig.selALUA, sig.selALUB, sig.selDataMux = regField, aluAOutA, aluBData, dataImm
+	switch {
+	case fe.mode == isa.PostIncrement && i == 1: // r ← r + 4
+		sig.selDataMux, sig.aluOp = dataFour, aluAdd
+		sig.selRegW, sig.latchReg = regField, true
+		return sig
+	case fe.mode == isa.PreDecrement: // r, MAR ← r − 4
+		sig.selDataMux, sig.aluOp = dataFour, aluSub
+		sig.selRegW, sig.latchReg = regField, true
+	case fe.mode == isa.PCRelative: // MAR ← PC + offset
+		sig.selALUA, sig.aluOp = aluAPC, aluAdd
+	case fe.mode == isa.RegisterRelative: // MAR ← r + offset
+		sig.aluOp = aluAdd
+	default: // indirect, postincrement: MAR ← r
+		sig.aluOp = aluPassA
+	}
+	sig.selMAR, sig.latchMAR = marResult, true
+	return sig
+}
+
+func (p *controlUnit) execute(sig signals, fe fieldOut) signals {
+	if p.step == stOFDst0 && p.decode(fe) != nil {
+		return sig // no signals: the CU faults on this tick
+	}
 	switch f, ok := p.format(); {
 	case ok && f == isa.F0:
 		return p.execF0(sig)
 	case ok && f == isa.F1:
-		return p.execF1(sig)
+		return p.execF1(sig, fe)
 	}
 	return sig
 }
 
 // nextExec: next step after fetch
-func (p *controlUnit) nextExec() cuStep {
+func (p *controlUnit) nextExec(fe fieldOut) cuStep {
 	switch f, _ := p.format(); f {
 	case isa.F1:
-		return p.nextF1()
+		return p.nextF1(fe)
 	default: // F0
 		return p.nextF0()
 	}
@@ -116,26 +162,45 @@ func (p *controlUnit) nextF0() cuStep {
 	return stFetch0
 }
 
-// execF1: register destination.
-// of_dst0: DST_REG ← reg; exec0: reg[DST_REG] ← op(reg[DST_REG]), flags.
-func (p *controlUnit) execF1(sig signals) signals {
-	if p.step == stOFDst0 {
+func (p *controlUnit) execF1(sig signals, fe fieldOut) signals {
+	reg := fe.mode == isa.Register
+	switch {
+	case p.step == stWB0:
+		sig.selALUB, sig.aluOp, sig.memOp = aluBTMP, aluPassB, memWrite
+	case p.step == stExec0:
+		ctl := aluControl[p.opcode()]
+		sig.selALUB, sig.selDataMux, sig.aluOp = aluBData, dataZero, ctl.op
+		sig.selPS, sig.latchPS = psFlags, ctl.flags
+		if reg {
+			sig.selRegA, sig.selALUA = regDst, aluAOutA
+			sig.selRegW, sig.latchReg = regDst, true
+		} else {
+			sig.selALUA = aluAMDR
+			sig.selTMP, sig.latchTMP = tmpResult, true
+		}
+	case reg: // of_dst0
 		sig.latchDstReg = true
-		return sig
+	default:
+		sig = memOperand(sig, fe, p.step-stOFDst0)
 	}
-	ctl := aluControl[p.opcode()]
-	sig.selRegA, sig.selALUA, sig.selALUB, sig.selDataMux, sig.aluOp = regDst, aluAOutA, aluBData, dataZero, ctl.op
-	sig.selRegW, sig.latchReg = regDst, true
-	sig.selPS, sig.latchPS = psFlags, ctl.flags
 	return sig
 }
 
-// nextF1: of_dst0, exec0.
-func (p *controlUnit) nextF1() cuStep {
-	if p.step == stOFDst0 {
+// nextF1: of_dst, exec0, wb0.
+func (p *controlUnit) nextF1(fe fieldOut) cuStep {
+	reg := fe.mode == isa.Register
+	switch {
+	case p.step == stExec0 && !reg:
+		return stWB0
+	case p.step == stExec0, p.step == stWB0:
+		return stFetch0
+	case !fe.fits:
+		return stOFDstExt
+	case reg, p.step-stOFDst0 == addrSteps[fe.mode]:
 		return stExec0
+	default:
+		return p.step + 1
 	}
-	return stFetch0
 }
 
 func (p *controlUnit) decode(fe fieldOut) error {
@@ -144,7 +209,9 @@ func (p *controlUnit) decode(fe fieldOut) error {
 	switch {
 	case !ok:
 		return fmt.Errorf("%w: 0x%02X at PC %#x", ErrBadOpcode, op, p.pc-4)
-	case f == isa.F0, f == isa.F1 && fe.mode == isa.Register:
+	case f == isa.F1 && fe.mode == isa.Immediate:
+		return fmt.Errorf("%w: immediate destination at PC %#x", ErrBadOpcode, p.pc-4)
+	case f == isa.F0, f == isa.F1:
 		return nil
 	default:
 		return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])

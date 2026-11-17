@@ -6,6 +6,5 @@ b: .word -0x123
 
 .section text
 _start:
-    mov r1, (@a)
-    add r1, (@b)
+    out 1, (a)
     halt

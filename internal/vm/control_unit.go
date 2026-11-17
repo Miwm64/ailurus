@@ -191,7 +191,7 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 		sig.selIdx, sig.latchIdx = idxInc, true
 		sig.selPos, sig.latchPos = posZero, true
 	default: // operand fetch, execute, writeback
-		sig = p.execute(sig, fe)
+		sig = p.execute(sig, fe, regs)
 	}
 
 	sig.regA, sig.regB, sig.regW = p.regMux(sig.selRegA, fe), fe.reg, p.regMux(sig.selRegW, fe)
@@ -260,8 +260,6 @@ func (p *controlUnit) next(fe fieldOut) cuStep {
 		return stOFDst0
 	case stReset1:
 		return stFetch0
-	case stOFDstExt:
-		return stOFDst0
 	default: // operand fetch, execute, writeback
 		return p.nextExec(fe)
 	}

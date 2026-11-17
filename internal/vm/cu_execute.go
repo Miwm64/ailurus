@@ -19,6 +19,7 @@ var (
 	opTest = mustOpcode("test")
 	opIn   = mustOpcode("in")
 	opOut  = mustOpcode("out")
+	opCall = mustOpcode("call")
 )
 
 // mustOpcode: the opcode of a mnemonic; a typo panics at init.
@@ -69,6 +70,20 @@ var aluControl = map[isa.Opcode]aluCtl{
 	mustOpcode("lsl"):   {aluLsl, flagsNZC},
 	mustOpcode("lsr"):   {aluLsr, flagsNZC},
 	mustOpcode("asr"):   {aluAsr, flagsNZC},
+}
+
+// FB: branch taken if
+var conditions = map[isa.Opcode]func(flags) bool{
+	mustOpcode("jz"):  func(f flags) bool { return f.z },
+	mustOpcode("jnz"): func(f flags) bool { return !f.z },
+	mustOpcode("ja"):  func(f flags) bool { return !f.c && !f.z },
+	mustOpcode("jae"): func(f flags) bool { return !f.c },
+	mustOpcode("jb"):  func(f flags) bool { return f.c },
+	mustOpcode("jbe"): func(f flags) bool { return f.c || f.z },
+	mustOpcode("jl"):  func(f flags) bool { return f.n != f.v },
+	mustOpcode("jle"): func(f flags) bool { return f.z || f.n != f.v },
+	mustOpcode("jg"):  func(f flags) bool { return !f.z && f.n == f.v },
+	mustOpcode("jge"): func(f flags) bool { return f.n == f.v },
 }
 
 // shape: the decoder's view of an F1 / F2 instruction, from IR.
@@ -143,7 +158,7 @@ func memOperand(sig signals, fe fieldOut, i cuStep) signals {
 	return sig
 }
 
-func (p *controlUnit) execute(sig signals, fe fieldOut) signals {
+func (p *controlUnit) execute(sig signals, fe fieldOut, regs dpRegs) signals {
 	if p.step == stOFDst0 && p.decode(fe) != nil {
 		return sig // faults in clock
 	}
@@ -152,6 +167,8 @@ func (p *controlUnit) execute(sig signals, fe fieldOut) signals {
 		return p.execF0(sig)
 	case ok && (f == isa.F1 || f == isa.F2):
 		return p.execALU(sig, fe)
+	case ok && (f == isa.FB || f == isa.FJ):
+		return p.execJump(sig, fe, regs.ps.flags)
 	}
 	return sig
 }
@@ -161,6 +178,8 @@ func (p *controlUnit) nextExec(fe fieldOut) cuStep {
 	switch f, _ := p.format(); f {
 	case isa.F1, isa.F2:
 		return p.nextALU(fe)
+	case isa.FB, isa.FJ:
+		return p.nextJump(fe)
 	default: // F0
 		return p.nextF0()
 	}
@@ -299,6 +318,8 @@ func (p *controlUnit) nextALU(fe fieldOut) cuStep {
 	}
 
 	switch p.step {
+	case stOFDstExt:
+		return stOFDst0
 	case stOFDst0, stOFDst1, stOFDst2:
 		switch {
 		case !fe.fits:
@@ -342,20 +363,60 @@ func (p *controlUnit) nextALU(fe fieldOut) cuStep {
 	}
 }
 
+// execJump: FB / FJ. Target: PC + offset, or MDR (K = 0).
+func (p *controlUnit) execJump(sig signals, fe fieldOut, f flags) signals {
+	call := p.opcode() == opCall
+	switch {
+	case p.step == stOFDst0: // K = 0: MAR ← PC
+		if !fe.fits {
+			sig.selMAR, sig.latchMAR = marPC, true
+		}
+	case p.step == stExec0 && call: // rsp, MAR ← rsp − 4
+		sig.selRegA, sig.selALUA, sig.selALUB, sig.selDataMux, sig.aluOp = regRSP, aluAOutA, aluBData, dataFour, aluSub
+		sig.selRegW, sig.latchReg = regRSP, true
+		sig.selMAR, sig.latchMAR = marResult, true
+	default: // jump, branch: exec0 PC ← target; call: exec1 mem[MAR] ← PC, PC ← target
+		if call {
+			sig.selALUA, sig.aluOp, sig.memOp = aluAPC, aluPassA, memWrite
+		}
+		if cond, ok := conditions[p.opcode()]; ok && !cond(f) {
+			return sig // not taken
+		}
+		sig.latchPC = true
+		if fe.mode == isa.DirectMemory {
+			sig.selPCMux = pcFromMDR
+		} else {
+			sig.selAddMux, sig.selPCMux = addOffset, pcFromAdd
+		}
+	}
+	return sig
+}
+
+func (p *controlUnit) nextJump(fe fieldOut) cuStep {
+	switch {
+	case p.step == stOFDst0 && !fe.fits:
+		return stOFDstExt
+	case p.step == stOFDst0, p.step == stOFDstExt:
+		return stExec0
+	case p.step == stExec0 && p.opcode() == opCall:
+		return stExec1
+	default:
+		return stFetch0
+	}
+}
+
 func (p *controlUnit) decode(fe fieldOut) error {
 	op := p.opcode()
 	f, ok := p.format()
 	switch {
 	case !ok:
 		return fmt.Errorf("%w: 0x%02X at PC %#x", ErrBadOpcode, op, p.pc-4)
-	case op == opIn, op == opOut:
+	case f == isa.FP, f == isa.FA, op == opIn, op == opOut:
 		return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])
 	case (f == isa.F1 || f == isa.F2) && fe.mode == isa.Immediate:
 		return fmt.Errorf("%w: immediate destination at PC %#x", ErrBadOpcode, p.pc-4)
-	case f == isa.F0, f == isa.F1, f == isa.F2:
-		return nil
 	default:
-		return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])
+		return nil
 	}
 }
 

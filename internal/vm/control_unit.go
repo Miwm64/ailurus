@@ -33,10 +33,12 @@ const (
 	stOFDst0
 	stOFDst1
 	stOFDst2
+	stOFDst3
 	stOFDstExt // MDR ← mem[MAR], PC ← PC + 4, IDX ← IDX + 1, POS ← 0
 	stOFSrc0
 	stOFSrc1
 	stOFSrc2
+	stOFSrc3
 	stOFSrcExt
 	stOFSrcEnd  // TMP ← source, MAR ← MAR_DST
 	stOFDstRead // MDR ← mem[MAR]
@@ -67,10 +69,12 @@ var stepNames = [...]string{
 	stOFDst0:    "of_dst0",
 	stOFDst1:    "of_dst1",
 	stOFDst2:    "of_dst2",
+	stOFDst3:    "of_dst3",
 	stOFDstExt:  "of_dst_ext",
 	stOFSrc0:    "of_src0",
 	stOFSrc1:    "of_src1",
 	stOFSrc2:    "of_src2",
+	stOFSrc3:    "of_src3",
 	stOFSrcExt:  "of_src_ext",
 	stOFSrcEnd:  "of_src_end",
 	stOFDstRead: "of_dst_rd",
@@ -157,6 +161,7 @@ type signals struct {
 	latchPos    bool
 	latchIdx    bool
 	latchDstReg bool
+	latchExt    bool
 	clearIRQ    bool
 	selAddMux   uint8
 	selPCMux    uint8
@@ -176,6 +181,7 @@ type controlUnit struct {
 	step       cuStep
 	idx, pos   uint8
 	dstReg     uint8
+	ext        uint32 // EXT: FIELD_EXT's input for the words after IR
 	irqPending bool
 	halted     bool
 	fault      error
@@ -183,7 +189,7 @@ type controlUnit struct {
 
 func (p *controlUnit) outputs(regs dpRegs) signals {
 	sig := signals{pc: p.pc}
-	fe := p.field(regs)
+	fe := p.field()
 
 	switch p.step {
 	case stReset0, stFetch1:
@@ -214,7 +220,7 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 	case stIRQ6:
 		sig.selPCMux, sig.latchPC = pcFromMDR, true
 	case stOFDstExt, stOFSrcExt:
-		sig.memOp, sig.latchMDR = memRead, true
+		sig.memOp, sig.latchMDR, sig.latchExt = memRead, true, true
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
 		sig.selIdx, sig.latchIdx = idxInc, true
 		sig.selPos, sig.latchPos = posZero, true
@@ -223,7 +229,7 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 	}
 
 	sig.regA, sig.regB, sig.regW = p.regMux(sig.selRegA, fe), fe.reg, p.regMux(sig.selRegW, fe)
-	sig.data = p.dataMux(sig.selDataMux, regs)
+	sig.data = dataMux(sig.selDataMux, fe)
 	return sig
 }
 
@@ -236,7 +242,7 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 		p.irqPending = true
 	}
 
-	fe := p.field(regs)
+	fe := p.field()
 	switch {
 	case p.halted:
 		return
@@ -276,6 +282,9 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 	if sig.latchDstReg {
 		p.dstReg = fe.reg
 	}
+	if sig.latchExt {
+		p.ext = mem.data
+	}
 	p.step = p.next(fe)
 	if p.step == stFetch0 && pending && regs.ps.ie { // interrupt check: after an instruction
 		p.step = stIRQ0
@@ -306,18 +315,18 @@ func (p *controlUnit) opcode() isa.Opcode {
 	return isa.Opcode(p.ir >> irOpcodeShift)
 }
 
-func (p *controlUnit) field(regs dpRegs) fieldOut {
-	return fieldExt(fieldIn{ir: p.ir, mdr: regs.mdr, idx: p.idx, pos: p.pos})
+func (p *controlUnit) field() fieldOut {
+	return fieldExt(fieldIn{ir: p.ir, ext: p.ext, idx: p.idx, pos: p.pos})
 }
 
 func (p *controlUnit) stop(err error) {
 	p.halted, p.fault = true, err
 }
 
-func (p *controlUnit) dataMux(sel uint8, regs dpRegs) uint32 {
+func dataMux(sel uint8, fe fieldOut) uint32 {
 	switch sel {
 	case dataImm:
-		return p.field(regs).value
+		return fe.value
 	case dataFour:
 		return 4
 	default: // dataZero

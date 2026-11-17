@@ -4,11 +4,11 @@ import "github.com/Miwm64/ailurus/internal/isa"
 
 const (
 	half16      = 1 << 16
-	relRegShift = 16
+	relRegShift = 16 // register-relative: reg# in [19:16], offset in [15:0]
 )
 
 type fieldIn struct {
-	ir, mdr  uint32
+	ir, ext  uint32
 	idx, pos uint8
 }
 
@@ -21,10 +21,14 @@ type fieldOut struct {
 	posNext uint8
 }
 
+// fieldExt is combinational. The operand layout follows from IR (format and
+// modes), so the current operand is the first one that starts at (IDX, POS)
+// or later. fits = false: it starts in a later word, the CU fetches the next
+// word into EXT first. Not called past the last operand or for F0.
 func fieldExt(in fieldIn) fieldOut {
 	modes, positions, err := isa.Layout(in.ir)
 	if err != nil {
-		return fieldOut{}
+		return fieldOut{} // bad opcode: the CU faults on it
 	}
 
 	for k, at := range positions {
@@ -44,7 +48,7 @@ func fieldExt(in fieldIn) fieldOut {
 
 		word := in.ir
 		if in.idx > 0 {
-			word = in.mdr
+			word = in.ext
 		}
 		bits := word >> at.Offset & uint32(uint64(1)<<at.Width-1)
 		out.value, out.reg = decodeField(out.mode, bits)

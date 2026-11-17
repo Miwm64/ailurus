@@ -1,25 +1,23 @@
 package vm
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/Miwm64/ailurus/internal/isa"
 )
 
-var errNotImplemented = errors.New("instruction not implemented yet")
-
 var (
-	opHalt = mustOpcode("halt")
-	opRet  = mustOpcode("ret")
-	opIRet = mustOpcode("iret")
-	opEI   = mustOpcode("ei")
-	opDI   = mustOpcode("di")
-	opCmp  = mustOpcode("cmp")
-	opTest = mustOpcode("test")
-	opIn   = mustOpcode("in")
-	opOut  = mustOpcode("out")
-	opCall = mustOpcode("call")
+	opHalt  = mustOpcode("halt")
+	opRet   = mustOpcode("ret")
+	opIRet  = mustOpcode("iret")
+	opEI    = mustOpcode("ei")
+	opDI    = mustOpcode("di")
+	opCmp   = mustOpcode("cmp")
+	opTest  = mustOpcode("test")
+	opIn    = mustOpcode("in")
+	opOut   = mustOpcode("out")
+	opCall  = mustOpcode("call")
+	opPushm = mustOpcode("pushm")
 )
 
 // mustOpcode: the opcode of a mnemonic; a typo panics at init.
@@ -171,6 +169,10 @@ func (p *controlUnit) execute(sig signals, fe fieldOut, regs dpRegs) signals {
 		return p.execALU(sig, fe)
 	case ok && (f == isa.FB || f == isa.FJ):
 		return p.execJump(sig, fe, regs.ps.flags)
+	case ok && f == isa.FP:
+		return p.execFP(sig, fe)
+	case ok && f == isa.FA:
+		return p.execFA(sig, fe)
 	}
 	return sig
 }
@@ -182,6 +184,10 @@ func (p *controlUnit) nextExec(fe fieldOut) cuStep {
 		return p.nextALU(fe)
 	case isa.FB, isa.FJ:
 		return p.nextJump(fe)
+	case isa.FP:
+		return p.nextFP(fe)
+	case isa.FA:
+		return p.nextFA(fe)
 	default: // F0
 		return p.nextF0()
 	}
@@ -330,6 +336,13 @@ func decRSP(sig signals) signals {
 	return sig
 }
 
+// incRSP: rsp, MAR ← rsp + 4.
+func incRSP(sig signals) signals {
+	sig = decRSP(sig)
+	sig.aluOp = aluAdd
+	return sig
+}
+
 func (p *controlUnit) nextALU(fe fieldOut) cuStep {
 	s := p.shape()
 	operandsDone := stExec0
@@ -425,15 +438,149 @@ func (p *controlUnit) nextJump(fe fieldOut) cuStep {
 	}
 }
 
+// execFP: one register per loop, in list order.
+func (p *controlUnit) execFP(sig signals, fe fieldOut) signals {
+	push := p.opcode() == opPushm
+	switch {
+	case p.step == stOFDst0: // decode only
+	case p.step == stExec0 && !fe.fits: // MAR ← PC: the next registers are in the next word
+		sig.selMAR, sig.latchMAR = marPC, true
+	case p.step == stExec0 && push:
+		sig = decRSP(sig)
+	case p.step == stExec0: // MAR ← rsp
+		sig.selRegA, sig.selALUA, sig.aluOp = regRSP, aluAOutA, aluPassA
+		sig.selMAR, sig.latchMAR = marResult, true
+	case p.step == stExec1 && push: // mem[MAR] ← r
+		sig.selALUB, sig.aluOp, sig.memOp = aluBOutB, aluPassB, memWrite
+		sig.selPos, sig.latchPos = posNext, true
+	case p.step == stExec1: // MDR ← mem[MAR]
+		sig.memOp, sig.latchMDR = memRead, true
+	case p.step == stExec2: // r ← MDR
+		sig.selALUA, sig.aluOp = aluAMDR, aluPassA
+		sig.selRegW, sig.latchReg = regField, true
+		sig.selPos, sig.latchPos = posNext, true
+	default: // exec3, exec4 (after the last): rsp, MAR ← rsp + 4
+		sig = incRSP(sig)
+	}
+	return sig
+}
+
+func (p *controlUnit) nextFP(fe fieldOut) cuStep {
+	push := p.opcode() == opPushm
+	switch {
+	case p.step == stOFDst0, p.step == stOFSrcExt:
+		return stExec0
+	case p.step == stExec0 && !fe.fits:
+		return stOFSrcExt
+	case p.step == stExec0:
+		return stExec1
+	case p.step == stExec1 && push && fe.last, p.step == stExec4:
+		return stFetch0
+	case p.step == stExec1 && push:
+		return stExec0
+	case p.step == stExec1:
+		return stExec2
+	case p.step == stExec2 && fe.last:
+		return stExec4
+	case p.step == stExec2:
+		return stExec3
+	case fe.fits: // exec3: the next register
+		return stExec1
+	default: // exec3: the next register is in the next word
+		return stExec0
+	}
+}
+
+// execFA: of_dst TMP ← destination; of_src TMP ← TMP + source; exec0, wb0 destination ← TMP.
+func (p *controlUnit) execFA(sig signals, fe fieldOut) signals {
+	switch p.step {
+	case stExec0:
+		if p.faDstMem() { // MAR ← MAR_DST
+			sig.selMAR, sig.latchMAR = marMARDst, true
+		} else { // DST_REG register ← TMP
+			sig.selALUB, sig.aluOp = aluBTMP, aluPassB
+			sig.selRegW, sig.latchReg = regDst, true
+		}
+		return sig
+	case stWB0: // mem[MAR] ← TMP
+		sig.selALUB, sig.aluOp, sig.memOp = aluBTMP, aluPassB, memWrite
+		return sig
+	}
+
+	src, i := p.faOperand()
+	if !fe.fits || isMemory(fe.mode) && i <= addrSteps[fe.mode] {
+		return memOperand(sig, fe, i) // MAR ← PC, address, read
+	}
+
+	switch fe.mode { // A = the operand
+	case isa.Register:
+		sig.selRegA, sig.selALUA = regField, aluAOutA
+	case isa.Immediate:
+		sig.selALUA, sig.selDataMux = aluAData, dataImm
+	default:
+		sig.selALUA = aluAMDR
+	}
+	if src { // TMP ← A + TMP
+		sig.selALUB, sig.aluOp = aluBTMP, aluAdd
+	} else { // TMP ← A; DST_REG, MAR_DST keep the destination
+		sig.aluOp, sig.latchDstReg, sig.latchMARDst = aluPassA, true, true
+	}
+	sig.selTMP, sig.latchTMP = tmpResult, true
+	sig.selPS, sig.latchPS = psFlags, flagsNZ
+	sig.selPos, sig.latchPos = posNext, true
+	return sig
+}
+
+func (p *controlUnit) nextFA(fe fieldOut) cuStep {
+	switch p.step {
+	case stOFDstExt:
+		return stOFDst0
+	case stOFSrcExt:
+		return stOFSrc0
+	case stExec0:
+		if p.faDstMem() {
+			return stWB0
+		}
+		return stFetch0
+	case stWB0:
+		return stFetch0
+	}
+
+	src, i := p.faOperand()
+	switch {
+	case !fe.fits && src:
+		return stOFSrcExt
+	case !fe.fits:
+		return stOFDstExt
+	case isMemory(fe.mode) && i <= addrSteps[fe.mode]:
+		return p.step + 1
+	case fe.last:
+		return stExec0
+	default:
+		return stOFSrc0
+	}
+}
+
+// faOperand: of_src (a source) or of_dst, and the step number within the operand.
+func (p *controlUnit) faOperand() (bool, cuStep) {
+	if p.step >= stOFSrc0 {
+		return true, p.step - stOFSrc0
+	}
+	return false, p.step - stOFDst0
+}
+
+func (p *controlUnit) faDstMem() bool {
+	modes, _, _ := isa.Layout(p.ir)
+	return isMemory(modes[0])
+}
+
 func (p *controlUnit) decode(fe fieldOut) error {
 	op := p.opcode()
 	f, ok := p.format()
 	switch {
 	case !ok:
 		return fmt.Errorf("%w: 0x%02X at PC %#x", ErrBadOpcode, op, p.pc-4)
-	case f == isa.FP, f == isa.FA:
-		return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])
-	case (f == isa.F1 || f == isa.F2) && fe.mode == isa.Immediate && op != opOut:
+	case f != isa.F0 && f != isa.FP && fe.mode == isa.Immediate && op != opOut:
 		return fmt.Errorf("%w: immediate destination at PC %#x", ErrBadOpcode, p.pc-4)
 	default:
 		return nil

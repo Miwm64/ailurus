@@ -1,12 +1,15 @@
-.export _start
 .import print
-
-.section data
-a: .pstr "Hello, World!"
+.export _start
 
 .section text
-_start:
+.org 0x10
+_start :
     mov rsp, 0x100
-    mov r1, a
+    mov r1 , ( @ msg_ref )
     call print
     halt
+
+.section data
+.org 0x4
+msg : .pstr "hi"
+msg_ref : .ref msg

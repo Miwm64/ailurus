@@ -17,12 +17,6 @@ const (
 	cacheInv2
 )
 
-type cacheLine struct {
-	valid bool
-	tag   uint32
-	words [cacheLineSize / 4]uint32
-}
-
 type tagEntry struct {
 	valid bool
 	tag   uint32
@@ -32,9 +26,9 @@ type cacheSignals struct {
 	ramOp memOp
 
 	// tag_array
-	taWr   bool
-	taLine uint8
-	taData tagEntry
+	taWr      bool
+	taAddress uint8
+	taData    tagEntry
 
 	// data_array
 	dataArrWr bool
@@ -53,20 +47,21 @@ type cacheSignals struct {
 
 // cacheMemory: fully associative, tree-PLRU, write-through, no-allocate
 type cacheMemory struct {
-	ram     *ram
-	lines   [cacheLines]cacheLine
-	plru    uint16 // 15 tree bits
-	state   cacheState
-	effAddr uint32
-	filled  uint8 // words filled so far
-	victim  uint8
+	ram       *ram
+	tagArray  [cacheLines]tagEntry
+	dataArray [cacheLines][cacheLineSize / 4]uint32
+	plru      uint16 // 15 tree bits
+	state     cacheState
+	effAddr   uint32
+	filled    uint8 // words filled so far
+	victim    uint8
 }
 
 func newCache(r *ram) *cacheMemory {
 	return &cacheMemory{ram: r}
 }
 
-func (p *cacheMemory) control(req memReq, hit, ramDone bool) cacheSignals {
+func (p *cacheMemory) control(req memReq, hit bool, lineNumber uint8, ramDone bool) cacheSignals {
 	panic("TODO")
 }
 

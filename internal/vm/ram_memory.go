@@ -26,7 +26,26 @@ func newRAM(size uint32, image []byte) (*ram, error) {
 }
 
 func (p *ram) outputs(req memReq) memOut {
-	panic("TODO")
+	if req.Op == memNone {
+		return memOut{}
+	}
+	if uint64(req.addr)+4 > uint64(len(p.bytes)) {
+		return memOut{ready: true, fault: fmt.Errorf("%w: %#x", ErrBadAddress, req.addr), event: "fault"}
+	}
+
+	latency := uint8(ramLatency)
+	if req.Op == memReadNext {
+		latency = ramBurstLatency
+	}
+	if p.busy+1 < latency {
+		return memOut{event: "wait"}
+	}
+
+	out := memOut{ready: true, event: "done"}
+	if req.Op != memWrite {
+		out.data = binary.LittleEndian.Uint32(p.bytes[req.addr:])
+	}
+	return out
 }
 
 func (p *ram) clock(req memReq) {

@@ -104,11 +104,57 @@ func (p *dataPath) registers() dpRegs {
 }
 
 func (p *dataPath) outputs(sig signals, ioData uint32) dpOut {
-	panic("TODO")
+	var a, b uint32
+
+	switch sig.selALUA {
+	case aluAOutA:
+		a = p.regs[sig.regA]
+	case aluAPC:
+		a = sig.pc
+	case aluAMDR:
+		a = p.mdr
+	default:
+		panic(fmt.Sprintf("datapath: bad sel_alu_a %d", sig.selALUA))
+	}
+
+	switch sig.selALUB {
+	case aluBOutB:
+		b = p.regs[sig.regB]
+	case aluBTMP:
+		b = p.tmp
+	case aluBData:
+		b = sig.data
+	case aluBPS:
+		b = p.ps.word()
+	case aluBIO:
+		b = ioData
+	default:
+		panic(fmt.Sprintf("datapath: bad sel_alu_b %d", sig.selALUB))
+	}
+
+	res := alu(sig.aluOp, a, b, p.ps.c)
+	return dpOut{result: res.result, flags: res.flags, divZero: res.divZero}
 }
 
 func (p *dataPath) clock(sig signals, out dpOut, mem memOut) {
-	panic("TODO")
+	old := *p
+
+	if sig.latchReg {
+		p.regs[sig.regW] = out.result
+	}
+	if sig.latchMAR {
+		p.mar = old.marMux(sig, out.result)
+	}
+	if sig.latchMARDst {
+		p.marDst = old.mar
+	}
+	if sig.latchMDR && mem.ready {
+		p.mdr = mem.data
+	}
+	if sig.latchTMP {
+		p.tmp = old.tmpMux(sig.selTMP, out.result)
+	}
+	p.ps = latchPS(old.ps, old.psMux(sig.selPS, out), sig.latchPS)
 }
 
 func (p *dataPath) marMux(sig signals, result uint32) uint32 {

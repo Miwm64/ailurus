@@ -186,15 +186,16 @@ if irq_pending == 1 and IE == 1:
 - 16 lines × 16 bytes, fully associative, tree-PLRU replacement.
 - Write-through, no-allocate on write miss.
 - Reset clears all valid bits.
+- Modeled at the controller-FSM level: each state's action follows the FSM table below.
 
 | ID | Access              | Action                                                                                       | Ticks | Tick notes                                      |
 |----|---------------------|----------------------------------------------------------------------------------------------|-------|-------------------------------------------------|
 | R1 | Aligned read, hit   | Return word from `data_array` (picked by `addr[3:2]`)                                        | 1     | cache access                                    |
 | R2 | Aligned read, miss  | Pick victim (invalid first, then tree-PLRU), burst-fill line, write tag + valid, return word | 15    | IDLE + 10 first word + 3×1 burst + 1 cache read |
-| R3 | Unaligned read      | Bypass: single RAM read, cache untouched                                                     | 10    | IDLE + one RAM access                           |
-| W1 | Aligned write, hit  | Write word to `data_array` and RAM                                                           | 10    | IDLE + RAM write; cache write in parallel       |
-| W2 | Aligned write, miss | Write to RAM only                                                                            | 10    | IDLE + one RAM access                           |
-| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 10–12 | IDLE + RAM write + 1 tick per invalidated line  |
+| R3 | Unaligned read      | Bypass: single RAM read, cache untouched                                                     | 11    | IDLE + one RAM access                           |
+| W1 | Aligned write, hit  | Write word to `data_array` and RAM                                                           | 11    | IDLE + RAM write; cache write in parallel       |
+| W2 | Aligned write, miss | Write to RAM only                                                                            | 11    | IDLE + one RAM access                           |
+| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 12–13 | IDLE + RAM write + 1 tick per invalidated line  |
 
 ### Instruction formats
 

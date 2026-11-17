@@ -25,7 +25,7 @@ func newIO(schedule []InputEvent) ioController {
 	}
 }
 
-func (p *ioController) request() bool {
+func (p *ioController) isRequestInterrupt() bool {
 	return p.requestInterrupt
 }
 

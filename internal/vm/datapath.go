@@ -7,6 +7,7 @@ const (
 	aluAOutA = iota
 	aluAPC
 	aluAMDR
+	aluAData
 )
 
 // sel_alu_b
@@ -113,6 +114,8 @@ func (p *dataPath) outputs(sig signals, ioData uint32) dpOut {
 		a = sig.pc
 	case aluAMDR:
 		a = p.mdr
+	case aluAData:
+		a = sig.data
 	default:
 		panic(fmt.Sprintf("datapath: bad sel_alu_a %d", sig.selALUA))
 	}

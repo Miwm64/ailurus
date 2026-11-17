@@ -9,7 +9,7 @@ import (
 func ReadFile(path string) (string, error) {
 	dat, err := os.ReadFile(path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read: %w", err)
 	}
 
 	return string(dat), nil
@@ -18,7 +18,7 @@ func ReadFile(path string) (string, error) {
 func ReadBytes(path string) ([]byte, error) {
 	dat, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read: %w", err)
 	}
 
 	return dat, nil
@@ -27,7 +27,7 @@ func ReadBytes(path string) ([]byte, error) {
 func WriteFile(path string, data string) error {
 	err := os.WriteFile(path, []byte(data), 0644)
 
-	return err
+	return fmt.Errorf("write: %w", err)
 }
 
 func WriteJSON(path string, v any) error {
@@ -37,6 +37,7 @@ func WriteJSON(path string, v any) error {
 	}
 
 	data = append(data, '\n')
+	err = os.WriteFile(path, data, 0o644)
 
-	return os.WriteFile(path, data, 0o644)
+	return fmt.Errorf("write: %w", err)
 }

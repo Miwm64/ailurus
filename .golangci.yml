@@ -29,6 +29,9 @@ linters:
             max-complexity: 25  # one-case-per-step tables (CU) count every case as a branch
         gocognit:
             min-complexity: 40
+        wrapcheck:
+            ignore-package-globs:
+                - github.com/Miwm64/ailurus/*  # own packages already return wrapped sentinel errors
     exclusions:
         rules:
             - linters: [revive]

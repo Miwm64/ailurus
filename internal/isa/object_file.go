@@ -2,6 +2,7 @@ package isa
 
 import (
 	"encoding/hex"
+	"fmt"
 )
 
 type Section string
@@ -92,7 +93,7 @@ func (h *HexBytes) UnmarshalText(text []byte) error {
 	*h = make([]byte, len(text)/2)
 	_, err := hex.Decode(*h, text)
 
-	return err
+	return fmt.Errorf("unmarshall: %w", err)
 }
 
 func ModeToRelocationKind(argumentMode Mode) RelocationKind {

@@ -107,3 +107,19 @@ func logic(op aluOp, a, b uint32) uint32 {
 		return ^a
 	}
 }
+
+func shift(op aluOp, a, b uint32, carry bool) aluOut {
+	n := b % wordBits
+	if n == 0 {
+		return aluOut{result: a, flags: flags{c: carry}}
+	}
+
+	switch op {
+	case aluLsl:
+		return aluOut{result: a << n, flags: flags{c: (a>>(wordBits-n))&1 == 1}}
+	case aluLsr:
+		return aluOut{result: a >> n, flags: flags{c: (a>>(n-1))&1 == 1}}
+	default: // aluAsr
+		return aluOut{result: uint32(int32(a) >> n), flags: flags{c: (a>>(n-1))&1 == 1}}
+	}
+}

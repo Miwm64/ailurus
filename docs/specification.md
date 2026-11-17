@@ -846,3 +846,5 @@ Controller FSM:
 | `WRITE`    | `ram_op = write` at `addr`; aligned hit — also write data_array; on `ram_done`: aligned → `ready`  | aligned → `IDLE`; unaligned → `INV1`                             |
 | `INV1`     | compare `addr`; hit → clear valid                                                                  | spans 2 lines → `INV2`; otherwise → `IDLE`                       |
 | `INV2`     | compare `addr + 4`; hit → clear valid; `ready`. For unaligned writes spanning 2 lines              | `IDLE`                                                           |
+
+- `ram_op` depends only on the FSM state: a RAM access starts in the state after IDLE.

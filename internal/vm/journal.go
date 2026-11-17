@@ -115,7 +115,7 @@ func (p *Machine) snapshot(sig signals, mem memOut) Record {
 
 func instrStep(s cuStep) bool {
 	switch s {
-	case stReset0, stReset1, stIRQ0, stFetch0, stFetch1, stFetch2:
+	case stReset0, stReset1, stIRQ0, stIRQ1, stIRQ2, stIRQ3, stIRQ4, stIRQ5, stIRQ6, stFetch0, stFetch1, stFetch2:
 		return false
 	default:
 		return true
@@ -130,7 +130,7 @@ func activeSignals(sig signals) string {
 		{sig.latchReg, "latch_reg_w"}, {sig.latchMAR, "latch_mar"}, {sig.latchMARDst, "latch_mar_dst"},
 		{sig.latchMDR, "latch_mdr"}, {sig.latchTMP, "latch_tmp"}, {sig.latchPS != 0, "latch_ps"},
 		{sig.latchIR, "latch_ir"}, {sig.latchPC, "latch_pc"}, {sig.latchIdx, "latch_idx"},
-		{sig.latchPos, "latch_pos"}, {sig.clearIRQ, "clear_irq"},
+		{sig.latchPos, "latch_pos"}, {sig.latchDstReg, "latch_dst_reg"}, {sig.clearIRQ, "clear_irq"},
 		{sig.memOp == memRead, "mem_op=read"}, {sig.memOp == memWrite, "mem_op=write"},
 		{sig.ioOp == ioRead, "io_op=read"}, {sig.ioOp == ioWrite, "io_op=write"},
 	}

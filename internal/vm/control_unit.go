@@ -16,7 +16,13 @@ const (
 	stReset1               // PC ← MDR
 
 	// interrupt entry: push PC, push PS, IE ← 0, PC ← mem[0x4]
-	stIRQ0
+	stIRQ0 // rsp, MAR ← rsp − 4; irq_pending ← 0
+	stIRQ1 // mem[MAR] ← PC
+	stIRQ2 // rsp, MAR ← rsp − 4
+	stIRQ3 // mem[MAR] ← PS
+	stIRQ4 // MAR ← 4
+	stIRQ5 // MDR ← mem[MAR], IE ← 0
+	stIRQ6 // PC ← MDR
 
 	// instruction fetch: IR ← mem[PC], PC ← PC + 4
 	stFetch0 // MAR ← PC
@@ -49,6 +55,12 @@ var stepNames = [...]string{
 	stReset0:    "reset0",
 	stReset1:    "reset1",
 	stIRQ0:      "irq0",
+	stIRQ1:      "irq1",
+	stIRQ2:      "irq2",
+	stIRQ3:      "irq3",
+	stIRQ4:      "irq4",
+	stIRQ5:      "irq5",
+	stIRQ6:      "irq6",
 	stFetch0:    "fetch0",
 	stFetch1:    "fetch1",
 	stFetch2:    "fetch2",
@@ -185,6 +197,22 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
 		sig.selIdx, sig.latchIdx = idxZero, true
 		sig.selPos, sig.latchPos = posZero, true
+	case stIRQ0, stIRQ2:
+		sig = decRSP(sig)
+		sig.clearIRQ = p.step == stIRQ0
+	case stIRQ1:
+		sig.selALUA, sig.aluOp, sig.memOp = aluAPC, aluPassA, memWrite
+	case stIRQ3:
+		sig.selALUB, sig.aluOp, sig.memOp = aluBPS, aluPassB, memWrite
+	case stIRQ4:
+		sig.selALUB, sig.selDataMux, sig.aluOp = aluBData, dataFour, aluPassB
+		sig.selMAR, sig.latchMAR = marResult, true
+	case stIRQ5:
+		sig.memOp, sig.latchMDR = memRead, true
+		sig.selALUB, sig.selDataMux, sig.aluOp = aluBData, dataZero, aluPassB
+		sig.selPS, sig.latchPS = psResult, maskIE
+	case stIRQ6:
+		sig.selPCMux, sig.latchPC = pcFromMDR, true
 	case stOFDstExt, stOFSrcExt:
 		sig.memOp, sig.latchMDR = memRead, true
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
@@ -200,6 +228,10 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 }
 
 func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in ioOut, irqReq bool) {
+	pending := p.irqPending
+	if sig.clearIRQ {
+		p.irqPending = false
+	}
 	if irqReq {
 		p.irqPending = true
 	}
@@ -245,6 +277,9 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 		p.dstReg = fe.reg
 	}
 	p.step = p.next(fe)
+	if p.step == stFetch0 && pending && regs.ps.ie { // interrupt check: after an instruction
+		p.step = stIRQ0
+	}
 }
 
 // next_step
@@ -258,7 +293,9 @@ func (p *controlUnit) next(fe fieldOut) cuStep {
 		return stFetch2
 	case stFetch2:
 		return stOFDst0
-	case stReset1:
+	case stIRQ0, stIRQ1, stIRQ2, stIRQ3, stIRQ4, stIRQ5:
+		return p.step + 1
+	case stReset1, stIRQ6:
 		return stFetch0
 	default: // operand fetch, execute, writeback
 		return p.nextExec(fe)

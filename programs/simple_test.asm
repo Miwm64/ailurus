@@ -1,10 +1,12 @@
 .export _start
+.import print
 
 .section data
-a: .word 0x123
-b: .word -0x123
+a: .pstr "Hello, World!"
 
 .section text
 _start:
-    out 1, (a)
+    mov rsp, 0x100
+    mov r1, a
+    call print
     halt

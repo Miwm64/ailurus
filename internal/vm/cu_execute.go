@@ -70,6 +70,8 @@ var aluControl = map[isa.Opcode]aluCtl{
 	mustOpcode("lsl"):   {aluLsl, flagsNZC},
 	mustOpcode("lsr"):   {aluLsr, flagsNZC},
 	mustOpcode("asr"):   {aluAsr, flagsNZC},
+	mustOpcode("in"):    {aluPassB, flagsNZVC}, // B = IO[port]
+	mustOpcode("out"):   {aluPassB, 0},         // IO[port] ← B
 }
 
 // FB: branch taken if
@@ -93,8 +95,8 @@ type shape struct {
 	srcMem  bool
 	srcExt  bool // source in a later word than the destination
 	srcTMP  bool // of_src_end puts the source into TMP
-	readDst bool // all but mov, clr
-	write   bool // all but cmp, test
+	readDst bool // all but mov, clr, in
+	write   bool // all but cmp, test, out
 }
 
 func (p *controlUnit) shape() shape {
@@ -102,12 +104,12 @@ func (p *controlUnit) shape() shape {
 	op := p.opcode()
 	s := shape{
 		dstMem: isMemory(modes[0]),
-		write:  op != opCmp && op != opTest,
+		write:  op != opCmp && op != opTest && op != opOut,
 	}
 	s.readDst = s.dstMem && aluControl[op].op != aluPassB
 	if len(modes) == 2 {
 		s.hasSrc, s.srcMem, s.srcExt = true, isMemory(modes[1]), positions[1].Word > positions[0].Word
-		s.srcTMP = s.srcMem || s.srcExt && s.dstMem
+		s.srcTMP = s.srcMem || s.srcExt && s.dstMem || op == opOut
 	}
 	return s
 }
@@ -258,9 +260,13 @@ func (p *controlUnit) execALU(sig signals, fe fieldOut) signals {
 		sig.latchMARDst = s.dstMem && (!fe.fits || !s.srcExt && i == 0) // first source step only
 	case stOFSrcEnd: // TMP ← source, MAR ← MAR_DST
 		sig.selTMP, sig.latchTMP = tmpMDR, true
-		if !s.srcMem { // register / immediate from the next word: TMP ← pass_b
-			sig = sourceB(sig, fe)
+		if !s.srcMem { // register / immediate: TMP ← pass_b
+			sig = p.sourceB(sig, fe)
 			sig.aluOp, sig.selTMP = aluPassB, tmpResult
+		}
+		if p.opcode() == opOut { // IDX, POS ← 0: FIELD_EXT back on the port
+			sig.selIdx, sig.latchIdx = idxZero, true
+			sig.selPos, sig.latchPos = posZero, true
 		}
 		if s.dstMem {
 			sig.selMAR, sig.latchMAR = marMARDst, true
@@ -284,7 +290,10 @@ func (p *controlUnit) execALU(sig signals, fe fieldOut) signals {
 		case s.srcTMP:
 			sig.selALUB = aluBTMP
 		default:
-			sig = sourceB(sig, fe)
+			sig = p.sourceB(sig, fe)
+		}
+		if p.opcode() == opOut {
+			sig.ioOp, sig.port = ioWrite, uint16(fe.value)
 		}
 
 		switch {
@@ -301,12 +310,23 @@ func (p *controlUnit) execALU(sig signals, fe fieldOut) signals {
 }
 
 // sourceB: register / immediate source → ALU B.
-func sourceB(sig signals, fe fieldOut) signals {
-	if fe.mode == isa.Immediate {
+func (p *controlUnit) sourceB(sig signals, fe fieldOut) signals {
+	switch {
+	case p.opcode() == opIn: // IO[port]
+		sig.selALUB, sig.ioOp, sig.port = aluBIO, ioRead, uint16(fe.value)
+	case fe.mode == isa.Immediate:
 		sig.selALUB, sig.selDataMux = aluBData, dataImm
-	} else { // reg_b straight from FIELD_EXT
+	default: // reg_b straight from FIELD_EXT
 		sig.selALUB = aluBOutB
 	}
+	return sig
+}
+
+// decRSP: rsp, MAR ← rsp − 4.
+func decRSP(sig signals) signals {
+	sig.selRegA, sig.selALUA, sig.selALUB, sig.selDataMux, sig.aluOp = regRSP, aluAOutA, aluBData, dataFour, aluSub
+	sig.selRegW, sig.latchReg = regRSP, true
+	sig.selMAR, sig.latchMAR = marResult, true
 	return sig
 }
 
@@ -328,6 +348,8 @@ func (p *controlUnit) nextALU(fe fieldOut) cuStep {
 			return p.step + 1
 		case s.srcMem || s.srcExt:
 			return stOFSrc0
+		case s.srcTMP: // out
+			return stOFSrcEnd
 		default:
 			return operandsDone
 		}
@@ -344,7 +366,7 @@ func (p *controlUnit) nextALU(fe fieldOut) cuStep {
 		switch {
 		case s.srcMem:
 			return stOFSrc0
-		case s.dstMem:
+		case s.srcTMP:
 			return stOFSrcEnd
 		default:
 			return stExec0
@@ -371,10 +393,8 @@ func (p *controlUnit) execJump(sig signals, fe fieldOut, f flags) signals {
 		if !fe.fits {
 			sig.selMAR, sig.latchMAR = marPC, true
 		}
-	case p.step == stExec0 && call: // rsp, MAR ← rsp − 4
-		sig.selRegA, sig.selALUA, sig.selALUB, sig.selDataMux, sig.aluOp = regRSP, aluAOutA, aluBData, dataFour, aluSub
-		sig.selRegW, sig.latchReg = regRSP, true
-		sig.selMAR, sig.latchMAR = marResult, true
+	case p.step == stExec0 && call:
+		sig = decRSP(sig)
 	default: // jump, branch: exec0 PC ← target; call: exec1 mem[MAR] ← PC, PC ← target
 		if call {
 			sig.selALUA, sig.aluOp, sig.memOp = aluAPC, aluPassA, memWrite
@@ -411,9 +431,9 @@ func (p *controlUnit) decode(fe fieldOut) error {
 	switch {
 	case !ok:
 		return fmt.Errorf("%w: 0x%02X at PC %#x", ErrBadOpcode, op, p.pc-4)
-	case f == isa.FP, f == isa.FA, op == opIn, op == opOut:
+	case f == isa.FP, f == isa.FA:
 		return fmt.Errorf("%w: %s", errNotImplemented, isa.Mnemonics[op])
-	case (f == isa.F1 || f == isa.F2) && fe.mode == isa.Immediate:
+	case (f == isa.F1 || f == isa.F2) && fe.mode == isa.Immediate && op != opOut:
 		return fmt.Errorf("%w: immediate destination at PC %#x", ErrBadOpcode, p.pc-4)
 	default:
 		return nil

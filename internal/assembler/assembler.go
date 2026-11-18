@@ -276,14 +276,14 @@ func rewriteAlias(mnemonic string, operands []operand) ([]operand, error) {
 	const rsp = 0
 
 	switch mnemonic {
-	case "aliasPush", aliasPop:
+	case aliasPush, aliasPop:
 		if len(operands) != 1 {
 			return nil, fmt.Errorf("%w: %s expects 1, got %d", isa.ErrArgumentCount, mnemonic, len(operands))
 		}
 	}
 
 	switch mnemonic {
-	case "aliasPush":
+	case aliasPush:
 		dst := operand{arg: isa.Argument{Mode: isa.PreDecrement, Value: rsp}}
 
 		return []operand{dst, operands[0]}, nil

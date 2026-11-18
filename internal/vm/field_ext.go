@@ -21,10 +21,6 @@ type fieldOut struct {
 	posNext uint8
 }
 
-// fieldExt is combinational. The operand layout follows from IR (format and
-// modes), so the current operand is the first one that starts at (IDX, POS)
-// or later. fits = false: it starts in a later word, the CU fetches the next
-// word into EXT first. Not called past the last operand or for F0.
 func fieldExt(in fieldIn) fieldOut {
 	modes, positions, err := isa.Layout(in.ir)
 	if err != nil {

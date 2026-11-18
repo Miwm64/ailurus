@@ -21,7 +21,7 @@ sources:
         call readLine
         cmp r1, 0
         jl fail
-        mov r8, fmt             ; count the placeholders the way the reference does
+        mov r8, fmt             
         mov r9, (r8)+           ; characters left
         clr r12
     countLoop:
@@ -70,7 +70,7 @@ sources:
         mov r2, r12
         call render
         jump @formatDone
-    formatVerbatim:             ; no placeholders: the reference prints the line as is
+    formatVerbatim:             
         mov r1, fmt
         call print
     formatDone:

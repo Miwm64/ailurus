@@ -191,3 +191,130 @@ How each kind of program entity is handled when the program is built and when it
 - The stack holds return addresses, saved registers, PC and PS of an interrupt, arguments after the 4th and
   local values (`push`, `(rsp+n)`). It is the only dynamic memory: there is no heap.
 - Addressing is by byte; the 8 operand addressing modes are listed in [Processor features](#processor-features).
+
+## Instruction set
+
+### Processor features
+
+- 16 registers: `rsp` (#0) and `r1`–`r15`. PS holds the flags NZVC and the interrupt enable bit IE.
+- Word: 32 bits. There are no data types: every value is a word, signed (two's complement) or unsigned
+  by instruction. A character is one byte, stored in its own word.
+- IO is port-mapped: `in` / `out` with an immediate port number. Port 0 holds the last input character
+  (its arrival raises the interrupt), port 1 appends a character to the output.
+- Control flow: `jump` / `call` take a PC-relative or an absolute target; conditional branches are always
+  PC-relative and check NZVC (`jl`, `jg`, … — signed, `jb`, `ja`, … — unsigned).
+- Most instructions take any addressing mode for both operands, including memory for both at once:
+
+| # | Mode              | Syntax         | Field (bits) | Effective address / value  |
+|---|-------------------|----------------|--------------|----------------------------|
+| 0 | register          | `r1`           | 4            | the register itself        |
+| 1 | direct            | `(0x120)`      | 32           | the absolute address       |
+| 2 | PC-relative       | `(@label)`     | 16           | `operand_pc_next + offset` |
+| 3 | indirect          | `(r1)`         | 4            | `r1`                       |
+| 4 | postincrement     | `(r1)+`        | 4            | `r1`, then `r1 ← r1 + 4`   |
+| 5 | predecrement      | `-(r1)`        | 4            | `r1 ← r1 − 4`, then `r1`   |
+| 6 | immediate         | `120`, `label` | 16           | the value itself           |
+| 7 | register-relative | `(r1+8)`       | 20           | `r1 + offset`              |
+
+`operand_pc_next` is the address right after the word that holds the offset.
+
+### Instructions
+
+A short overview by group. The full command description and flags change is in
+[Commands](docs/specification.md#commands) in the specification.
+
+| Group        | Instructions                                                                                    | Format     |
+|--------------|-------------------------------------------------------------------------------------------------|------------|
+| Data         | `mov`; aliases `push x` = `mov -(rsp), x`, `pop x` = `mov x, (rsp)+`                            | F2         |
+| Logic        | `clr`, `not`; `and`, `or`, `xor`, `test`                                                        | F1; F2     |
+| Arithmetic   | `inc`, `dec`, `neg`; `add`, `addc`, `sub`, `subc`, `mull`, `mulh`, `umulh`, `div`, `mod`, `cmp` | F1; F2     |
+| Multi-add    | `addm dst, src1, ..., src6` — `dst ← dst + src1 + ... + src6`                                   | FA         |
+| Shifts       | `lsl` (`asl`), `lsr`, `asr`                                                                     | F2         |
+| Stack        | `pushm`, `popm` (1–16 registers); `call`; `ret`, `iret`                                         | FP; FJ; F0 |
+| IO           | `in dst, port`, `out port, src`                                                                 | F2         |
+| Control flow | `jump`; `jz jnz ja jae jb jbe jl jle jg jge`; `ei`, `di`, `halt`                                | FJ; FB; F0 |
+
+- Flags are set from the result; every instruction has its own set.
+- `div` / `mod` by zero, a wrong port and an access outside memory stop the machine with a fault.
+
+### Interrupts
+
+- A character from the input schedule arrives: `IO[0] ← char`, `irq_pending ← 1`.
+- At the last tick of each instruction, if `irq_pending` and IE are both 1: push PC, push PS, IE ← 0,
+  PC ← mem[0x4]. `iret` pops PS, then PC.
+- **Interrupt during interrupt:** the handler runs with IE = 0. A new request is kept in `irq_pending`
+  (one bit, no queue) and is checked after `iret`; a character that comes before the previous one was read
+  overwrites it. Programmer can run `ei` to allow nesting.
+
+### Encoding
+
+Opcode is 6 bits, the mode of an operand is 3 bits. Word 1 always holds the opcode and all modes, so the CU
+knows the whole layout after the first fetch. Operand values are packed **next-fit** from bit 0: a value goes into
+the rest of the current word if it fits, otherwise into the next word.
+
+| Format | Instructions       | Word 1                                                                  | Size |
+|--------|--------------------|-------------------------------------------------------------------------|------|
+| F0     | `halt`, `ret`, ... | `[31:26 OPCODE][25:0 0]`                                                | 1    |
+| F1     | `inc`, `clr`, ...  | `[31:26 OPCODE][25:23 MODE][22:0 operand]`                              | 1–2  |
+| F2     | `mov`, `add`, ...  | `[31:26 OPCODE][25:23 MODE1][22:20 MODE2][19:0 operands]`               | 1–3  |
+| FB     | `jz`, `jl`, ...    | `[31:26 OPCODE][25:16 0][15:0 offset]`                                  | 1    |
+| FJ     | `jump`, `call`     | `[31:26 OPCODE][25 K][24:16 0][15:0 offset]`, K = 0 → address in word 2 | 1–2  |
+| FP     | `pushm`, `popm`    | `[31:26 OPCODE][25:22 COUNT][19:0 5 registers]`, then 8 per word        | 1–3  |
+| FA     | `addm`             | `[31:26 OPCODE][25:23 COUNT][20:0 7 modes]`, values from word 2         | 2–8  |
+
+Signed fields are sign-extended; register-relative is `reg#` in [19:16] + offset in [15:0]. Opcodes of all
+instructions are in [Opcodes](docs/specification.md#opcodes).
+
+Example from the [cisc test](golden_test/testdata/cisc.yml), one instruction of 7 words:
+
+```text
+000000C8 - 4B1BFFF8 - addm r6 , ( r4 + 4 ) , ( r4 + 8 ) , ( r4 + 12 ) , ( r4 + 16 ) , ( r4 + 20 ) , 100
+000000CC - 00400046
+000000D0 - 00040008
+000000D4 - 0004000C
+000000D8 - 00040010
+000000DC - 00040014
+000000E0 - 00000064
+```
+
+### Ticks per instruction
+
+An instruction takes $N$ ticks without memory, plus the cost of every memory access:
+
+$$t = N + \sum_{\text{accesses}} T_{\text{access}}$$
+
+| Access          | `cache: false` | `cache: true`  |
+|-----------------|----------------|----------------|
+| aligned read    | 10             | hit 1, miss 15 |
+| unaligned read  | 10             | 11             |
+| aligned write   | 10             | 11             |
+| unaligned write | 10             | 12–13          |
+
+$R$ / $W$ — reads / writes (word 1 and every extension word are reads) \
+$e$ — extension words \
+$a(m)$ — address steps of a mode: 0 for register and immediate, 2 for `(r)+`, 1 for the others.
+$k_{\text{mem}}$ — number of memory operands of `addm`.
+
+| Instruction                  | $N$                                   | $R$                                                       | $W$                            |
+|------------------------------|---------------------------------------|-----------------------------------------------------------|--------------------------------|
+| F1, F2                       | $3 + d + a(m_{src}) + e + s$          | $1 + e + [\text{src in mem}] + [\text{dst in mem, read}]$ | $[\text{dst in mem, written}]$ |
+| `halt`, `ei`, `di`           | 4                                     | 1                                                         | 0                              |
+| `ret` / `iret`               | 5 / 7                                 | 2 / 3                                                     | 0                              |
+| branch, `jump @l` / `jump l` | 4                                     | 1 / 2                                                     | 0                              |
+| `call @l` / `call l`         | 4                                     | 1 / 2                                                     | 1                              |
+| `pushm` / `popm`, $n$ regs   | $3 + n + e$ / $4 + 2n + 2e$           | $1 + e$ / $1 + n + e$                                     | $n$ / 0                        |
+| `addm` $m_1 \dots m_k$       | $3 + e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + k_{\text{mem}}$                                  | $[m_1 \text{ in mem}]$         |
+| interrupt entry              | 4                                     | 1                                                         | 2                              |
+
+F1/F2 terms: $d = 1$ for a register destination (and the `out` port), $a(m_{dst})$ for a memory one;
+$s = 1$ if the source is in memory, or sits in a later word than a memory destination, or the instruction is `out`.
+The destination is read by all except `mov`, `clr`, `in`; written by all except `cmp`, `test`, `out`.
+
+For example, `add (r1), 7` takes $4 + 2 \cdot 10 + 1 \cdot 10 = 34$ ticks without the cache.
+
+### CISC traits
+
+- Memory to memory operations: `add (total), (@seed)`.
+- 8 addressing modes, including postincrement, predecrement and register-relative.
+- Variable length: 1–8 words. `addm` sums up to 7 operands of any mode, `pushm` / `popm` take a register list.
+- The CU fetches every extension word as a separate step (`of_dst_ext`, `of_src_ext`), which is visible in the journal.

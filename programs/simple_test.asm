@@ -11,5 +11,5 @@ _start :
 
 .section data
 .org 0x4
-msg : .pstr "hi"
+msg : .pstr "hi\n"
 msg_ref : .ref msg

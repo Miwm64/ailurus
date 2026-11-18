@@ -78,11 +78,10 @@ func main() {
 		}
 	}
 
+	_, _ = fmt.Fprintln(os.Stderr, summary(machine.Ticks(), runErr))
 	_, _ = os.Stdout.Write(machine.Output())
 
 	if runErr != nil {
-		_, _ = fmt.Fprintln(os.Stderr, runErr)
-
 		os.Exit(1)
 	}
 }

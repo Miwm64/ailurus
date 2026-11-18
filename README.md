@@ -143,3 +143,51 @@ msg: .pstr "Hello, world!\n"
   `rsp` is not initialized at reset, so `_start` must set it before the first `call`, `push` or `ei`.
 - **Standard library** (linked by default): `print`, `printChar`, `readChar`, `readLine`, `strEq`, `strConcat`,
   `strContains`, `intToStr`, `strToInt` and `inputPush` for the interrupt handler.
+
+## Memory organization
+
+- Von Neumann: one single-port memory for code and data, byte addressing, 32-bit words, little-endian.
+- Every access reads or writes 4 bytes. Unaligned access works, but it bypasses the cache and should not be used.
+- Size is set in the simulator config (`memory_size`, 4096 bytes by default).
+- Registers for the programmer: `rsp`, `r1`–`r15` (32 bits). PC and PS (IE + NZVC) are not addressable.
+- IO ports are a separate address space: port 0 — input, port 1 — output.
+
+Code and data share one memory. The linker builds the image in this order; the stack starts at the address
+`_start` puts into `rsp` and grows down toward `data`:
+```text
+          Memory
++-------------------------------+
+| 0x0  : reset vector → _start  |
+| 0x4  : irq vector → _handler  |
+| 0x8  : text, file 1           |
+|        text, file 2           |
+|        ...                    |
+|        text, stdlib           |
+|        data, file 1           |
+|        ...                    |
+|        data, stdlib           |
+|        free                   |
+|        ...                    |
+| top  : stack (grows down)     |
++-------------------------------+
+```
+
+How each kind of program entity is handled when the program is built and when it runs:
+
+| What        | Compile time                                                                                                                                             | Run time                                                                                    |
+|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Literal     | fits in $[-2^{15},\ 2^{15}-1]$ → immediate inside the instruction;<br/> bigger → translator error, the programmer needs to put it in `data` with `.word` | immediate comes with the instruction fetch; a value in `data` is read with a memory operand |
+| Constant    | `#define`: the preprocessor replaces it with its text, no memory                                                                                         | —                                                                                           |
+| Variable    | `.word` in `data`: static, the linker gives it the final address                                                                                         | read and written with any memory mode                                                       |
+| String      | `.pstr` in `data`: length word, then one word per character                                                                                              | read word by word, e.g. with `(r1)+`                                                        |
+| Instruction | encoded in `text`, 1–8 words; the linker gives final addresses                                                                                           | fetched word by word, PC += 4                                                               |
+| Procedure   | a label in `text`; the `call` target is resolved by the assembler or the linker                                                                          | `call` pushes `ret_addr`, `ret` pops it                                                     |
+| Interrupt   | `_handler` in `text`; the linker writes its address to the vector at `0x4`                                                                               | entry pushes PC and PS, `iret` pops them                                                    |
+
+- Values in `data` are placed in source order, word after word; each file's part follows the previous file's.
+  A multi-word value goes low word first (64-bit: `addr` — bits 31:0, `addr + 4` — bits 63:32).
+- There is no register allocation: the programmer decides what to keep in registers. If there are not
+  enough registers, values are kept on the stack or in `data`.
+- The stack holds return addresses, saved registers, PC and PS of an interrupt, arguments after the 4th and
+  local values (`push`, `(rsp+n)`). It is the only dynamic memory: there is no heap.
+- Addressing is by byte; the 8 operand addressing modes are listed in [Processor features](#processor-features).

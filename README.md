@@ -376,3 +376,235 @@ A relocation says which field to fill (`offset`, `bit`, `width`) and how: `abs32
 address, `pcrel16` — the address minus `pc_next`. The full format is in
 [Object file format](docs/specification.md#object-file-format).
 
+## Processor model
+
+### Simulator
+
+```text
+ailurus-run [-c config.yml] [-l prog.lst] [-j journal.txt] prog.bin
+```
+
+```yaml
+memory_size: 4096
+cache: true
+tick_limit: 100000
+input:              # input schedule: [tick, char]
+  - [10, "h"]
+  - [25, "i"]
+journal:
+  mode: tick        # instr: one line per instruction; tick: one line per tick + instruction lines
+  from_tick: 0
+  to_tick: 400
+```
+
+The output buffer goes to stdout. The summary and stats go to stderr:
+
+```text
+halted after 535 ticks
+memory wait: 98 ticks
+cache: 84 hits, 7 misses (92.3% hit rate), 0 evictions, 0 writes, 0 bypasses
+```
+
+### DataPath
+
+![DataPath](docs/scheme/datapath.png)
+
+On every step the CU picks the two ALU inputs: ALU_A_MUX chooses from a register, PC, MDR or a constant,
+and ALU_B_MUX from a register, TMP, a constant, PS or the input port. The ALU output `result` is the main bus.
+It can go to a register, MAR (an address), TMP, PS, the memory write data or the output port. A word read from
+memory lands in MDR. MAR_DST keeps the destination address while the source is read, and TMP keeps a value
+between steps. For example, `add (r1), r2` runs as `MAR ← r1`, `MDR ← mem[MAR]`, `TMP ← MDR + r2`,
+`mem[MAR] ← TMP`.
+
+| Element                                    | Inputs                            | Purpose                                                    |
+|--------------------------------------------|-----------------------------------|------------------------------------------------------------|
+| Registers (`sel_reg_a/b/w`, `latch_reg_w`) | `result`                          | 16 registers, read ports `out_a`, `out_b`                  |
+| ALU_A_MUX (`sel_alu_a`)                    | `out_a`, PC, MDR, `data` from CU  | ALU input A                                                |
+| ALU_B_MUX (`sel_alu_b`)                    | `out_b`, TMP, `data`, PS, IO data | ALU input B                                                |
+| ALU (`alu_op`)                             | A, B, carry                       | 21 operations, gives `result`, NZVC, `div_zero`            |
+| MAR_MUX (`sel_mar`) → MAR                  | `result`, PC, MDR, MAR_DST        | memory address                                             |
+| MAR_DST (`latch_mar_dst`)                  | MAR                               | keeps the destination address while the source is fetched  |
+| MDR (`latch_mdr`)                          | memory `data_out`                 | the last word read                                         |
+| TMP_MUX (`sel_tmp`) → TMP                  | MDR, `result`                     | source value, or the running sum of `addm`                 |
+| PS_MUX (`sel_ps_mux`) → PS                 | ALU flags, `result`               | flags; `result` for `iret`, `ei` / `di`; one latch per bit |
+| Memory (`mem_op`)                          | address MAR, data `result`        | cache or RAM, answers with `data_out` and `ready`          |
+| IO_CTRL (`io_op`, port)                    | `result`                          | ports 0 / 1, raises `request_interrupt`                    |
+
+### ControlUnit
+
+![ControlUnit](docs/scheme/control_unit.png)
+
+Fetch reads word 1 into IR (`MAR ← PC`, `MDR ← mem[MAR]`, `IR ← MDR`, `PC ← PC + 4`). From the opcode and
+the modes in IR, FIELD_EXT knows where every operand is. IDX and POS point to the current operand. If the
+operand is in the next word (`fits = 0`), the CU reads that word into EXT and moves IDX to it. `control logic`
+is combinational: from the step, the opcode, the FIELD_EXT outputs, the flags and `ready`, it makes all control
+signals and the next step. While memory is not `ready`, the step register holds. At the last tick of an
+instruction, if `irq` is set, the CU goes to `irq0`–`irq6` (push PC, push PS, IE ← 0, PC ← mem[0x4])
+instead of the next fetch.
+
+| Element               | Purpose                                                                                        |
+|-----------------------|------------------------------------------------------------------------------------------------|
+| step register         | the CU state: `fetch0`, `of_dst0`, `of_src1`, `exec0`, `wb0`, `irq0`, ...                      |
+| IR, EXT               | word 1 of the instruction and the current extension word                                       |
+| IDX, POS              | word number and bit position of the current operand                                            |
+| FIELD_EXT             | finds the current operand from the layout in IR, sign-extends it; gives `mode`, `fits`, `last` |
+| DST_REG               | destination register number, kept while sources are fetched                                    |
+| REG_A_MUX / REG_W_MUX | register number: FIELD_EXT `reg`, DST_REG or 0 (`rsp`)                                         |
+| data_mux              | constant for the DataPath: imm/offset, 4, 0                                                    |
+| PC, ADD_MUX, PC_MUX   | `PC ← PC + 4`, `PC + offset` or MDR (`ret`, `iret`, absolute jumps, vectors)                   |
+| irq_pending, AND      | `irq = irq_pending AND IE`                                                                     |
+
+### Cache
+
+![Cache](docs/scheme/cache.png)
+
+The DataPath sends `mem_op` and `addr`. `cmp scheme` compares the tag of `addr` with all 16 tags at once and
+gives `hit` and `line_number`. On a read hit, IND_ARR_MUX picks the word by `addr[3:2]`, and D_OUT_MUX sends it
+to the DataPath in the same tick. On a miss, the controller picks a victim line (an invalid one first, then
+tree-PLRU) and sets `effective_addr` to the line start. It then reads 4 words from RAM: 10 ticks for the first,
+1 tick for each next one (`read_next`), each stored at `effective_addr[3:2]`. Finally it writes the tag and
+returns the word. A write always goes to RAM and also updates `data_array` on a hit (write-through). An unaligned
+read bypasses the cache through D_OUT_MUX. After an unaligned write, the controller checks `addr` and `addr + 4`
+through CMP_MUX and clears the valid bit of every line the write touched.
+
+- 16 lines × 16 bytes, fully associative, tree-PLRU (invalid lines are used first).
+- Write-through, no allocation on a write miss. A read miss fills the whole line with a burst:
+  the first word takes 10 ticks, the next three take 1 tick each (`ram_op = read_next`).
+- The controller is an FSM: `IDLE`, `FILL`, `TAG`, `BYPASS_R`, `WRITE`, `INV1`, `INV2`.
+
+| Access          | Ticks | What happens                                        |
+|-----------------|-------|-----------------------------------------------------|
+| read hit        | 1     | word from `data_array`                              |
+| read miss       | 15    | IDLE + 10 + 3 × 1 burst + TAG                       |
+| unaligned read  | 11    | bypass: one RAM read, cache untouched               |
+| aligned write   | 11    | RAM write; on a hit `data_array` is updated too     |
+| unaligned write | 12–13 | RAM write, then invalidate the 1 or 2 touched lines |
+
+### How the simulation works
+
+The model follows the scheme. Every block (DataPath, ControlUnit, cache, RAM, IO controller) has two methods:
+`outputs` (combinational logic, no state change) and `clock` (the clock edge, the only place where state
+changes). One tick of `Machine` does this:
+
+1. take the latched values (registers, MAR, MDR, PS);
+2. the CU computes the control signals from its step, IR and FIELD_EXT;
+3. IO, ALU and memory compute their outputs;
+4. clock edge: all blocks latch at once, and the tick goes to the journal.
+   The run stops on `halt`, on a fault or at `tick_limit`.
+
+### Journal
+
+An instruction line comes after the last tick of every instruction. `irq=N` is the interrupt depth, so it is
+always clear if the processor is inside the handler:
+
+```text
+=== 00000024  call inputPush                 tick=163 irq=1
+    rsp=00000FF0  r1=00000000  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
+     r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=0
+```
+
+In `mode: tick` there is also one line per tick: the step, registers, the memory event (`hit line N`, `miss`,
+`fill wait`, `wait`, ...), the IO event and the active control signals:
+
+```text
+    106 irq0       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:-              io:-               | latch_reg_w latch_mar clear_irq
+```
+
+## Testing
+
+All integration tests are golden tests: [golden_test/golden_test.go](golden_test/golden_test.go) and one YAML
+file per test in [golden_test/testdata](golden_test/testdata). Big journals are cut to an interesting
+tick window with `from_tick` / `to_tick`.
+
+Example ([hello.yml](golden_test/testdata/hello.yml), shortened):
+
+```yaml
+description: prints a pstr, no stdlib
+sources:
+  main.asm: |
+    .export _start
+    _start:
+        mov r1, msg
+        mov r2, (r1)+
+    loop:
+        cmp r2, 0
+        jz done
+        out 1, (r1)+
+        dec r2
+        jump @loop
+    done:
+        halt
+    .section data
+    msg: .pstr "Hello, world!\n"
+build_args:
+  - --no-stdlib
+config: |-
+  journal:
+    mode: instr
+summary: |-
+  halted after 535 ticks
+  memory wait: 98 ticks
+  cache: 84 hits, 7 misses (92.3% hit rate), 0 evictions, 0 writes, 0 bypasses
+output: |
+  Hello, world!
+listing: |
+  00000000 - 00000008 - _start address
+  00000004 - 00000000 - _handler address
+  00000008 - A0600281 - mov r1 , msg
+  0000000C - A0400012 - mov r2 , ( r1 ) +
+  ...
+journal: |
+  === 00000008  mov r1 , msg                   tick=20 irq=0
+      rsp=00000000  r1=00000028  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
+       r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=0
+  ...
+```
+
+| Test                                                                      | What it shows                                                               |
+|---------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| [hello](golden_test/testdata/hello.yml)                                   | print a `pstr` without the stdlib                                           |
+| [hello_stdlib](golden_test/testdata/hello_stdlib.yml)                     | the same with the stdlib `print`                                            |
+| [cat](golden_test/testdata/cat.yml)                                       | echo the input until the tick limit; a character arrives during the handler |
+| [hello_user_name](golden_test/testdata/hello_user_name.yml)               | ask for a name, read it, greet                                              |
+| [sort](golden_test/testdata/sort.yml)                                     | read numbers one per line, print them sorted                                |
+| [double](golden_test/testdata/double.yml)                                 | 64-bit arithmetic: $n!$ and $1! + \dots + n!$ for $n = 20$                  |
+| [is_prime](golden_test/testdata/is_prime.yml)                             | `alg1`: is_prime for a list of numbers                                      |
+| [format_string](golden_test/testdata/format_string.yml)                   | `alg1`: `%d`, `%5d`, `%-5d`, `%05d`                                         |
+| [format_string_too_long](golden_test/testdata/format_string_too_long.yml) | `alg1`: a too long format line gives `-1`                                   |
+| [link](golden_test/testdata/link.yml)                                     | separate translation: 2 files, import/export, relocations, `-D`             |
+| [cisc](golden_test/testdata/cisc.yml)                                     | all addressing modes, memory-to-memory, 7-operand `addm`, `pushm`/`popm`    |
+| [linear_filter](golden_test/testdata/linear_filter.yml)                   | cache demo, with the cache                                                  |
+| [linear_filter_no_cache](golden_test/testdata/linear_filter_no_cache.yml) | the same program without the cache                                          |
+
+### Cache impact
+
+`linear_filter` computes $y_i = 3x_i + 2x_{i-1} + x_{i-2}$ for 10 numbers with one instruction:
+
+```asm
+addm r4, (r1), (r1), (r1), (r1-4), (r1-4), (r1-8)
+```
+
+It reads the same words again and again, so it has strong temporal locality. Same program, same input:
+
+| Metric                         | `cache: true` | `cache: false` |
+|--------------------------------|---------------|----------------|
+| whole run, ticks               | 37 301        | 47 763         |
+| memory wait, ticks             | 14 264        | 33 111         |
+| filter loop (10 elements)      | 917           | 2 460          |
+| one filter iteration           | 78            | 239            |
+| hit rate                       | 87.2%         | —              |
+
+The filter loop is 2.7 times faster. The whole run is only 1.3 times faster, because most of the time the
+program waits for input. In the journal you can see a miss with
+the burst fill, and then hits on the same word:
+
+```text
+  31119 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00001114 IDX=1 POS= 4 irq=0         mem:miss           io:-               | latch_mdr mem_op=read
+  31120 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00001114 IDX=1 POS= 4 irq=0         mem:fill wait      io:-               | latch_mdr mem_op=read
+  ...
+  31129 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00001114 IDX=1 POS= 4 irq=0         mem:fill done      io:-               | latch_mdr mem_op=read
+  31133 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 4 irq=0         mem:tag            io:-               | latch_mdr mem_op=read
+  31134 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
+  31135 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_mar
+  31136 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:hit line 3     io:-               | latch_mdr mem_op=read
+```

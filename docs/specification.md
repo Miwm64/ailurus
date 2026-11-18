@@ -425,20 +425,22 @@ $$t = N + \sum_{\text{accesses}} T_{\text{access}}$$
 
 #### Other formats
 
-| Instruction            | $N$                                   | $R$                             | $W$                       |
-|------------------------|---------------------------------------|---------------------------------|---------------------------|
-| reset                  | 1                                     | 1                               | 0                         |
-| `halt`, `ei`, `di`     | 4                                     | 1                               | 0                         |
-| `ret`                  | 5                                     | 2                               | 0                         |
-| `iret`                 | 7                                     | 3                               | 0                         |
-| branch, `jump @label`  | 4                                     | 1                               | 0                         |
-| `jump label`           | 4                                     | 2                               | 0                         |
-| `call @label`          | 4                                     | 1                               | 1                         |
-| `call label`           | 4                                     | 2                               | 1                         |
-| `pushm`, $n$ regs      | $3 + n + e$                           | $1 + e$                         | $n$                       |
-| `popm`, $n$ regs       | $4 + 2n + 2e$                         | $1 + n + e$                     | 0                         |
-| `addm` $m_1 \dots m_k$ | $3 + e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + \#\text{mem operands}$ | $[m_1 \text{ in memory}]$ |
-| interrupt entry        | 4                                     | 1                               | 2                         |
+$k_{\text{mem}}$ — number of memory operands of `addm`.
+
+| Instruction            | $N$                                   | $R$                      | $W$                    |
+|------------------------|---------------------------------------|--------------------------|------------------------|
+| reset                  | 1                                     | 1                        | 0                      |
+| `halt`, `ei`, `di`     | 4                                     | 1                        | 0                      |
+| `ret`                  | 5                                     | 2                        | 0                      |
+| `iret`                 | 7                                     | 3                        | 0                      |
+| branch, `jump @label`  | 4                                     | 1                        | 0                      |
+| `jump label`           | 4                                     | 2                        | 0                      |
+| `call @label`          | 4                                     | 1                        | 1                      |
+| `call label`           | 4                                     | 2                        | 1                      |
+| `pushm`, $n$ regs      | $3 + n + e$                           | $1 + e$                  | $n$                    |
+| `popm`, $n$ regs       | $4 + 2n + 2e$                         | $1 + n + e$              | 0                      |
+| `addm` $m_1 \dots m_k$ | $3 + e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + k_{\text{mem}}$ | $[m_1 \text{ in mem}]$ |
+| interrupt entry        | 4                                     | 1                        | 2                      |
 
 ## Programming language
 

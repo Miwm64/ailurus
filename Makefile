@@ -11,7 +11,7 @@ $(BINS):
 	@echo "Built $@ successfully"
 
 test:
-	@go test ./...
+	@go test -count=1 ./...
 
 lint:
 	@golangci-lint run

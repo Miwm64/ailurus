@@ -22,7 +22,7 @@ config: |
   tick_limit: 3000
   input:
     - [100, "c"]
-    - [400, "a"]
+    - [300, "a"]
     - [700, "t"]
     - [1000, "\n"]
   journal:

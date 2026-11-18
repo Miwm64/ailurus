@@ -43,3 +43,6 @@ linters:
             - path: golden_test\.go$
               linters: [ gosec ]
               text: G204  # the golden runner executes the go tool and the two binaries it built
+formatters:
+    enable:
+        - gofmt

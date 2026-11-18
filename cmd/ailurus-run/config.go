@@ -174,7 +174,7 @@ func parseListing(src string) (map[uint32]string, error) {
 	return source, nil
 }
 
-// run summary
+// run summary.
 func summary(ticks uint64, runErr error) string {
 	switch {
 	case runErr == nil:

@@ -1,9 +1,6 @@
-// Package golden runs whole programs through ailurus-build and ailurus-run and
-// compares everything they produce with the golden files in testdata/.
-//
 //	go test ./golden            check
 //	go test ./golden -update    rewrite the expected fields from the actual run
-package golden
+package golden_test
 
 import (
 	"bytes"
@@ -66,6 +63,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestGolden(t *testing.T) {
+	t.Parallel()
+
 	files, err := filepath.Glob("testdata/*.yml")
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no golden files in testdata/: %v", err)
@@ -73,6 +72,8 @@ func TestGolden(t *testing.T) {
 
 	for _, file := range files {
 		t.Run(strings.TrimSuffix(filepath.Base(file), ".yml"), func(t *testing.T) {
+			t.Parallel()
+
 			want := load(t, file)
 			got := run(t, want)
 

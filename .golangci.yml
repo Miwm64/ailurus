@@ -40,3 +40,6 @@ linters:
         rules:
             - linters: [revive]
               text: "^(exported|package-comments):"  # internal packages, not a public API; names say what they are
+            - path: golden_test\.go$
+              linters: [ gosec ]
+              text: G204  # the golden runner executes the go tool and the two binaries it built

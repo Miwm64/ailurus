@@ -54,14 +54,14 @@ func (p *cacheMemory) ramReq(req memReq) memReq {
 	switch p.state {
 	case cacheFill:
 		if p.filled == 0 {
-			return memReq{Op: memRead, addr: p.effAddr}
+			return memReq{Op: memRead, Addr: p.effAddr}
 		}
 
-		return memReq{Op: memReadNext, addr: p.effAddr}
+		return memReq{Op: memReadNext, Addr: p.effAddr}
 	case cacheBypassR:
-		return memReq{Op: memRead, addr: req.addr}
+		return memReq{Op: memRead, Addr: req.Addr}
 	case cacheWrite:
-		return memReq{Op: memWrite, addr: req.addr, data: req.data}
+		return memReq{Op: memWrite, Addr: req.Addr, Data: req.Data}
 	default:
 		return memReq{}
 	}
@@ -75,16 +75,16 @@ func (p *cacheMemory) outputs(req memReq) memOut {
 
 	switch p.state {
 	case cacheIdle:
-		line, hit := p.lookup(req.addr)
+		line, hit := p.lookup(req.Addr)
 		switch {
 		case req.Op == memNone:
 			return memOut{}
 		case req.Op == memWrite:
 			return memOut{event: "write"}
-		case !aligned(req.addr):
+		case !aligned(req.Addr):
 			return memOut{event: "unaligned read"}
 		case hit:
-			data := p.dataArray[line][wordIndex(req.addr)]
+			data := p.dataArray[line][wordIndex(req.Addr)]
 
 			return memOut{ready: true, data: data, event: fmt.Sprintf("hit line %d", line)}
 		default:
@@ -93,13 +93,13 @@ func (p *cacheMemory) outputs(req memReq) memOut {
 	case cacheFill:
 		return memOut{event: "fill " + ram.event}
 	case cacheTag:
-		return memOut{ready: true, data: p.dataArray[p.victim][wordIndex(req.addr)], event: "tag"}
+		return memOut{ready: true, data: p.dataArray[p.victim][wordIndex(req.Addr)], event: "tag"}
 	case cacheBypassR:
 		return memOut{ready: ram.ready, data: ram.data, event: "bypass " + ram.event}
 	case cacheWrite:
-		return memOut{ready: ram.ready && aligned(req.addr), event: "write " + ram.event}
+		return memOut{ready: ram.ready && aligned(req.Addr), event: "write " + ram.event}
 	case cacheInv1:
-		return memOut{ready: !spansTwoLines(req.addr), event: "invalidate"}
+		return memOut{ready: !spansTwoLines(req.Addr), event: "invalidate"}
 	default: // cacheInv2
 		return memOut{ready: true, event: "invalidate"}
 	}
@@ -130,7 +130,7 @@ func (p *cacheMemory) clock(req memReq) {
 			}
 		}
 	case cacheTag:
-		p.tagArray[p.victim] = tagEntry{valid: true, tag: tagOf(req.addr)}
+		p.tagArray[p.victim] = tagEntry{valid: true, tag: tagOf(req.Addr)}
 		p.plru = plruTouch(p.plru, p.victim)
 		p.state = cacheIdle
 	case cacheBypassR:
@@ -142,27 +142,27 @@ func (p *cacheMemory) clock(req memReq) {
 			p.writeDone(req)
 		}
 	case cacheInv1:
-		p.invalidate(req.addr)
+		p.invalidate(req.Addr)
 
 		p.state = cacheIdle
-		if spansTwoLines(req.addr) {
+		if spansTwoLines(req.Addr) {
 			p.state = cacheInv2
 		}
 	case cacheInv2:
-		p.invalidate(req.addr + 4)
+		p.invalidate(req.Addr + 4)
 		p.state = cacheIdle
 	}
 }
 
 func (p *cacheMemory) idle(req memReq) {
-	line, hit := p.lookup(req.addr)
+	line, hit := p.lookup(req.Addr)
 
 	switch {
 	case req.Op == memNone:
 	case req.Op == memWrite:
 		p.stats.Writes++
 		p.state = cacheWrite
-	case !aligned(req.addr):
+	case !aligned(req.Addr):
 		p.stats.Bypasses++
 		p.state = cacheBypassR
 	case hit:
@@ -170,7 +170,7 @@ func (p *cacheMemory) idle(req memReq) {
 		p.plru = plruTouch(p.plru, line)
 	default: // miss: fill the line from its first word
 		p.stats.Misses++
-		p.effAddr = req.addr &^ (cacheLineSize - 1)
+		p.effAddr = req.Addr &^ (cacheLineSize - 1)
 		p.victim, p.filled, p.state = p.chooseVictim(), 0, cacheFill
 
 		if p.tagArray[p.victim].valid {
@@ -180,14 +180,14 @@ func (p *cacheMemory) idle(req memReq) {
 }
 
 func (p *cacheMemory) writeDone(req memReq) {
-	if !aligned(req.addr) {
+	if !aligned(req.Addr) {
 		p.state = cacheInv1
 
 		return
 	}
 
-	if line, hit := p.lookup(req.addr); hit {
-		p.dataArray[line][wordIndex(req.addr)] = req.data
+	if line, hit := p.lookup(req.Addr); hit {
+		p.dataArray[line][wordIndex(req.Addr)] = req.Data
 	}
 
 	p.state = cacheIdle

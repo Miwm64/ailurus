@@ -78,7 +78,7 @@ func (p *Machine) Tick() {
 	// 3. combinational, order: IO data → ALU → result → memory
 	in := p.io.outputs(sig)
 	out := p.dp.outputs(sig, in.data)
-	req := memReq{Op: sig.memOp, addr: regs.mar, data: out.result}
+	req := memReq{Op: sig.memOp, Addr: regs.mar, Data: out.result}
 	mem := p.mem.outputs(req)
 
 	if req.Op != memNone && !mem.ready {

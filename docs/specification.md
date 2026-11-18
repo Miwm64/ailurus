@@ -139,15 +139,15 @@ rsp can not be pushed or poped via pushm, popm.
 | di           | IE ← 0                | F0     | IE    |
 | halt         | stop execution        | F0     | —     |
 
-Conditional jumps: if the condition holds, `PC ← PC_next + offset`. Always PC-relative.
+Conditional jumps: if the condition holds, `PC ← operand_pc_next + offset`. Always PC-relative.
 `ei` takes effect in the next instruction, see [Entry](#entry).
 
 #### Jump targets
 
-| Syntax   | Kind        | `jump`                | `call`                              | Size    |
-|----------|-------------|-----------------------|-------------------------------------|---------|
-| `label`  | absolute    | PC ← label            | push PC_next, PC ← label            | 2 words |
-| `@label` | PC-relative | PC ← PC_next + offset | push PC_next, PC ← PC_next + offset | 1 word  |
+| Syntax   | Kind        | `jump`                        | `call`                                       | Size    |
+|----------|-------------|-------------------------------|----------------------------------------------|---------|
+| `label`  | absolute    | PC ← label                    | push ret_addr, PC ← label                    | 2 words |
+| `@label` | PC-relative | PC ← operand_pc_next + offset | push ret_addr, PC ← operand_pc_next + offset | 1 word  |
 
 ### Interrupts
 
@@ -425,20 +425,20 @@ $$t = N + \sum_{\text{accesses}} T_{\text{access}}$$
 
 #### Other formats
 
-| Instruction                    | $N$                                   | $R$                          | $W$                   |
-|--------------------------------|---------------------------------------|------------------------------|-----------------------|
-| reset                          | 1                                     | 1                            | 0                     |
-| `halt`, `ei`, `di`             | 4                                     | 1                            | 0                     |
-| `ret`                          | 5                                     | 2                            | 0                     |
-| `iret`                         | 7                                     | 3                            | 0                     |
-| branch, `jump @label`          | 4                                     | 1                            | 0                     |
-| `jump label`                   | 4                                     | 2                            | 0                     |
-| `call @label`                  | 4                                     | 1                            | 1                     |
-| `call label`                   | 4                                     | 2                            | 1                     |
-| `pushm`, $n$ regs              | $3 + n + e$                           | $1 + e$                      | $n$                   |
-| `popm`, $n$ regs               | $4 + 2n + 2e$                         | $1 + n + e$                  | 0                     |
-| `addm` $m_1 \dots m_k$         | $3 + e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + \#\text{mem operands}$ | $[m_1 \text{ in memory}]$ |
-| interrupt entry                | 4                                     | 1                            | 2                     |
+| Instruction            | $N$                                   | $R$                             | $W$                       |
+|------------------------|---------------------------------------|---------------------------------|---------------------------|
+| reset                  | 1                                     | 1                               | 0                         |
+| `halt`, `ei`, `di`     | 4                                     | 1                               | 0                         |
+| `ret`                  | 5                                     | 2                               | 0                         |
+| `iret`                 | 7                                     | 3                               | 0                         |
+| branch, `jump @label`  | 4                                     | 1                               | 0                         |
+| `jump label`           | 4                                     | 2                               | 0                         |
+| `call @label`          | 4                                     | 1                               | 1                         |
+| `call label`           | 4                                     | 2                               | 1                         |
+| `pushm`, $n$ regs      | $3 + n + e$                           | $1 + e$                         | $n$                       |
+| `popm`, $n$ regs       | $4 + 2n + 2e$                         | $1 + n + e$                     | 0                         |
+| `addm` $m_1 \dots m_k$ | $3 + e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + \#\text{mem operands}$ | $[m_1 \text{ in memory}]$ |
+| interrupt entry        | 4                                     | 1                               | 2                         |
 
 ## Programming language
 
@@ -656,11 +656,11 @@ One pass is enough, because an instruction’s size depends only on its mnemonic
 
 For each entry, compute the value, run the check, and write the field.
 
-| Kind      | Value                       | Check                      |
-|-----------|-----------------------------|----------------------------|
-| `abs32`   | $S$                         | none                       |
-| `imm16`   | $S$                         | $S \le \texttt{0x7FFF}$    |
-| `pcrel16` | $S - \text{PC}_\text{next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
+| Kind      | Value                          | Check                      |
+|-----------|--------------------------------|----------------------------|
+| `abs32`   | $S$                            | none                       |
+| `imm16`   | $S$                            | $S \le \texttt{0x7FFF}$    |
+| `pcrel16` | $S - \text{operand\_pc\_next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
 
 A failed check is an error.
 
@@ -728,7 +728,7 @@ Fields:
     `bit`, `width` — the field's position inside the word.
   - `kind` — `abs32`, `imm16` or `pcrel16`.
   - `symbol` — looked up among this file's symbols first, then among global exports.
-  - `pc_next` — `pcrel16` only: `PC_next` of the field.
+  - `pc_next` — `pcrel16` only: `operand_pc_next` of the field.
 - `lines` — one entry per emitted instruction or data item. Used for debug listing
 - Zero `offset` and `pc_next` values are omitted.
 
@@ -740,7 +740,7 @@ Fields:
 - Word: 32 bits. Little-endian: the lowest byte of a word is at the lowest address.
 - Every access reads or writes 4 consecutive bytes at any address. Unaligned accesses work but bypass the cache.
 - Size: `memory_size` in the simulator config, 4096 bytes by default. An image that doesn't fit is rejected
-  at load (`image does not fit in memory`). An access past the end stops the run (`address out of memory`).
+  at load (`image does not fit in memory`). Access past the end stops the run (`address out of memory`).
 - Registers available to the programmer: `rsp`, `r1`–`r15`.
 - PC and PS are not addressable; they change only through control flow, PC-relative modes, flags and `ei` / `di`.
 - IO ports are a separate address space (port 0 — input, port 1 — output), see [IO](#io).
@@ -855,7 +855,7 @@ journal:
   PS_MUX takes ALU flags or `result` (`iret`).
 - IO_CTRL: `io_op` (none / read / write) and the port address from the CU; write data = `result`,
   read data → ALU_B_MUX. On a scheduled tick the input device writes port 0 and raises `request_interrupt`.
-- To CU: `ready`, `div_zero`, PS, MDR, `request_interrupt`.
+- To CU: `ready`, `div_zero`, NZVC, IE, MDR, memory `data_out` (→ EXT), `request_interrupt`.
 
 #### ALU operations
 
@@ -895,7 +895,7 @@ Hardwired. `control logic` is combinational: inputs — step, IR (opcode, COUNT)
 `irq`, NZVC, `ready`, `div_zero`; outputs — all control signals and `next_step`.
 
 - IR ← MDR: word 1. EXT ← memory `data_out`: the current extension word.
-- IDX, POS — word and bit position of the current operand.
+- IDX, POS — word and the bit position of the current operand.
 - DST_REG — destination register, kept while the sources are fetched.
 - REG_A_MUX / REG_W_MUX: FIELD_EXT `reg`, DST_REG, 0 (`rsp`). `sel_reg_b` = FIELD_EXT `reg`.
 - data_mux: imm/offset, 4, 0.
@@ -941,7 +941,7 @@ Outputs: field value (sign-extended if signed; also the port address), register 
 | FP     | — (COUNT [25:22])                   | [19:0]                | 32 bits |
 | FA     | [20:0], 3 bits each (COUNT [25:23]) | none                  | 32 bits |
 
-`fits = POS + width ≤ area size`. Otherwise, the next word is fetched into MDR, IDX ← IDX + 1,
+`fits = POS + width ≤ area size`. Otherwise, the next word is fetched into EXT, IDX ← IDX + 1,
 POS ← 0. `last` — the current operand is the last one.
 
 ### Cache

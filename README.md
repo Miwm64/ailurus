@@ -204,6 +204,8 @@ How each kind of program entity is handled when the program is built and when it
 - Control flow: `jump` / `call` take a PC-relative or an absolute target; conditional branches are always
   PC-relative and check NZVC (`jl`, `jg`, … — signed, `jb`, `ja`, … — unsigned).
 - Most instructions take any addressing mode for both operands, including memory for both at once:
+- Flags: N — result bit 31, Z — result is 0, V — signed overflow, C — unsigned carry
+  (borrow for `sub`, `subc`, `cmp`, `neg`; the last bit shifted out for shifts).
 
 | # | Mode              | Syntax         | Field (bits) | Effective address / value  |
 |---|-------------------|----------------|--------------|----------------------------|
@@ -292,7 +294,7 @@ $$t = N + \sum_{\text{accesses}} T_{\text{access}}$$
 
 $R$ / $W$ — reads / writes (word 1 and every extension word are reads) \
 $e$ — extension words \
-$a(m)$ — address steps of a mode: 0 for register and immediate, 2 for `(r)+`, 1 for the others.
+$a(m)$ — address steps of a mode: 0 for register and immediate, 2 for `(r)+`, 1 for the others. \
 $k_{\text{mem}}$ — number of memory operands of `addm`.
 
 | Instruction                  | $N$                                   | $R$                                                       | $W$                            |
@@ -383,6 +385,12 @@ address, `pcrel16` — the address minus `pc_next`. The full format is in
 ```text
 ailurus-run [-c config.yml] [-l prog.lst] [-j journal.txt] prog.bin
 ```
+
+| Flag      | Meaning                                                                              |
+|-----------|--------------------------------------------------------------------------------------|
+| `-c FILE` | config (YAML): memory size, cache on/off, tick limit, input schedule, journal window |
+| `-l FILE` | listing from `ailurus-build -l`: adds source lines to the journal                    |
+| `-j FILE` | journal output file                                                                  |
 
 ```yaml
 memory_size: 4096
@@ -560,6 +568,12 @@ journal: |
   ...
 ```
 
+How to run
+```shell
+make test                         # all golden tests
+go test ./golden_test -update     # rewrite the expected fields
+```
+
 | Test                                                                      | What it shows                                                               |
 |---------------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | [hello](golden_test/testdata/hello.yml)                                   | print a `pstr` without the stdlib                                           |
@@ -575,6 +589,36 @@ journal: |
 | [cisc](golden_test/testdata/cisc.yml)                                     | all addressing modes, memory-to-memory, 7-operand `addm`, `pushm`/`popm`    |
 | [linear_filter](golden_test/testdata/linear_filter.yml)                   | cache demo, with the cache                                                  |
 | [linear_filter_no_cache](golden_test/testdata/linear_filter_no_cache.yml) | the same program without the cache                                          |
+
+### Toolchain usage example
+
+```shell
+$ make build
+$ ./build/ailurus-build -o hello.bin -l hello.lst hello.asm
+$ ./build/ailurus-run -c config.yml -l hello.lst -j journal.txt hello.bin
+halted after 461 ticks
+memory wait: 150 ticks
+cache: 57 hits, 10 misses (85.1% hit rate), 0 evictions, 1 writes, 0 bypasses
+Hello, world!
+$ head -6 hello.lst
+00000000 - 00000008 - _start address
+00000004 - 00000000 - _handler address
+00000008 - A0610000 - mov rsp , 0x1000
+0000000C - A0602CC1 - mov r1 , msg
+00000010 - 3C000000 - call print
+00000014 - 00000058
+```
+
+Separate translation, then linking of object files:
+
+```shell
+$ ./build/ailurus-build --no-stdlib -D VERBOSE -c lib.asm main.asm     # lib.o, main.o
+$ ./build/ailurus-build --no-stdlib -o prog.bin lib.o main.o
+$ ./build/ailurus-run prog.bin
+halted after 2202 ticks
+...
+hello from lib.asm
+```
 
 ### Cache impact
 

@@ -392,6 +392,70 @@ word3: [100]
 - There are no 32-bit immediates. Larger constants are stored in `data` and loaded, or built with shift / or.
 - `mov r1, label` loads the address of `label`; the address must be `< 0x8000`, otherwise translator error.
 
+### Instruction timing
+
+An instruction takes $N$ ticks without memory, plus the cost of each memory access:
+
+$$t = N + \sum_{\text{accesses}} T_{\text{access}}$$
+
+| Access          | `cache: false` | `cache: true`    |
+|-----------------|----------------|------------------|
+| aligned read    | 10             | hit 1, miss 15   |
+| unaligned read  | 10             | 11               |
+| aligned write   | 10             | 11               |
+| unaligned write | 10             | 12–13            |
+
+| Symbol   | Meaning                                                                       |
+|----------|-------------------------------------------------------------------------------|
+| $R$, $W$ | reads, writes (word 1 and every extension word count as reads)                |
+| $e$      | extension words; `pushm` / `popm`: $\max\big(0, \lceil (n-5)/8 \rceil\big)$   |
+| $a(m)$   | address steps of mode $m$, see below                                          |
+| $[x]$    | 1 if $x$, else 0                                                              |
+
+| Mode   | reg | imm | direct | PC-rel | `(r)` | `(r)+` | `-(r)` | `(r+k)` |
+|--------|-----|-----|--------|--------|-------|--------|--------|---------|
+| $a(m)$ | 0   | 0   | 1      | 1      | 1     | 2      | 1      | 1       |
+
+#### F1, F2
+
+| Value | Formula                                                              |
+|-------|----------------------------------------------------------------------|
+| $N$   | $3 + d + a(m_{src}) + e + s$                                         |
+| $R$   | $1 + e + [\text{src in memory}] + [\text{dst in memory and read}]$   |
+| $W$   | $[\text{dst in memory and written}]$                                 |
+
+| Term        | Value                                                                                  |
+|-------------|----------------------------------------------------------------------------------------|
+| $d$         | register dst or `out` port — 1; memory dst — $a(m_{dst})$                              |
+| $s$         | 1 if src in memory, or memory dst with src in a later word, or `out`; else 0           |
+| dst read    | all except `mov`, `clr`, `in`                                                          |
+| dst written | all except `cmp`, `test`, `out`                                                        |
+
+| Instruction        | $e$ | $N$ | $R$ | $W$ | $t$, no cache |
+|--------------------|-----|-----|-----|-----|---------------|
+| `add r1, r2`       | 0   | 4   | 1   | 0   | 14            |
+| `mov r3, (r2)+`    | 0   | 7   | 2   | 0   | 27            |
+| `add (r1), 7`      | 0   | 4   | 2   | 1   | 34            |
+| `mov (buf), r4`    | 2   | 7   | 3   | 1   | 47            |
+| `add (buf), (r2)+` | 2   | 9   | 5   | 1   | 69            |
+
+#### Other formats
+
+| Instruction                    | $N$                                   | $R$                          | $W$                   |
+|--------------------------------|---------------------------------------|------------------------------|-----------------------|
+| reset                          | 1                                     | 1                            | 0                     |
+| `halt`, `ei`, `di`             | 4                                     | 1                            | 0                     |
+| `ret`                          | 5                                     | 2                            | 0                     |
+| `iret`                         | 7                                     | 3                            | 0                     |
+| branch, `jump @label`          | 4                                     | 1                            | 0                     |
+| `jump label`                   | 4                                     | 2                            | 0                     |
+| `call @label`                  | 4                                     | 1                            | 1                     |
+| `call label`                   | 4                                     | 2                            | 1                     |
+| `pushm`, $n$ regs              | $3 + n + e$                           | $1 + e$                      | $n$                   |
+| `popm`, $n$ regs               | $4 + 2n + 2e$                         | $1 + n + e$                  | 0                     |
+| `addm` $m_1 \dots m_k$         | $3 + e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + \#\text{mem operands}$ | $[m_1 \text{ in memory}]$ |
+| interrupt entry                | 4                                     | 1                            | 2                     |
+
 ## Programming language
 
 ### Syntax (EBNF)

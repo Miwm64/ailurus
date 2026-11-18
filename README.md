@@ -8,6 +8,7 @@
   ```text
   asm | cisc | neum | hw | trap | port | pstr | cache | alg1
   ```
+
 - **Implementation language:** Go.
 
 This README is the short report which follows rules from lab4.md. 
@@ -26,34 +27,33 @@ is in **[docs/specification.md](docs/specification.md)**.
 | `cache` | 16-line fully associative cache, tree-PLRU, write-through                                                |
 | `alg1`  | `is_prime`, `format_string`                                                                              |
 
-
 ## Contents
 
 - [Programming language](#programming-language)
-    - [Syntax](#syntax)
-    - [Semantics](#semantics)
+  - [Syntax](#syntax)
+  - [Semantics](#semantics)
 - [Memory organization](#memory-organization)
 - [Instruction set](#instruction-set)
-    - [Processor features](#processor-features)
-    - [Instructions](#instructions)
-    - [Interrupts](#interrupts)
-    - [Encoding](#encoding)
-    - [Ticks per instruction](#ticks-per-instruction)
-    - [CISC traits](#cisc-traits)
+  - [Processor features](#processor-features)
+  - [Instructions](#instructions)
+  - [Interrupts](#interrupts)
+  - [Encoding](#encoding)
+  - [Ticks per instruction](#ticks-per-instruction)
+  - [CISC traits](#cisc-traits)
 - [Translator](#translator)
-    - [CLI](#cli)
-    - [Pipeline](#pipeline)
-    - [Object file](#object-file)
+  - [CLI](#cli)
+  - [Pipeline](#pipeline)
+  - [Object file](#object-file)
 - [Processor model](#processor-model)
-    - [Simulator](#simulator)
-    - [DataPath](#datapath)
-    - [ControlUnit](#controlunit)
-    - [Cache](#cache)
-    - [How the simulation works](#how-the-simulation-works)
-    - [Journal](#journal)
+  - [Simulator](#simulator)
+  - [DataPath](#datapath)
+  - [ControlUnit](#controlunit)
+  - [Cache](#cache)
+  - [How the simulation works](#how-the-simulation-works)
+  - [Journal](#journal)
 - [Testing](#testing)
-    - [Toolchain usage example](#toolchain-usage-example)
-    - [Cache impact](#cache-impact)
+  - [Toolchain usage example](#toolchain-usage-example)
+  - [Cache impact](#cache-impact)
 - [CI](#ci)
 
 ## Programming language
@@ -160,7 +160,7 @@ msg: .pstr "Hello, world!\n"
   PC-relative fixups in the same file and section; everything else (absolute addresses,
   imported labels, labels in the other section) becomes a relocation for the linker.
 - **Scope.** Defines and macros are local for the file. Labels are local by default but can be used in other files by
-`.export label` and `.import label`
+  `.export label` and `.import label`
 - **Types.** There are no types: every value is a 32-bit machine word. The instruction chooses signed or unsigned
   meaning (`jl` vs `jb`, `mulh` vs `umulh`).
 - **Literals.** Positive and negative decimals `42`, `-7`, hex `0x2A`, characters `"a"` (ASCII code). Strings are allowed only in
@@ -231,9 +231,9 @@ How each kind of program entity is handled when the program is built and when it
   (its arrival raises the interrupt), port 1 appends a character to the output.
 - Control flow: `jump` / `call` take a PC-relative or an absolute target; conditional branches are always
   PC-relative and check NZVC (`jl`, `jg`, … — signed, `jb`, `ja`, … — unsigned).
-- Most instructions take any addressing mode for both operands, including memory for both at once:
 - Flags: N — result bit 31, Z — result is 0, V — signed overflow, C — unsigned carry
   (borrow for `sub`, `subc`, `cmp`, `neg`; the last bit shifted out for shifts).
+- Most instructions take any addressing mode for both operands, including memory for both at once:
 
 | # | Mode              | Syntax         | Field (bits) | Effective address / value  |
 |---|-------------------|----------------|--------------|----------------------------|
@@ -340,7 +340,15 @@ F1/F2 terms: $d = 1$ for a register destination (and the `out` port), $a(m_{dst}
 $s = 1$ if the source is in memory, or sits in a later word than a memory destination, or the instruction is `out`.
 The destination is read by all except `mov`, `clr`, `in`; written by all except `cmp`, `test`, `out`.
 
-For example, `add (r1), 7` takes $4 + 2 \cdot 10 + 1 \cdot 10 = 34$ ticks without the cache.
+Examples (no cache, $t = N + 10\,(R + W)$):
+
+| Instruction        | $e$ | $N$ | $R$ | $W$ | $t$ |
+|--------------------|-----|-----|-----|-----|-----|
+| `add r1, r2`       | 0   | 4   | 1   | 0   | 14  |
+| `mov r3, (r2)+`    | 0   | 7   | 2   | 0   | 27  |
+| `add (r1), 7`      | 0   | 4   | 2   | 1   | 34  |
+| `mov (buf), r4`    | 2   | 7   | 3   | 1   | 47  |
+| `add (buf), (r2)+` | 2   | 9   | 5   | 1   | 69  |
 
 ### CISC traits
 
@@ -374,14 +382,14 @@ The work goes in three stages:
    `file:line`, so errors and the listing point to the real source.
 2. **Assembler** — one pass + fixups. The size of an instruction depends only on the mnemonic and the modes,
    so it can be encoded right away. Every label operand is encoded as 0 right away, a PC-relative reference to a label
-   in the same file and section is fixed at the end of the file, all others go to the relocation table. 
+   in the same file and section is fixed at the end of the file, all others go to the relocation table.
    The result is an object file.
 3. **Linker** — places all `text` parts, then all `data` parts, resolves imports, applies relocations and writes
    the vectors `0x0` (`_start`) and `0x4` (`_handler`). The output is a flat binary image.
 
 ### Object file
 
-The object file (`.o`, from `-c`) is JSON, because it is an intermediate file and should be easy to read. 
+The object file (`.o`, from `-c`) is JSON, because it is an intermediate file and should be easy to read.
 The executable has binary format, as the task specified.
 It holds the section bytes, the symbol table and the relocations:
 
@@ -478,17 +486,17 @@ signals and the next step. While memory is not `ready`, the step register holds.
 instruction, if `irq` is set, the CU goes to `irq0`–`irq6` (push PC, push PS, IE ← 0, PC ← mem[0x4])
 instead of the next fetch.
 
-| Element               | Purpose                                                                                        |
-|-----------------------|------------------------------------------------------------------------------------------------|
-| step register         | the CU state: `fetch0`, `of_dst0`, `of_src1`, `exec0`, `wb0`, `irq0`, ...                      |
-| IR, EXT               | word 1 of the instruction and the current extension word                                       |
-| IDX, POS              | word number and bit position of the current operand                                            |
-| FIELD_EXT             | finds the current operand from the layout in IR, sign-extends it; gives `mode`, `fits`, `last` |
-| DST_REG               | destination register number, kept while sources are fetched                                    |
-| REG_A_MUX / REG_W_MUX | register number: FIELD_EXT `reg`, DST_REG or 0 (`rsp`)                                         |
-| data_mux              | constant for the DataPath: imm/offset, 4, 0                                                    |
-| PC, ADD_MUX, PC_MUX   | `PC ← PC + 4`, `PC + offset` or MDR (`ret`, `iret`, absolute jumps, vectors)                   |
-| irq_pending, AND      | `irq = irq_pending AND IE`                                                                     |
+| Element               | Signals                                        | Purpose                                                                                        |
+|-----------------------|------------------------------------------------|------------------------------------------------------------------------------------------------|
+| step register         | `latch_step`, `reset_step`                     | the CU state: `fetch0`, `of_dst0`, `of_src1`, `exec0`, `wb0`, `irq0`, ...                      |
+| IR, EXT               | `latch_ir`, `latch_ext`                        | word 1 of the instruction and the current extension word                                       |
+| IDX, POS              | `latch_idx`, `sel_idx`, `latch_pos`, `sel_pos` | word number and bit position of the current operand                                            |
+| FIELD_EXT             | — (combinational)                              | finds the current operand from the layout in IR, sign-extends it; gives `mode`, `fits`, `last` |
+| DST_REG               | `latch_dst_reg`                                | destination register number, kept while sources are fetched                                    |
+| REG_A_MUX / REG_W_MUX | `sel_reg_a_mux`, `sel_reg_w_mux`               | register number: FIELD_EXT `reg`, DST_REG or 0 (`rsp`)                                         |
+| data_mux              | `sel_data_mux`                                 | constant for the DataPath: imm/offset, 4, 0                                                    |
+| PC, ADD_MUX, PC_MUX   | `latch_pc`, `sel_add_mux`, `sel_pc_mux`        | `PC ← PC + 4`, `PC + offset` or MDR (`ret`, `iret`, absolute jumps, vectors)                   |
+| irq_pending, AND      | `clear_irq`                                    | `irq = irq_pending AND IE`                                                                     |
 
 ### Cache
 
@@ -526,7 +534,8 @@ changes). One tick of `Machine` does this:
 2. the CU computes the control signals from its step, IR and FIELD_EXT;
 3. IO, ALU and memory compute their outputs;
 4. clock edge: all blocks latch at once, and the tick goes to the journal.
-   The run stops on `halt`, on a fault or at `tick_limit`.
+
+The run stops on `halt`, on a fault or at `tick_limit`.
 
 ### Journal
 
@@ -596,7 +605,8 @@ journal: |
   ...
 ```
 
-How to run
+How to run:
+
 ```shell
 make test                         # all golden tests
 go test ./golden_test -update     # rewrite the expected fields
@@ -650,7 +660,24 @@ hello from lib.asm
 
 ### Cache impact
 
-`linear_filter` computes $y_i = 3x_i + 2x_{i-1} + x_{i-2}$ for 10 numbers with one instruction:
+Every golden test, with and without the cache (same input):
+
+| Test              | `cache: false` | `cache: true` | Speedup | Hit rate |
+|-------------------|----------------|---------------|---------|----------|
+| hello             | 1 256          | 535           | 2.35×   | 92.3%    |
+| hello_stdlib      | 923            | 461           | 2.00×   | 85.1%    |
+| link              | 5 147          | 2 202         | 2.34×   | 92.2%    |
+| cisc              | 18 950         | 9 736         | 1.95×   | 85.7%    |
+| double            | 17 030         | 8 143         | 2.09×   | 93.8%    |
+| hello_user_name   | 6 230          | 3 660         | 1.70×   | 87.1%    |
+| sort              | 25 712         | 15 703        | 1.64×   | 83.5%    |
+| format_string     | 64 933         | 51 444        | 1.26×   | 93.4%    |
+| linear_filter     | 47 763         | 37 301        | 1.28×   | 87.2%    |
+
+Programs without input get about 2× faster. For programs with input the total also includes waiting for the
+next character, so the gain looks smaller.
+
+A closer look at `linear_filter`. It computes $y_i = 3x_i + 2x_{i-1} + x_{i-2}$ for 10 numbers with one instruction:
 
 ```asm
 addm r4, (r1), (r1), (r1), (r1-4), (r1-4), (r1-8)

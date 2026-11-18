@@ -703,11 +703,10 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		return err
 	}
 
-	p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
-
 	if p.dataCounter+len(res) > maxSectionSize {
 		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, isa.Data, maxSectionSize)
 	}
+	p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
 
 	p.resolveLabel()
 	p.addLineToListing(p.dataCounter)

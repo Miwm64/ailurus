@@ -753,8 +753,10 @@ Fields:
 ### Simulator CLI
 
 ```
-ailurus-run prog.bin [-l prog.lst] [-c config.yaml]
+ailurus-run [-c config.yml] [-l prog.lst] [-j journal.txt] prog.bin
 ```
+
+Flags go before the image.
 
 | Flag      | Meaning                                                             |
 |-----------|---------------------------------------------------------------------|
@@ -762,34 +764,49 @@ ailurus-run prog.bin [-l prog.lst] [-c config.yaml]
 | `-j FILE` | journal output file                                                 |
 | `-c FILE` | simulator config                                                    |
 
-Output: the output buffer and the journal.
+Output:
+- stdout — the output buffer (everything written to port 1).
+- stderr — the summary, then stats:
+  ```text
+  halted after 535 ticks
+  memory wait: 98 ticks
+  cache: 84 hits, 7 misses (92.3% hit rate), 0 evictions, 0 writes, 0 bypasses
+  ```
+  - Summary: `halted after N ticks`, `tick limit reached after N ticks` or `fault after N ticks: <reason>`.
+  - `memory wait` — ticks with a memory request that is not ready yet.
+  - `cache` — only with `cache: true`. Hit rate = hits / (hits + misses); writes and bypasses are counted separately.
+
+Exit codes: 0 — `halt`; 1 — fault, tick limit, file error, image too large; 2 — bad arguments or bad config.
 
 Config:
 ```yaml
 memory_size: 4096   # bytes
-cache: true         # false: direct RAM
-tick_limit: 100000
-input:              # interrupt schedule: [tick, char]
+cache: true         
+tick_limit: 100000  
+input:              # default: none
   - [10, "h"]
   - [25, "i"]
 journal:
-  mode: tick      # instr | tick
-  from_tick: 0     # tick lines only inside [from_tick, to_tick]
-  to_tick: 400
+  mode: instr       # instr: instruction lines; tick: tick lines + instruction lines
+  from_tick: 0      # shows [from_tick, to_tick]
+  to_tick: 400      
 ```
+- Every field has default values
+- `input`: ticks strictly ascending, each char exactly one byte (`"\n"` is fine).
+- Unknown fields are an error.
 
 ### Datapath
 
 ![DataPath](scheme/datapath.png)
 
-- `result` (ALU output) is the only write bus.
+- `result` (ALU output) is the main write bus.
 - Register file: 2 read ports, 1 write port.
 - MAR_DST — destination address, in order to save during operand fetch.
 - TMP - destination value / sum for `addm`.
 - PS — IE + NZVC, each bit latched separately; carry goes back to the ALU for `addc` / `subc`.
   PS_MUX takes ALU flags or `result` (`iret`).
-- IO_CTRL — port address from CU; . On a scheduled tick the input device writes
-  port 0 and raises `request_interrupt`.
+- IO_CTRL: `io_op` (none / read / write) and the port address from the CU; write data = `result`,
+  read data → ALU_B_MUX. On a scheduled tick the input device writes port 0 and raises `request_interrupt`.
 - To CU: `ready`, `div_zero`, PS, MDR, `request_interrupt`.
 
 #### ALU operations
@@ -820,7 +837,7 @@ journal:
 | `div`    | A / B, signed, truncated   | `div`                                                                                                |
 | `mod`    | A % B, signed              | `mod`                                                                                                |
 
-- `div`/`mod` with B = 0: `div_zero` = 1, no division.
+- `div`/`mod` with B = 0: `div_zero` = 1, `result` = 0; the CU halts the run (`division by zero`).
 
 ### ControlUnit
 

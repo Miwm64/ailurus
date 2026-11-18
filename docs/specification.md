@@ -843,18 +843,38 @@ journal:
 
 ![ControlUnit](scheme/control_unit.png)
 
-Hardwired. `control logic` is combinational.
+Hardwired. `control logic` is combinational: inputs — step, IR (opcode, COUNT), FIELD_EXT outputs,
+`irq`, NZVC, `ready`, `div_zero`; outputs — all control signals and `next_step`.
 
-- IR keeps word 1 for the whole instruction; extension words stay in MDR.
-- step — tick inside the current phase.
-- `irq = irq_pending AND IE`.
-- PC: `pc_add = PC + (offset | 4)`; PC_MUX takes `pc_add` or MDR (`ret`, `iret`, absolute targets, vectors).
-- data_mux → DataPath: imm/offset, `4` (stack / postincrement step), `0`.
+- IR ← MDR: word 1. EXT ← memory `data_out`: the current extension word.
+- IDX, POS — word and bit position of the current operand.
+- DST_REG — destination register, kept while the sources are fetched.
+- REG_A_MUX / REG_W_MUX: FIELD_EXT `reg`, DST_REG, 0 (`rsp`). `sel_reg_b` = FIELD_EXT `reg`.
+- data_mux: imm/offset, 4, 0.
+- PC ← `PC + (4 | offset)` or MDR (`ret`, `iret`, absolute targets, vectors).
+- `irq = irq_pending AND IE`; `irq_pending` is cleared in `irq0`.
+- Step register: the CU state; holds while memory is not `ready`. Reset → `reset0`.
 
-Phases: interrupt check → IF → OF (per operand) → execute → writeback.
+Order: reset → fetch → operand fetch (destination, then sources) → execute → writeback.
+The interrupt check is at the last tick of an instruction. If `irq` is set,
+the next step is `irq0` instead of `fetch0`.
 
-**FIELD_EXT** extracts the current operand from IR (IDX = 0) or MDR (IDX ≥ 1) at bit POS.
-Outputs: field value (sign-extended if signed), register numbers, port address, mode,
+| Step                       | Action                                                                                       |
+|----------------------------|----------------------------------------------------------------------------------------------|
+| `reset0`, `reset1`         | MDR ← mem[0]; PC ← MDR                                                                       |
+| `fetch0`–`fetch2`          | MAR ← PC; MDR ← mem[MAR]; IR ← MDR, PC ← PC + 4, IDX ← 0, POS ← 0                            |
+| `of_dst0`–`of_dst2`        | `of_dst0` decodes. Register destination → DST_REG; memory destination → its address into MAR |
+| `of_dst_ext`, `of_src_ext` | EXT, MDR ← mem[PC], PC ← PC + 4, IDX ← IDX + 1, POS ← 0                                      |
+| `of_src0`–`of_src2`        | memory source: MAR_DST ← MAR, address → MAR, MDR ← mem[MAR]                                  |
+| `of_src_end`               | TMP ← source; MAR ← MAR_DST                                                                  |
+| `of_dst_rd`                | MDR ← mem[MAR]: only for a memory destination that is also read (not `mov`, `clr`, `in`)     |
+| `exec0`–`exec5`            | by opcode; a result for memory goes to TMP                                                   |
+| `wb0`                      | mem[MAR] ← TMP                                                                               |
+| `irq0`–`irq6`              | push PC, push PS, IE ← 0, PC ← mem[0x4]                                                      |
+
+**FIELD_EXT** gets the operand layout from IR (format, modes, COUNT) and extracts the first operand that starts
+at (IDX, POS) or later, from IR (IDX = 0) or EXT (IDX ≥ 1).
+Outputs: field value (sign-extended if signed; also the port address), register number, mode,
 `fits`, `last`, `pos_next = POS + width`.
 
 | Field             | Width | Signed       | Used by                            |

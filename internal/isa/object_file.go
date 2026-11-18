@@ -93,7 +93,10 @@ func (p *HexBytes) UnmarshalText(text []byte) error {
 	*p = make([]byte, len(text)/2)
 	_, err := hex.Decode(*p, text)
 
-	return fmt.Errorf("unmarshall: %w", err)
+	if err != nil {
+		return fmt.Errorf("unmarshall: %w", err)
+	}
+	return nil
 }
 
 func ModeToRelocationKind(argumentMode Mode) RelocationKind {

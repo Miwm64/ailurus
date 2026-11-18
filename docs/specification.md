@@ -180,22 +180,6 @@ Filled by the linker. `0x0`–`0x7` are reserved.
 #### Reset
 - `PC ← mem[0x0]`, `IE ← 0`, `irq_pending ← 0`. `rsp` is not initialized.
 
-#### Request
-- A character from the input schedule arrives: `IO[0] ← char`, `irq_pending ← 1`.
-- `irq_pending` is a single bit — requests are not queued. A new character while `irq_pending = 1`
-  overwrites `IO[0]`: the previous one is lost.
-
-#### Entry
-Checked after each instruction completes (never in the middle of one):
-```
-if irq_pending == 1 and IE == 1:
-    irq_pending ← 0
-    push PC
-    push PS
-    IE ← 0
-    PC ← mem[0x4]
-```
-
 #### Return
 `iret`: pop PS (restores IE and NZVC), then pop PC.
 

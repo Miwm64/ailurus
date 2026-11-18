@@ -478,13 +478,14 @@ Notes:
 
 ### Semantics
 
-**Instructions.** Executed sequentially, starting from `_start`. Meaning, operand modes, flags and
-cycle counts are described in the ISA section.
+**Instructions.** Executed sequentially, starting from `_start`. Meaning, operand modes and flags are
+described in the [Instruction set](#instruction-set) section, tick counts in [Instruction timing](#instruction-timing).
 
 **Labels.**
 - A label marks the address of the next emitted word (instruction or data). The label may stand on
   its own line or before an instruction or data on the same line.
   Directives in between change label address and section.
+- One label per address
 - A label may be used before its definition.
 - A label is local to its file unless it is exported with `.export`.
 - Another file can use an exported label only after declaring it with `.import`. Using a name that
@@ -519,14 +520,13 @@ processed like ordinary code.
 **Entry points.**
 - The linker writes the address of `_start` into the reset vector and the address of `_handler`
   into the interrupt vector (see Memory organization).
-- Both must be exported with `.export`; the linker takes them from the export tables, and no file
-  imports them.
+- Both must be exported with `.export`; the linker takes them from the export tables, and files must not
+  imports them, as it causes error.
 - No exported `_start` is an error.
 - No exported `_handler` leaves the interrupt vector at 0.
 
 **Types.** There are no types: every value is a 32-bit word. Signed or unsigned interpretation is chosen by
 operation (`jl` vs `jb`).
-
 
 ## Translator
 

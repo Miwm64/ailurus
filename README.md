@@ -8,7 +8,6 @@
   ```text
   asm | cisc | neum | hw | trap | port | pstr | cache | alg1
   ```
-
 - **Implementation language:** Go.
 
 This README is the short report which follows rules from lab4.md. 
@@ -27,6 +26,35 @@ is in **[docs/specification.md](docs/specification.md)**.
 | `cache` | 16-line fully associative cache, tree-PLRU, write-through                                                |
 | `alg1`  | `is_prime`, `format_string`                                                                              |
 
+
+## Contents
+
+- [Programming language](#programming-language)
+    - [Syntax](#syntax)
+    - [Semantics](#semantics)
+- [Memory organization](#memory-organization)
+- [Instruction set](#instruction-set)
+    - [Processor features](#processor-features)
+    - [Instructions](#instructions)
+    - [Interrupts](#interrupts)
+    - [Encoding](#encoding)
+    - [Ticks per instruction](#ticks-per-instruction)
+    - [CISC traits](#cisc-traits)
+- [Translator](#translator)
+    - [CLI](#cli)
+    - [Pipeline](#pipeline)
+    - [Object file](#object-file)
+- [Processor model](#processor-model)
+    - [Simulator](#simulator)
+    - [DataPath](#datapath)
+    - [ControlUnit](#controlunit)
+    - [Cache](#cache)
+    - [How the simulation works](#how-the-simulation-works)
+    - [Journal](#journal)
+- [Testing](#testing)
+    - [Toolchain usage example](#toolchain-usage-example)
+    - [Cache impact](#cache-impact)
+- [CI](#ci)
 
 ## Programming language
 

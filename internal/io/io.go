@@ -41,5 +41,8 @@ func WriteJSON(path string, v any) error {
 	data = append(data, '\n')
 	err = os.WriteFile(path, data, 0o644)
 
-	return fmt.Errorf("write: %w", err)
+	if err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
+	return nil
 }

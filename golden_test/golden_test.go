@@ -25,7 +25,6 @@ var update = flag.Bool("update", false, "rewrite the expected fields of the gold
 
 var buildTool, runTool string
 
-// golden: one test file. Inputs first; the rest is what the run produced, rewritten by -update.
 type golden struct {
 	Description string            `yaml:"description,omitempty"`
 	Sources     map[string]string `yaml:"sources"`
@@ -91,7 +90,6 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-// run: returns the test with its expected fields replaced by what the tools produced.
 func run(t *testing.T, g golden) golden {
 	t.Helper()
 
@@ -116,7 +114,6 @@ func run(t *testing.T, g golden) golden {
 		args = append(args, "-c", "config.yml")
 	}
 
-	// exit 1 = a fault or the tick limit: a result to compare, not a test failure
 	var exitErr *exec.ExitError
 
 	stdout, stderr, err := command(t.Context(), dir, runTool, append(args, "prog.bin")...)
@@ -132,7 +129,6 @@ func run(t *testing.T, g golden) golden {
 	return g
 }
 
-// command: relative file names, so no temp path reaches the output.
 func command(ctx context.Context, dir, tool string, args ...string) (string, string, error) {
 	var stdout, stderr bytes.Buffer
 
@@ -158,7 +154,7 @@ func load(t *testing.T, file string) golden {
 	var g golden
 
 	dec := yaml.NewDecoder(f)
-	dec.KnownFields(true) // a typo in a field name is an error, not a silently empty field
+	dec.KnownFields(true)
 
 	if err := dec.Decode(&g); err != nil {
 		t.Fatalf("%s: %v", file, err)

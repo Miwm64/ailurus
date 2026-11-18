@@ -18,7 +18,7 @@ type memory interface {
 
 type memReq struct {
 	Op         memOp
-	addr, data uint32
+	Addr, Data uint32
 }
 
 type memOut struct {

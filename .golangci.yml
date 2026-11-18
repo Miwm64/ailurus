@@ -13,6 +13,7 @@ linters:
         - mnd               # in the isa: word size 4, field widths 4/16/20/32, others
         - gochecknoglobals  # opcode tables and sentinel errors are package-level by design
         - nonamedreturns    # named results document multi-value returns; bare returns are caught by nakedret
+        - gomodguard  # deprecated since v2.12, replaced by gomodguard_v2
     settings:
         exhaustive:
             default-signifies-exhaustive: true  # CU / ALU switches handle a subset and say so with default

@@ -532,14 +532,21 @@ func (p *assembler) addFixups(operands []operand, positions []isa.EncodedPositio
 		}
 
 		pos := positions[i]
+		kind := isa.ModeToRelocationKind(op.arg.Mode)
+
+		pcNext := 0
+		if kind == isa.PCRel16 {
+			pcNext = p.textCounter + 4*(pos.Word+1)
+		}
+
 		p.fixups = append(p.fixups, fixup{
 			Section:   isa.Text,
 			Offset:    p.textCounter + 4*pos.Word,
 			Bit:       pos.Offset,
 			Width:     pos.Width,
-			Kind:      isa.ModeToRelocationKind(op.arg.Mode),
+			Kind:      kind,
 			Symbol:    op.label,
-			PCNext:    p.textCounter + 4*(pos.Word+1),
+			PCNext:    pcNext,
 			lineIndex: p.lineIndex,
 		})
 	}
@@ -696,11 +703,10 @@ func (p *assembler) handleData(tokens []tokenizer.Token) error {
 		return err
 	}
 
-	p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
-
 	if p.dataCounter+len(res) > maxSectionSize {
 		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, isa.Data, maxSectionSize)
 	}
+	p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
 
 	p.resolveLabel()
 	p.addLineToListing(p.dataCounter)

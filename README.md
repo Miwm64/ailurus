@@ -379,7 +379,7 @@ ailurus-build [flags] FILE...
 
 The work goes in three stages:
 1. **Preprocessor** — one pass over the text: defines, macros, conditional blocks. Every line keeps its
-   `file:line`, so errors and the listing point to the real source.
+   `line`, so errors and the listing point to the real source.
 2. **Assembler** — one pass + fixups. The size of an instruction depends only on the mnemonic and the modes,
    so it can be encoded right away. Every label operand is encoded as 0 right away, a PC-relative reference to a label
    in the same file and section is fixed at the end of the file, all others go to the relocation table.
@@ -616,9 +616,10 @@ go test ./golden_test -update     # rewrite the expected fields
 |---------------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | [hello](golden_test/testdata/hello.yml)                                   | print a `pstr` without the stdlib                                           |
 | [hello_stdlib](golden_test/testdata/hello_stdlib.yml)                     | the same with the stdlib `print`                                            |
+| [strings](golden_test/testdata/strings.yml)                               | `pstr` procedures: `strConcat`, `strEq`, `strContains`                      |
 | [cat](golden_test/testdata/cat.yml)                                       | echo the input until the tick limit; a character arrives during the handler |
 | [hello_user_name](golden_test/testdata/hello_user_name.yml)               | ask for a name, read it, greet                                              |
-| [sort](golden_test/testdata/sort.yml)                                     | read numbers one per line, print them sorted                                |
+| [sort](golden_test/testdata/sort.yml)                                     | read amount of numners, numbers one per line, print them sorted             |
 | [double](golden_test/testdata/double.yml)                                 | 64-bit arithmetic: $n!$ and $1! + \dots + n!$ for $n = 20$                  |
 | [is_prime](golden_test/testdata/is_prime.yml)                             | `alg1`: is_prime for a list of numbers                                      |
 | [format_string](golden_test/testdata/format_string.yml)                   | `alg1`: `%d`, `%5d`, `%-5d`, `%05d`                                         |
@@ -667,6 +668,7 @@ Every golden test, with and without the cache (same input):
 | hello             | 1 256          | 535           | 2.35×   | 92.3%    |
 | hello_stdlib      | 923            | 461           | 2.00×   | 85.1%    |
 | link              | 5 147          | 2 202         | 2.34×   | 92.2%    |
+| strings           | 6 017          | 3 010         | 2.00×   | 86.8%    |
 | cisc              | 18 950         | 9 736         | 1.95×   | 85.7%    |
 | double            | 17 030         | 8 143         | 2.09×   | 93.8%    |
 | hello_user_name   | 6 230          | 3 660         | 1.70×   | 87.1%    |

@@ -158,10 +158,15 @@ func loadObject(file string, defines map[string]string) (*isa.ObjectFile, error)
 func assemble(name, src string, defines map[string]string) (*isa.ObjectFile, error) {
 	res, lineMap, err := preprocessor.Preprocess(src, maps.Clone(defines))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 
-	return assembler.Assemble(name, res, lineMap)
+	obj, err := assembler.Assemble(name, res, lineMap)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+
+	return obj, nil
 }
 
 func formatListing(entries []linker.ListingEntry) string {

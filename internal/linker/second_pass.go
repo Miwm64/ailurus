@@ -84,10 +84,8 @@ func (p *linker) handleFile(image []byte, i int, o *isa.ObjectFile) ([]ListingEn
 		}
 
 		at := base + uint32(r.Offset)
-		mask := uint32((uint64(1)<<r.Width - 1) << r.Bit)
 		w := binary.LittleEndian.Uint32(image[at:])
-		w = w&^mask | uint32(v)<<r.Bit&mask
-		binary.LittleEndian.PutUint32(image[at:], w)
+		binary.LittleEndian.PutUint32(image[at:], isa.PatchField(w, r.Bit, r.Width, uint32(v)))
 	}
 
 	// listing

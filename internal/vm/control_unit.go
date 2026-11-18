@@ -33,12 +33,10 @@ const (
 	stOFDst0
 	stOFDst1
 	stOFDst2
-	stOFDst3
-	stOFDstExt // MDR ← mem[MAR], PC ← PC + 4, IDX ← IDX + 1, POS ← 0
+	stOFDstExt // EXT, MDR <- mem[MAR], PC <- PC + 4, IDX <- IDX + 1, POS <- 0
 	stOFSrc0
 	stOFSrc1
 	stOFSrc2
-	stOFSrc3
 	stOFSrcExt
 	stOFSrcEnd  // TMP ← source, MAR ← MAR_DST
 	stOFDstRead // MDR ← mem[MAR]
@@ -69,12 +67,10 @@ var stepNames = [...]string{
 	stOFDst0:    "of_dst0",
 	stOFDst1:    "of_dst1",
 	stOFDst2:    "of_dst2",
-	stOFDst3:    "of_dst3",
 	stOFDstExt:  "of_dst_ext",
 	stOFSrc0:    "of_src0",
 	stOFSrc1:    "of_src1",
 	stOFSrc2:    "of_src2",
-	stOFSrc3:    "of_src3",
 	stOFSrcExt:  "of_src_ext",
 	stOFSrcEnd:  "of_src_end",
 	stOFDstRead: "of_dst_rd",

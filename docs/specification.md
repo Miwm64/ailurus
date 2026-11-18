@@ -548,6 +548,17 @@ linked together with the standard library into one flat binary image.
 | `-D NAME[=value]` | define `NAME`, as if `#define` were at the top of every file   |
 | `--no-stdlib`     | do not link the standard library                               |
 
+Listing (`-l`), one line per word:
+- `<address> - <HEXCODE> - <source>` — the first word of an instruction or data item.
+- `<address> - <HEXCODE>` — every following word.
+
+```text
+00000000 - 00000020 - _start address
+00000008 - A0400012 - mov r2 , ( r1 ) +
+00000088 - 00000013 - greeting : .pstr "hello from lib.asm\n"
+0000008C - 00000068
+```
+
 ### Pipeline
 
 Translation pipeline includes 3 stages:
@@ -573,12 +584,9 @@ Translation pipeline includes 3 stages:
 Each line becomes a statement, aliases are rewritten.
 
 Single pass compilation + fixup:
-
-An instruction is encoded right away. Its size comes from the format and operand modes, using next-fit packing.
-If operand can not be determined right away(for example, address of label which has not been defined yet),
-operand is written as 0 and recorded as fixup.
-
-At the end of the file: fixup resolution - PC relative to a local label in the same section is fixed
+- An instruction is encoded right away. Its size comes from the format and operand modes, using next-fit packing.
+- An operand that is not known yet (a label defined later) is written as 0 and recorded as a fixup.
+- At the end of the file: fixup resolution - PC relative to a local label in the same section is fixed
 
 One pass is enough, because an instruction’s size depends only on its mnemonic and modes, not on the label values.
 
@@ -640,7 +648,7 @@ msg: .pstr "hi"
   },
   "symbols": [
     { "name": "print",  "binding": "import" },
-    { "name": "_start", "binding": "export", "section": "text", "offset": 0 },
+    { "name": "_start", "binding": "export", "section": "text" },
     { "name": "loop",   "binding": "local",  "section": "text", "offset": 12 },
     { "name": "msg",    "binding": "local",  "section": "data", "offset": 0 }
   ],
@@ -672,9 +680,9 @@ Fields:
     `bit`, `width` — the field's position inside the word.
   - `kind` — `abs32`, `imm16` or `pcrel16`.
   - `symbol` — looked up among this file's symbols first, then among global exports.
-  - `pc_next` — `pcrel16` only: offset of the next instruction in the same section.
+  - `pc_next` — `pcrel16` only: `PC_next` of the field.
 - `lines` — one entry per emitted instruction or data item. Used for debug listing
-
+- Zero `offset` and `pc_next` values are omitted.
 
 ## Memory organization
 

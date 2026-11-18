@@ -17,6 +17,8 @@ import (
 	"github.com/Miwm64/ailurus/internal/stdlib"
 )
 
+var errObjectNotLinked = errors.New("object file is only accepted when linking")
+
 func main() {
 	cfg, err := parseConfig()
 	if err != nil {
@@ -25,78 +27,86 @@ func main() {
 		os.Exit(2)
 	}
 
-	linking := !cfg.assembleOnly && !cfg.preprocessOnly
+	switch {
+	case cfg.preprocessOnly:
+		err = forEachSource(cfg.inputFiles, func(_, src string) error {
+			return printPreprocessed(src, cfg.defines)
+		})
+	case cfg.assembleOnly:
+		err = forEachSource(cfg.inputFiles, func(file, src string) error {
+			return writeObject(file, src, cfg.defines)
+		})
+	default:
+		err = build(cfg.inputFiles, cfg.defines, cfg.stdlib, cfg.outputFile, cfg.listingFile)
+	}
 
-	objects := make([]*isa.ObjectFile, 0)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+
+		os.Exit(1)
+	}
+}
+
+func forEachSource(files []string, do func(file, src string) error) error {
+	var errs []error
+
+	for _, file := range files {
+		src, err := io.ReadFile(file)
+		if err == nil && filepath.Ext(file) == ".o" {
+			err = fmt.Errorf("%s: %w", file, errObjectNotLinked)
+		}
+
+		if err == nil {
+			err = do(file, src)
+		}
+
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func printPreprocessed(src string, defines map[string]string) error {
+	res, _, err := preprocessor.Preprocess(src, maps.Clone(defines))
+	if err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintln(os.Stdout, res)
+
+	return nil
+}
+
+func writeObject(file, src string, defines map[string]string) error {
+	obj, err := assemble(file, src, defines)
+	if err != nil {
+		return err
+	}
+
+	return io.WriteJSON(strings.TrimSuffix(file, ".asm")+".o", obj)
+}
+
+func build(files []string, defines map[string]string, withStdlib bool, output, listingFile string) error {
+	objects := make([]*isa.ObjectFile, 0, len(files)+1)
 
 	var errs []error
 
-	for _, file := range cfg.inputFiles {
-		src, err := io.ReadFile(file)
+	for _, file := range files {
+		obj, err := loadObject(file, defines)
 		if err != nil {
 			errs = append(errs, err)
 
 			continue
 		}
 
-		if filepath.Ext(file) == ".o" {
-			if !linking {
-				errs = append(errs, fmt.Errorf("%s: object file is only accepted when linking", file))
-
-				continue
-			}
-
-			var obj isa.ObjectFile
-
-			err := json.Unmarshal([]byte(src), &obj)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("%s: %w", file, err))
-
-				continue
-			}
-
-			objects = append(objects, &obj)
-
-			continue
-		}
-
-		res, lineMap, err := preprocessor.Preprocess(src, maps.Clone(cfg.defines))
-		if err != nil {
-			errs = append(errs, err)
-
-			continue
-		}
-
-		if cfg.preprocessOnly {
-			_, _ = fmt.Println(res)
-
-			continue
-		}
-
-		objectFile, err := assembler.Assemble(file, res, lineMap)
-		if err != nil {
-			errs = append(errs, err)
-
-			continue
-		}
-
-		if cfg.assembleOnly {
-			err := io.WriteJSON(strings.TrimSuffix(file, ".asm")+".o", objectFile)
-			if err != nil {
-				errs = append(errs, err)
-			}
-
-			continue
-		}
-
-		objects = append(objects, objectFile)
+		objects = append(objects, obj)
 	}
 
-	if cfg.stdlib && linking {
-		res, lineMap, err := preprocessor.Preprocess(stdlib.Source, map[string]string{})
+	if withStdlib {
+		lib, err := assemble("stdlib", stdlib.Source, map[string]string{})
 		if err != nil {
-			errs = append(errs, err)
-		} else if lib, err := assembler.Assemble("stdlib", res, lineMap); err != nil {
 			errs = append(errs, err)
 		} else {
 			objects = append(objects, lib)
@@ -104,36 +114,54 @@ func main() {
 	}
 
 	if err := errors.Join(errs...); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-
-		os.Exit(1)
-	}
-
-	if !linking {
-		return
+		return err
 	}
 
 	image, listing, err := linker.Link(objects)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-
-		os.Exit(1)
+		return err
 	}
 
-	if err := os.WriteFile(cfg.outputFile, image, 0o644); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-
-		os.Exit(1)
+	if err := os.WriteFile(output, image, 0o644); err != nil {
+		return fmt.Errorf("write: %w", err)
 	}
 
-	if cfg.listingFile != "" {
-		err := os.WriteFile(cfg.listingFile, []byte(formatListing(listing)), 0o644)
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-
-			os.Exit(1)
-		}
+	if listingFile == "" {
+		return nil
 	}
+
+	if err := os.WriteFile(listingFile, []byte(formatListing(listing)), 0o644); err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
+
+	return nil
+}
+
+func loadObject(file string, defines map[string]string) (*isa.ObjectFile, error) {
+	src, err := io.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	if filepath.Ext(file) != ".o" {
+		return assemble(file, src, defines)
+	}
+
+	var obj isa.ObjectFile
+	if err := json.Unmarshal([]byte(src), &obj); err != nil {
+		return nil, fmt.Errorf("%s: %w", file, err)
+	}
+
+	return &obj, nil
+}
+
+func assemble(name, src string, defines map[string]string) (*isa.ObjectFile, error) {
+	res, lineMap, err := preprocessor.Preprocess(src, maps.Clone(defines))
+	if err != nil {
+		return nil, err
+	}
+
+	return assembler.Assemble(name, res, lineMap)
 }
 
 func formatListing(entries []linker.ListingEntry) string {

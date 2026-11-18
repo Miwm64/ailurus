@@ -191,117 +191,6 @@ func (p *assembler) handleLine(line string) error {
 	return nil
 }
 
-func (p *assembler) handleData(tokens []tokenizer.Token) error {
-	directive := tokens[0]
-	dataSize := 0
-
-	if p.currentSection != isa.Data {
-		return fmt.Errorf("%w: %s is only allowed in %s, current section is %s",
-			ErrWrongSection, directive.Value, isa.Data, p.currentSection)
-	}
-
-	switch directive.Value {
-	case ".pstr":
-		if len(tokens) != 2 {
-			return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
-		}
-
-		if tokens[1].Kind != tokenizer.String {
-			return fmt.Errorf(
-				"%w: %s expects %s, got %s",
-				ErrArgumentKind,
-				directive.Value,
-				tokenizer.String,
-				tokens[1].Kind,
-			)
-		}
-
-		chars := stringToBytes(tokens[1].Value)
-		res := binary.LittleEndian.AppendUint32(nil, uint32(len(chars)))
-		res = append(res, bytesToWords(chars)...)
-		p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
-
-		dataSize = len(res)
-	case ".ref":
-		if len(tokens) != 2 {
-			return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
-		}
-
-		if tokens[1].Kind != tokenizer.Name {
-			return fmt.Errorf(
-				"%w: %s expects %s, got %s",
-				ErrArgumentKind,
-				directive.Value,
-				tokenizer.Name,
-				tokens[1].Kind,
-			)
-		}
-
-		if tokenizer.IsReserved(tokens[1].Value) {
-			return fmt.Errorf("%w: %s cannot be used as a reference", ErrReservedSymbol, tokens[1].Value)
-		}
-
-		res := make([]byte, 4)
-		p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
-
-		p.fixups = append(p.fixups, fixup{
-			Section:   isa.Data,
-			Offset:    p.dataCounter,
-			Bit:       0,
-			Width:     32,
-			Kind:      isa.Abs32,
-			Symbol:    tokens[1].Value,
-			lineIndex: p.lineIndex,
-		})
-
-		dataSize = len(res)
-	case ".word":
-		args := tokens[1:]
-		if len(args) == 0 {
-			return fmt.Errorf("%w: %s expects at least 1 argument", ErrArgumentCount, directive.Value)
-		}
-
-		var res []byte
-
-		for i := 0; i < len(args); {
-			val, n, err := parseValue(args[i:])
-			if err != nil {
-				return fmt.Errorf("%s: %w", directive.Value, err)
-			}
-
-			res = binary.LittleEndian.AppendUint32(res, uint32(val))
-			i += n
-
-			if i == len(args) {
-				break
-			}
-
-			if args[i].Kind != tokenizer.Comma {
-				return fmt.Errorf("%w: %s expects %s between values, got %s %q",
-					ErrUnexpectedToken, directive.Value, tokenizer.Comma, args[i].Kind, args[i].Value)
-			}
-
-			i++
-			if i == len(args) {
-				return fmt.Errorf("%w: %s ends with %s", ErrUnexpectedToken, directive.Value, tokenizer.Comma)
-			}
-		}
-
-		p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
-		dataSize = len(res)
-	}
-
-	if p.dataCounter+dataSize > maxSectionSize {
-		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, isa.Data, maxSectionSize)
-	}
-
-	p.resolveLabel()
-	p.addLineToListing(p.dataCounter)
-	p.dataCounter += dataSize
-
-	return nil
-}
-
 func parseValue(tokens []tokenizer.Token) (int64, int, error) {
 	switch tokens[0].Kind {
 	case tokenizer.Number:
@@ -376,114 +265,6 @@ var aliases = map[string]string{
 	"asl":  "lsl",
 	"push": "mov",
 	"pop":  "mov",
-}
-
-func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
-	if p.currentSection != isa.Text {
-		return fmt.Errorf("%w: instructions are only allowed in %s, current section is %s",
-			ErrWrongSection, isa.Text, p.currentSection)
-	}
-
-	if len(tokens) < 1 {
-		return nil
-	}
-
-	if tokens[0].Kind != tokenizer.Name {
-		return fmt.Errorf("%w: expected name, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
-	}
-
-	mnemonic := tokens[0].Value
-
-	name := mnemonic
-	if realMnemonic, ok := aliases[mnemonic]; ok {
-		name = realMnemonic
-	}
-
-	opcode, ok := isa.Opcodes[name]
-	if !ok {
-		return fmt.Errorf("%w: expected opcode, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
-	}
-
-	// collect operands
-	prev := 1
-	operands := make([]operand, 0)
-	addOperand := func(t []tokenizer.Token) error {
-		op, err := parseOperand(t)
-		if err != nil {
-			return fmt.Errorf("%s: argument %d: %w", mnemonic, len(operands)+1, err)
-		}
-
-		operands = append(operands, op)
-
-		return nil
-	}
-
-	for i := 1; i < len(tokens); i++ {
-		if tokens[i].Kind == tokenizer.Comma {
-			err := addOperand(tokens[prev:i])
-			if err != nil {
-				return err
-			}
-
-			prev = i + 1
-		}
-	}
-
-	if len(tokens[prev:]) != 0 {
-		err := addOperand(tokens[prev:])
-		if err != nil {
-			return err
-		}
-	}
-
-	operands, err := rewriteAlias(mnemonic, operands)
-	if err != nil {
-		return err
-	}
-
-	if err := mapOperands(opcode.Format, operands); err != nil {
-		return fmt.Errorf("%s: %w", mnemonic, err)
-	}
-
-	instruction := isa.Instruction{OpInfo: opcode}
-	for _, op := range operands {
-		instruction.Arguments = append(instruction.Arguments, op.arg)
-	}
-
-	words, positions, err := instruction.Encode()
-	if err != nil {
-		return fmt.Errorf("%s: %w", mnemonic, err)
-	}
-
-	if p.textCounter+4*len(words) > maxSectionSize {
-		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, isa.Text, maxSectionSize)
-	}
-
-	p.objectFile.Sections[isa.Text].WriteAt(p.textCounter, wordsToBytes(words))
-	p.resolveLabel()
-	p.addLineToListing(p.textCounter)
-
-	for i, op := range operands {
-		if op.label == "" {
-			continue
-		}
-
-		pos := positions[i]
-		p.fixups = append(p.fixups, fixup{
-			Section:   isa.Text,
-			Offset:    p.textCounter + 4*pos.Word,
-			Bit:       pos.Offset,
-			Width:     pos.Width,
-			Kind:      isa.ModeToRelocationKind(op.arg.Mode),
-			Symbol:    op.label,
-			PCNext:    p.textCounter + 4*len(words),
-			lineIndex: p.lineIndex,
-		})
-	}
-
-	p.textCounter += 4 * len(words)
-
-	return nil
 }
 
 func rewriteAlias(mnemonic string, operands []operand) ([]operand, error) {
@@ -613,108 +394,6 @@ func (p *assembler) handleLabel(labelName string) error {
 	return nil
 }
 
-func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
-	directive := tokens[0]
-	if len(tokens) != 2 {
-		return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
-	}
-
-	argument := tokens[1]
-
-	switch directive.Value {
-	case ".section":
-		if argument.Kind != tokenizer.Name {
-			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
-		}
-
-		if argument.Value != "data" && argument.Value != "text" {
-			return fmt.Errorf("%w: expected 'data' or 'text', got %s", ErrUnknownSection, argument.Value)
-		}
-
-		p.currentSection = isa.Section(argument.Value)
-	case ".org":
-		if argument.Kind != tokenizer.Number {
-			return fmt.Errorf("%w: %s expects number, got %s", ErrArgumentKind, directive.Value, argument.Kind)
-		}
-
-		val, err := parseNumber(argument.Value)
-		if err != nil {
-			return fmt.Errorf("%s: %w", directive.Value, err)
-		}
-
-		if val > maxSectionSize {
-			return fmt.Errorf("%w: %s %d exceeds %d", ErrNumberRange, directive.Value, val, maxSectionSize)
-		}
-
-		if p.currentSection == isa.Text {
-			p.textCounter = int(val)
-		} else {
-			p.dataCounter = int(val)
-		}
-
-	case ".import":
-		if argument.Kind != tokenizer.Name {
-			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
-		}
-
-		if argument.Value == "_start" || argument.Value == "_handler" {
-			return fmt.Errorf("%w: %s cannot be imported", ErrReservedSymbol, argument.Value)
-		}
-
-		if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
-			if p.objectFile.Symbols[labelIndex].Binding != isa.Import {
-				return fmt.Errorf(
-					"%w: %s is defined in this file, cannot be imported",
-					ErrSymbolConflict,
-					argument.Value,
-				)
-			}
-
-			return nil // repeated import: allowed
-		}
-
-		p.symbolIndex[argument.Value] = len(p.objectFile.Symbols)
-		p.objectFile.Symbols = append(p.objectFile.Symbols, isa.Symbol{
-			Name:    argument.Value,
-			Binding: isa.Import,
-		})
-	case ".export":
-		if argument.Kind != tokenizer.Name {
-			return fmt.Errorf("%w: %s expects name, got %s", ErrArgumentKind, directive.Value, argument.Kind)
-		}
-
-		if tokenizer.IsReserved(argument.Value) {
-			return fmt.Errorf("%w: %s cannot be exported", ErrReservedSymbol, argument.Value)
-		}
-
-		if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
-			if p.objectFile.Symbols[labelIndex].Binding == isa.Import {
-				return fmt.Errorf(
-					"%w: %s is imported in this file, cannot be exported",
-					ErrSymbolConflict,
-					argument.Value,
-				)
-			}
-
-			if p.objectFile.Symbols[labelIndex].Binding == isa.Local {
-				p.objectFile.Symbols[labelIndex].Binding = isa.Export
-			}
-
-			return nil // repeated export: allowed
-		}
-
-		p.symbolIndex[argument.Value] = len(p.objectFile.Symbols)
-		p.objectFile.Symbols = append(p.objectFile.Symbols, isa.Symbol{
-			Name:    argument.Value,
-			Binding: isa.Export,
-		})
-	default:
-		return fmt.Errorf("%w: %q", ErrUnknownDirective, directive.Value)
-	}
-
-	return nil
-}
-
 func parseNumber(s string) (int64, error) {
 	digits, neg := strings.CutPrefix(s, "-")
 
@@ -737,4 +416,366 @@ func parseNumber(s string) (int64, error) {
 	}
 
 	return val, nil
+}
+
+func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
+	if p.currentSection != isa.Text {
+		return fmt.Errorf("%w: instructions are only allowed in %s, current section is %s",
+			ErrWrongSection, isa.Text, p.currentSection)
+	}
+
+	if len(tokens) < 1 {
+		return nil
+	}
+
+	if tokens[0].Kind != tokenizer.Name {
+		return fmt.Errorf("%w: expected name, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
+	}
+
+	mnemonic := tokens[0].Value
+
+	name := mnemonic
+	if realMnemonic, ok := aliases[mnemonic]; ok {
+		name = realMnemonic
+	}
+
+	opcode, ok := isa.Opcodes[name]
+	if !ok {
+		return fmt.Errorf("%w: expected opcode, got %s %q", ErrUnexpectedToken, tokens[0].Kind, tokens[0].Value)
+	}
+
+	operands, err := parseOperands(mnemonic, tokens[1:])
+	if err != nil {
+		return err
+	}
+
+	operands, err = rewriteAlias(mnemonic, operands)
+	if err != nil {
+		return err
+	}
+
+	if err := mapOperands(opcode.Format, operands); err != nil {
+		return fmt.Errorf("%s: %w", mnemonic, err)
+	}
+
+	instruction := isa.Instruction{OpInfo: opcode}
+	for _, op := range operands {
+		instruction.Arguments = append(instruction.Arguments, op.arg)
+	}
+
+	words, positions, err := instruction.Encode()
+	if err != nil {
+		return fmt.Errorf("%s: %w", mnemonic, err)
+	}
+
+	if p.textCounter+4*len(words) > maxSectionSize {
+		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, isa.Text, maxSectionSize)
+	}
+
+	p.objectFile.Sections[isa.Text].WriteAt(p.textCounter, wordsToBytes(words))
+	p.resolveLabel()
+	p.addLineToListing(p.textCounter)
+	p.addFixups(operands, positions, len(words))
+	p.textCounter += 4 * len(words)
+
+	return nil
+}
+
+// parseOperands: the comma-separated operands after the mnemonic.
+func parseOperands(mnemonic string, tokens []tokenizer.Token) ([]operand, error) {
+	operands := make([]operand, 0)
+	add := func(t []tokenizer.Token) error {
+		op, err := parseOperand(t)
+		if err != nil {
+			return fmt.Errorf("%s: argument %d: %w", mnemonic, len(operands)+1, err)
+		}
+
+		operands = append(operands, op)
+
+		return nil
+	}
+
+	prev := 0
+
+	for i, tok := range tokens {
+		if tok.Kind != tokenizer.Comma {
+			continue
+		}
+
+		if err := add(tokens[prev:i]); err != nil {
+			return nil, err
+		}
+
+		prev = i + 1
+	}
+
+	if prev < len(tokens) {
+		if err := add(tokens[prev:]); err != nil {
+			return nil, err
+		}
+	}
+
+	return operands, nil
+}
+
+// addFixups: a fixup for every operand that names a label.
+func (p *assembler) addFixups(operands []operand, positions []isa.EncodedPosition, words int) {
+	for i, op := range operands {
+		if op.label == "" {
+			continue
+		}
+
+		pos := positions[i]
+		p.fixups = append(p.fixups, fixup{
+			Section:   isa.Text,
+			Offset:    p.textCounter + 4*pos.Word,
+			Bit:       pos.Offset,
+			Width:     pos.Width,
+			Kind:      isa.ModeToRelocationKind(op.arg.Mode),
+			Symbol:    op.label,
+			PCNext:    p.textCounter + 4*words,
+			lineIndex: p.lineIndex,
+		})
+	}
+}
+
+func (p *assembler) handleDirective(tokens []tokenizer.Token) error {
+	directive := tokens[0]
+	if len(tokens) != 2 {
+		return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, directive.Value, len(tokens)-1)
+	}
+
+	argument := tokens[1]
+
+	switch directive.Value {
+	case ".section":
+		return p.directiveSection(directive, argument)
+	case ".org":
+		return p.directiveOrg(directive, argument)
+	case ".import":
+		return p.directiveImport(directive, argument)
+	case ".export":
+		return p.directiveExport(directive, argument)
+	default:
+		return fmt.Errorf("%w: %q", ErrUnknownDirective, directive.Value)
+	}
+}
+
+// expectKind: the directive's argument is a token of the given kind.
+func expectKind(directive, argument tokenizer.Token, kind tokenizer.Kind) error {
+	if argument.Kind != kind {
+		return fmt.Errorf("%w: %s expects %s, got %s", ErrArgumentKind, directive.Value, kind, argument.Kind)
+	}
+
+	return nil
+}
+
+func (p *assembler) directiveSection(directive, argument tokenizer.Token) error {
+	if err := expectKind(directive, argument, tokenizer.Name); err != nil {
+		return err
+	}
+
+	if argument.Value != "data" && argument.Value != "text" {
+		return fmt.Errorf("%w: expected 'data' or 'text', got %s", ErrUnknownSection, argument.Value)
+	}
+
+	p.currentSection = isa.Section(argument.Value)
+
+	return nil
+}
+
+func (p *assembler) directiveOrg(directive, argument tokenizer.Token) error {
+	if err := expectKind(directive, argument, tokenizer.Number); err != nil {
+		return err
+	}
+
+	val, err := parseNumber(argument.Value)
+	if err != nil {
+		return fmt.Errorf("%s: %w", directive.Value, err)
+	}
+
+	if val > maxSectionSize {
+		return fmt.Errorf("%w: %s %d exceeds %d", ErrNumberRange, directive.Value, val, maxSectionSize)
+	}
+
+	if p.currentSection == isa.Text {
+		p.textCounter = int(val)
+	} else {
+		p.dataCounter = int(val)
+	}
+
+	return nil
+}
+
+func (p *assembler) directiveImport(directive, argument tokenizer.Token) error {
+	if err := expectKind(directive, argument, tokenizer.Name); err != nil {
+		return err
+	}
+
+	if argument.Value == "_start" || argument.Value == "_handler" {
+		return fmt.Errorf("%w: %s cannot be imported", ErrReservedSymbol, argument.Value)
+	}
+
+	if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
+		if p.objectFile.Symbols[labelIndex].Binding != isa.Import {
+			return fmt.Errorf("%w: %s is defined in this file, cannot be imported", ErrSymbolConflict, argument.Value)
+		}
+
+		return nil // repeated import: allowed
+	}
+
+	p.symbolIndex[argument.Value] = len(p.objectFile.Symbols)
+	p.objectFile.Symbols = append(p.objectFile.Symbols, isa.Symbol{
+		Name:    argument.Value,
+		Binding: isa.Import,
+	})
+
+	return nil
+}
+
+func (p *assembler) directiveExport(directive, argument tokenizer.Token) error {
+	if err := expectKind(directive, argument, tokenizer.Name); err != nil {
+		return err
+	}
+
+	if tokenizer.IsReserved(argument.Value) {
+		return fmt.Errorf("%w: %s cannot be exported", ErrReservedSymbol, argument.Value)
+	}
+
+	if labelIndex, ok := p.symbolIndex[argument.Value]; ok {
+		binding := &p.objectFile.Symbols[labelIndex].Binding
+		if *binding == isa.Import {
+			return fmt.Errorf("%w: %s is imported in this file, cannot be exported", ErrSymbolConflict, argument.Value)
+		}
+
+		if *binding == isa.Local {
+			*binding = isa.Export
+		}
+
+		return nil // repeated export: allowed
+	}
+
+	p.symbolIndex[argument.Value] = len(p.objectFile.Symbols)
+	p.objectFile.Symbols = append(p.objectFile.Symbols, isa.Symbol{
+		Name:    argument.Value,
+		Binding: isa.Export,
+	})
+
+	return nil
+}
+
+func (p *assembler) handleData(tokens []tokenizer.Token) error {
+	directive := tokens[0]
+
+	if p.currentSection != isa.Data {
+		return fmt.Errorf("%w: %s is only allowed in %s, current section is %s",
+			ErrWrongSection, directive.Value, isa.Data, p.currentSection)
+	}
+
+	var (
+		res []byte
+		err error
+	)
+
+	switch directive.Value {
+	case ".pstr":
+		res, err = dataPstr(tokens)
+	case ".ref":
+		res, err = p.dataRef(tokens)
+	case ".word":
+		res, err = dataWord(tokens)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	p.objectFile.Sections[isa.Data].WriteAt(p.dataCounter, res)
+
+	if p.dataCounter+len(res) > maxSectionSize {
+		return fmt.Errorf("%w: %s exceeds %d bytes", ErrSectionTooLarge, isa.Data, maxSectionSize)
+	}
+
+	p.resolveLabel()
+	p.addLineToListing(p.dataCounter)
+	p.dataCounter += len(res)
+
+	return nil
+}
+
+// oneArgument: the directive has exactly one argument, of the given kind.
+func oneArgument(tokens []tokenizer.Token, kind tokenizer.Kind) error {
+	if len(tokens) != 2 {
+		return fmt.Errorf("%w: %s expects 1 argument, got %d", ErrArgumentCount, tokens[0].Value, len(tokens)-1)
+	}
+
+	return expectKind(tokens[0], tokens[1], kind)
+}
+
+func dataPstr(tokens []tokenizer.Token) ([]byte, error) {
+	if err := oneArgument(tokens, tokenizer.String); err != nil {
+		return nil, err
+	}
+
+	chars := stringToBytes(tokens[1].Value)
+	res := binary.LittleEndian.AppendUint32(nil, uint32(len(chars)))
+
+	return append(res, bytesToWords(chars)...), nil
+}
+
+func (p *assembler) dataRef(tokens []tokenizer.Token) ([]byte, error) {
+	if err := oneArgument(tokens, tokenizer.Name); err != nil {
+		return nil, err
+	}
+
+	if tokenizer.IsReserved(tokens[1].Value) {
+		return nil, fmt.Errorf("%w: %s cannot be used as a reference", ErrReservedSymbol, tokens[1].Value)
+	}
+
+	p.fixups = append(p.fixups, fixup{
+		Section:   isa.Data,
+		Offset:    p.dataCounter,
+		Bit:       0,
+		Width:     32,
+		Kind:      isa.Abs32,
+		Symbol:    tokens[1].Value,
+		lineIndex: p.lineIndex,
+	})
+
+	return make([]byte, 4), nil
+}
+
+func dataWord(tokens []tokenizer.Token) ([]byte, error) {
+	directive, args := tokens[0], tokens[1:]
+	if len(args) == 0 {
+		return nil, fmt.Errorf("%w: %s expects at least 1 argument", ErrArgumentCount, directive.Value)
+	}
+
+	var res []byte
+
+	for i := 0; i < len(args); {
+		val, n, err := parseValue(args[i:])
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", directive.Value, err)
+		}
+
+		res = binary.LittleEndian.AppendUint32(res, uint32(val))
+		i += n
+
+		if i == len(args) {
+			break
+		}
+
+		if args[i].Kind != tokenizer.Comma {
+			return nil, fmt.Errorf("%w: %s expects %s between values, got %s %q",
+				ErrUnexpectedToken, directive.Value, tokenizer.Comma, args[i].Kind, args[i].Value)
+		}
+
+		i++
+		if i == len(args) {
+			return nil, fmt.Errorf("%w: %s ends with %s", ErrUnexpectedToken, directive.Value, tokenizer.Comma)
+		}
+	}
+
+	return res, nil
 }

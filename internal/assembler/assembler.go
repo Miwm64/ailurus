@@ -43,7 +43,6 @@ const (
 	aliasPop  = "pop"
 )
 
-
 type fixup struct {
 	isa.Relocation
 
@@ -268,7 +267,7 @@ func stringToBytes(str string) []byte {
 }
 
 var aliases = map[string]string{
-	"asl":  "lsl",
+	"asl":     "lsl",
 	aliasPush: "mov",
 	aliasPop:  "mov",
 }
@@ -377,6 +376,7 @@ func (p *assembler) handleLabel(labelName string) error {
 			return fmt.Errorf("%w: %s is imported, cannot be defined", ErrSymbolConflict, labelName)
 		case isa.Local:
 			return fmt.Errorf("%w: %s is already defined", ErrSymbolConflict, labelName)
+		case isa.Export:
 		}
 
 		if p.objectFile.Symbols[i].Section != "" {

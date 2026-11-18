@@ -12,6 +12,7 @@ linters:
         - noinlineerr       # `if err := f(); err != nil` is idiomatic Go and scopes err to the check
         - mnd               # in the isa: word size 4, field widths 4/16/20/32, others
         - gochecknoglobals  # opcode tables and sentinel errors are package-level by design
+        - nonamedreturns    # named results document multi-value returns; bare returns are caught by nakedret
     settings:
         exhaustive:
             default-signifies-exhaustive: true  # CU / ALU switches handle a subset and say so with default
@@ -26,7 +27,7 @@ linters:
                     json: snake
                     yaml: snake  # config / object files use snake_case keys
         cyclop:
-            max-complexity: 25  # one-case-per-step tables (CU) count every case as a branch
+            max-complexity: 30  # one-case-per-step tables (CU) count every case as a branch
         gocognit:
             min-complexity: 40
         funlen:

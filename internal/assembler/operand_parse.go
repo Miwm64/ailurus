@@ -57,6 +57,7 @@ func parseOperand(tokens []tokenizer.Token) (operand, error) {
 		}
 
 		return operand{arg: isa.Argument{Mode: isa.Immediate, Value: int(val)}}, nil
+	default:
 	}
 
 	if tokens[0].Kind == tokenizer.LParen {

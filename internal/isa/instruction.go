@@ -291,6 +291,7 @@ func usesRegister(a Argument) bool {
 	switch a.Mode {
 	case Register, RegisterIndirect, PostIncrement, PreDecrement, RegisterRelative:
 		return true
+	default:
 	}
 
 	return false

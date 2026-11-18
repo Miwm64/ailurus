@@ -49,8 +49,9 @@ const (
 )
 
 type psReg struct {
-	ie bool
 	flags
+
+	ie bool
 }
 
 // packs PS into a 32-bit word.

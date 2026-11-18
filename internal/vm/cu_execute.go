@@ -334,6 +334,7 @@ func (p *controlUnit) execALU(sig signals, fe fieldOut) signals {
 		}
 	case stWB0: // mem[MAR] ← TMP
 		sig.selALUB, sig.aluOp, sig.memOp = aluBTMP, aluPassB, memWrite
+	default:
 	}
 
 	return sig
@@ -541,6 +542,7 @@ func (p *controlUnit) execFA(sig signals, fe fieldOut) signals {
 		sig.selALUB, sig.aluOp, sig.memOp = aluBTMP, aluPassB, memWrite
 
 		return sig
+	default:
 	}
 
 	src, i := p.faOperand()
@@ -584,6 +586,7 @@ func (p *controlUnit) nextFA(fe fieldOut) cuStep {
 		return stFetch0
 	case stWB0:
 		return stFetch0
+	default:
 	}
 
 	src, i := p.faOperand()

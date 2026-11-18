@@ -138,19 +138,17 @@ func handleNormalLine(tokens []tokenizer.Token, fromMacro bool, defines map[stri
 		label, call = tokens[0].Value+":\n", 2
 	}
 
-	if call < len(tokens) && tokens[call].Kind == tokenizer.Name {
-		if macro, ok := macros[tokens[call].Value]; ok {
-			if fromMacro {
-				return nil, fmt.Errorf("%w: %s", ErrNestedMacroCall, macro.Name)
-			}
-
-			expanded, err := macro.Apply(splitArguments(tokens[call+1:]))
-			if err != nil {
-				return nil, err
-			}
-
-			return append([]string{label}, expanded...), nil
+	if macro := macroAt(tokens, call, macros); macro != nil {
+		if fromMacro {
+			return nil, fmt.Errorf("%w: %s", ErrNestedMacroCall, macro.Name)
 		}
+
+		expanded, err := macro.Apply(splitArguments(tokens[call+1:]))
+		if err != nil {
+			return nil, err
+		}
+
+		return append([]string{label}, expanded...), nil
 	}
 
 	var res strings.Builder
@@ -177,6 +175,14 @@ func handleNormalLine(tokens []tokenizer.Token, fromMacro bool, defines map[stri
 	res.WriteString("\n")
 
 	return []string{res.String()[1:]}, nil
+}
+
+func macroAt(tokens []tokenizer.Token, i int, macros map[string]*Macro) *Macro {
+	if i >= len(tokens) || tokens[i].Kind != tokenizer.Name {
+		return nil
+	}
+
+	return macros[tokens[i].Value]
 }
 
 // splitArguments joins the tokens between commas into one argument each.

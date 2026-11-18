@@ -11,7 +11,7 @@
 
 - **Implementation language:** Go.
 
-This README is the short report which follows rules from lab4.md. 
+This README is the short report which follows rules from lab4.md.
 The full description of the project (every instruction, signal, format and corner case)
 is in **[docs/specification.md](docs/specification.md)**.
 
@@ -379,7 +379,7 @@ ailurus-build [flags] FILE...
 
 The work goes in three stages:
 1. **Preprocessor** — one pass over the text: defines, macros, conditional blocks. Every line keeps its
-   `line`, so errors and the listing point to the real source.
+   `file:line`, so errors and the listing point to the real source.
 2. **Assembler** — one pass + fixups. The size of an instruction depends only on the mnemonic and the modes,
    so it can be encoded right away. Every label operand is encoded as 0 right away, a PC-relative reference to a label
    in the same file and section is fixed at the end of the file, all others go to the relocation table.
@@ -401,7 +401,7 @@ It holds the section bytes, the symbol table and the relocations:
   "symbols": [
     { "name": "print",  "binding": "import" },
     { "name": "_start", "binding": "export", "section": "text" },
-    { "name": "msg",    "binding": "local",  "section": "data", "offset": 0 }
+    { "name": "msg",    "binding": "local",  "section": "data" }
   ],
   "relocations": [
     { "section": "text", "offset": 0, "bit": 4, "width": 16, "kind": "pcrel16", "symbol": "msg", "pc_next": 4 },
@@ -619,7 +619,7 @@ go test ./golden_test -update     # rewrite the expected fields
 | [strings](golden_test/testdata/strings.yml)                               | `pstr` procedures: `strConcat`, `strEq`, `strContains`                      |
 | [cat](golden_test/testdata/cat.yml)                                       | echo the input until the tick limit; a character arrives during the handler |
 | [hello_user_name](golden_test/testdata/hello_user_name.yml)               | ask for a name, read it, greet                                              |
-| [sort](golden_test/testdata/sort.yml)                                     | read amount of numners, numbers one per line, print them sorted             |
+| [sort](golden_test/testdata/sort.yml)                                     | read the count, then the numbers, one per line; print them sorted           |
 | [double](golden_test/testdata/double.yml)                                 | 64-bit arithmetic: $n!$ and $1! + \dots + n!$ for $n = 20$                  |
 | [is_prime](golden_test/testdata/is_prime.yml)                             | `alg1`: is_prime for a list of numbers                                      |
 | [format_string](golden_test/testdata/format_string.yml)                   | `alg1`: `%d`, `%5d`, `%-5d`, `%05d`                                         |
@@ -631,10 +631,14 @@ go test ./golden_test -update     # rewrite the expected fields
 
 ### Toolchain usage example
 
+The files are in [`examples/`](examples/): `hello.asm` and `config.yml` come from the `hello_stdlib` golden test,
+`lib.asm` and `main.asm` from `link`.
+
 ```shell
 $ make build
-$ ./build/ailurus-build -o hello.bin -l hello.lst hello.asm
-$ ./build/ailurus-run -c config.yml -l hello.lst -j journal.txt hello.bin
+$ cd examples
+$ ../build/ailurus-build -o hello.bin -l hello.lst hello.asm
+$ ../build/ailurus-run -c config.yml -l hello.lst -j journal.txt hello.bin
 halted after 461 ticks
 memory wait: 150 ticks
 cache: 57 hits, 10 misses (85.1% hit rate), 0 evictions, 1 writes, 0 bypasses
@@ -651,9 +655,9 @@ $ head -6 hello.lst
 Separate translation, then linking of object files:
 
 ```shell
-$ ./build/ailurus-build --no-stdlib -D VERBOSE -c lib.asm main.asm     # lib.o, main.o
-$ ./build/ailurus-build --no-stdlib -o prog.bin lib.o main.o
-$ ./build/ailurus-run prog.bin
+$ ../build/ailurus-build --no-stdlib -D VERBOSE -c lib.asm main.asm    # lib.o, main.o
+$ ../build/ailurus-build --no-stdlib -o prog.bin lib.o main.o
+$ ../build/ailurus-run prog.bin
 halted after 2202 ticks
 ...
 hello from lib.asm

@@ -652,3 +652,15 @@ the burst fill, and then hits on the same word:
   31135 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_mar
   31136 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:hit line 3     io:-               | latch_mdr mem_op=read
 ```
+
+## CI
+
+GitHub Actions ([ci.yml](.github/workflows/ci.yml)) runs on pushes to `master` / `develop` and on every pull request:
+
+| Job       | What it checks                                                                                                        |
+|-----------|-----------------------------------------------------------------------------------------------------------------------|
+| `go-lint` | `golangci-lint` with all linters on and `gofmt`; every disabled linter has a reason in [.golangci.yml](.golangci.yml) |
+| `test`    | `make test` — all golden tests                                                                                        |
+| `build`   | `make build` — both tools build                                                                                       |
+| `tidy`    | `go.mod` is tidy                                                                                                      |
+| `gitlint` | branch names, commit messages and PR titles follow the convention                                                     |

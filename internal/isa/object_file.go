@@ -82,9 +82,9 @@ func NewObjectFile(source string) *ObjectFile {
 	}
 }
 
-func (p HexBytes) MarshalText() ([]byte, error) {
-	res := make([]byte, len(p)*2)
-	hex.Encode(res, p)
+func (p *HexBytes) MarshalText() ([]byte, error) {
+	res := make([]byte, hex.EncodedLen(len(*p)))
+	hex.Encode(res, *p)
 
 	return res, nil
 }

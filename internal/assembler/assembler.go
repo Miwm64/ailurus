@@ -232,7 +232,7 @@ func bytesToWords(in []byte) (out []byte) {
 func stringToBytes(str string) []byte {
 	var res []byte
 
-	for i := 0; i < len(str); i += 1 {
+	for i := 0; i < len(str); i++ {
 		if str[i] == '\\' && i < len(str)-1 {
 			switch str[i+1] {
 			case '"':

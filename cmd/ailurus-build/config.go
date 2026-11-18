@@ -25,6 +25,7 @@ type config struct {
 
 func parseConfig() (config, error) {
 	cfg := config{defines: map[string]string{}}
+
 	var noStdlib bool
 
 	flag.StringVar(&cfg.outputFile, "o", "a.bin", "output `file`")
@@ -37,10 +38,13 @@ func parseConfig() (config, error) {
 		if name == "" {
 			return errEmptyDefine
 		}
+
 		cfg.defines[name] = value
+
 		return nil
 	})
 	flag.Parse()
+
 	cfg.stdlib = !noStdlib
 	cfg.inputFiles = flag.Args()
 
@@ -52,5 +56,6 @@ func parseConfig() (config, error) {
 	case cfg.assembleOnly && cfg.preprocessOnly:
 		return config{}, errBothModes
 	}
+
 	return cfg, nil
 }

@@ -48,6 +48,7 @@ func (p *cacheMemory) ramReq(req memReq) memReq {
 		if p.filled == 0 {
 			return memReq{Op: memRead, addr: p.effAddr}
 		}
+
 		return memReq{Op: memReadNext, addr: p.effAddr}
 	case cacheBypassR:
 		return memReq{Op: memRead, addr: req.addr}
@@ -76,6 +77,7 @@ func (p *cacheMemory) outputs(req memReq) memOut {
 			return memOut{event: "unaligned read"}
 		case hit:
 			data := p.dataArray[line][wordIndex(req.addr)]
+
 			return memOut{ready: true, data: data, event: fmt.Sprintf("hit line %d", line)}
 		default:
 			return memOut{event: "miss"}
@@ -99,8 +101,10 @@ func (p *cacheMemory) clock(req memReq) {
 	ramReq := p.ramReq(req)
 	ram := p.ram.outputs(ramReq)
 	p.ram.clock(ramReq)
+
 	if ram.fault != nil {
 		p.state = cacheIdle
+
 		return
 	}
 
@@ -111,6 +115,7 @@ func (p *cacheMemory) clock(req memReq) {
 		if ram.ready {
 			p.dataArray[p.victim][wordIndex(p.effAddr)] = ram.data
 			p.effAddr += 4
+
 			p.filled++
 			if p.filled == wordsPerLine {
 				p.state = cacheTag
@@ -130,6 +135,7 @@ func (p *cacheMemory) clock(req memReq) {
 		}
 	case cacheInv1:
 		p.invalidate(req.addr)
+
 		p.state = cacheIdle
 		if spansTwoLines(req.addr) {
 			p.state = cacheInv2
@@ -160,21 +166,25 @@ func (p *cacheMemory) idle(req memReq) {
 func (p *cacheMemory) writeDone(req memReq) {
 	if !aligned(req.addr) {
 		p.state = cacheInv1
+
 		return
 	}
+
 	if line, hit := p.lookup(req.addr); hit {
 		p.dataArray[line][wordIndex(req.addr)] = req.data
 	}
+
 	p.state = cacheIdle
 }
 
-// cmp scheme - all 16 at once
+// cmp scheme - all 16 at once.
 func (p *cacheMemory) lookup(addr uint32) (uint8, bool) {
 	for i, e := range p.tagArray {
 		if e.valid && e.tag == tagOf(addr) {
 			return uint8(i), true
 		}
 	}
+
 	return 0, false
 }
 
@@ -184,13 +194,14 @@ func (p *cacheMemory) invalidate(addr uint32) {
 	}
 }
 
-// invalid, then plru
+// invalid, then plru.
 func (p *cacheMemory) chooseVictim() uint8 {
 	for i, e := range p.tagArray {
 		if !e.valid {
 			return uint8(i)
 		}
 	}
+
 	return plruVictim(p.plru)
 }
 
@@ -213,6 +224,7 @@ func spansTwoLines(addr uint32) bool {
 // plruTouch points every node on the line's path away from it.
 func plruTouch(tree uint16, line uint8) uint16 {
 	node := 1
+
 	for level := plruLevels - 1; level >= 0; level-- {
 		right := int(line>>level) & 1
 		if right == 1 {
@@ -220,8 +232,10 @@ func plruTouch(tree uint16, line uint8) uint16 {
 		} else {
 			tree |= 1 << node
 		}
+
 		node = 2*node + right
 	}
+
 	return tree
 }
 
@@ -231,5 +245,6 @@ func plruVictim(tree uint16) uint8 {
 	for range plruLevels {
 		node = 2*node + int(tree>>node)&1
 	}
+
 	return uint8(node - cacheLines)
 }

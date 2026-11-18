@@ -82,26 +82,35 @@ func (p *Instruction) encodeF0() ([]uint32, []EncodedPosition, error) {
 	}
 
 	word := uint32(p.OpInfo.Opcode) << opcodeShift
+
 	return []uint32{word}, nil, nil
 }
 
-func nextFitPackArguments(arguments []Argument, mainWord uint32, mainWordSize int) ([]uint32, []EncodedPosition, error) {
+func nextFitPackArguments(
+	arguments []Argument,
+	mainWord uint32,
+	mainWordSize int,
+) ([]uint32, []EncodedPosition, error) {
 	modes := make([]Mode, len(arguments))
 	for i, a := range arguments {
 		modes[i] = a.Mode
 	}
+
 	positions := layout(mainWordSize, modes)
 
 	words := []uint32{mainWord}
+
 	for i, a := range arguments {
 		bits, err := a.Bits()
 		if err != nil {
 			return nil, nil, fmt.Errorf("argument %d: %w", i+1, err)
 		}
+
 		at := positions[i]
 		if at.Word == len(words) {
 			words = append(words, 0)
 		}
+
 		words[at.Word] |= bits << at.Offset
 	}
 
@@ -128,12 +137,17 @@ func (p *Instruction) encodeF2() ([]uint32, []EncodedPosition, error) {
 	if len(p.Arguments) != 2 {
 		return nil, nil, fmt.Errorf("%w: F2 expects 2, got %d", ErrArgumentCount, len(p.Arguments))
 	}
-	if err := p.checkF2Modes(); err != nil {
+
+	err := p.checkF2Modes()
+	if err != nil {
 		return nil, nil, err
 	}
-	if err := checkIncDec(p.Arguments); err != nil {
+
+	err = checkIncDec(p.Arguments)
+	if err != nil {
 		return nil, nil, err
 	}
+
 	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
 	mainWord |= uint32(p.Arguments[0].Mode) << mode1Shift
 	mainWord |= uint32(p.Arguments[1].Mode) << mode2Shift
@@ -153,6 +167,7 @@ func (p *Instruction) checkF2Modes() error {
 		if second.Mode != Immediate {
 			return fmt.Errorf("%w: in, got mode %d", ErrPortMode, second.Mode)
 		}
+
 		if first.Mode == Immediate {
 			return fmt.Errorf("%w: got %d", ErrImmediateDestination, first.Value)
 		}
@@ -165,6 +180,7 @@ func (p *Instruction) checkF2Modes() error {
 			return fmt.Errorf("%w: got %d", ErrImmediateDestination, first.Value)
 		}
 	}
+
 	return nil
 }
 
@@ -172,11 +188,13 @@ func (p *Instruction) encodeFB() ([]uint32, []EncodedPosition, error) {
 	if len(p.Arguments) != 1 {
 		return nil, nil, fmt.Errorf("%w: FB expects 1, got %d", ErrArgumentCount, len(p.Arguments))
 	}
+
 	if mode := p.Arguments[0].Mode; mode != PCRelative {
 		return nil, nil, fmt.Errorf("%w: got mode %d", ErrBranchMode, mode)
 	}
 
 	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
+
 	return nextFitPackArguments(p.Arguments, mainWord, branchAreaSize)
 }
 
@@ -211,6 +229,7 @@ func (p *Instruction) encodeFP() ([]uint32, []EncodedPosition, error) {
 
 	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
 	mainWord |= uint32(len(p.Arguments)-1) << countShift
+
 	return nextFitPackArguments(p.Arguments, mainWord, pushmAreaSize)
 }
 
@@ -219,14 +238,18 @@ func (p *Instruction) encodeFA() ([]uint32, []EncodedPosition, error) {
 	if n < 1 || n > maxAddmOperands {
 		return nil, nil, fmt.Errorf("%w: FA expects 1-%d, got %d", ErrArgumentCount, maxAddmOperands, n)
 	}
+
 	if dst := p.Arguments[0]; dst.Mode == Immediate {
 		return nil, nil, fmt.Errorf("%w: got %d", ErrImmediateDestination, dst.Value)
 	}
-	if err := checkIncDec(p.Arguments); err != nil {
+
+	err := checkIncDec(p.Arguments)
+	if err != nil {
 		return nil, nil, err
 	}
 
 	mainWord := uint32(p.OpInfo.Opcode) << opcodeShift
+
 	mainWord |= uint32(n-1) << faCountShift
 	for i, a := range p.Arguments {
 		mainWord |= uint32(a.Mode) << (modeBits * i)
@@ -237,15 +260,19 @@ func (p *Instruction) encodeFA() ([]uint32, []EncodedPosition, error) {
 
 func checkIncDec(arguments []Argument) error {
 	incDec := -1
+
 	for i, a := range arguments {
 		if a.Mode != PostIncrement && a.Mode != PreDecrement {
 			continue
 		}
+
 		if incDec != -1 {
 			return fmt.Errorf("%w: operands %d and %d", ErrMultipleIncDec, incDec+1, i+1)
 		}
+
 		incDec = i
 	}
+
 	if incDec == -1 {
 		return nil
 	}
@@ -256,6 +283,7 @@ func checkIncDec(arguments []Argument) error {
 			return fmt.Errorf("%w: register %d in operands %d and %d", ErrIncDecReuse, reg, incDec+1, i+1)
 		}
 	}
+
 	return nil
 }
 
@@ -263,7 +291,9 @@ func usesRegister(a Argument) bool {
 	switch a.Mode {
 	case Register, RegisterIndirect, PostIncrement, PreDecrement, RegisterRelative:
 		return true
+	default:
 	}
+
 	return false
 }
 
@@ -273,5 +303,6 @@ func PatchField(word uint32, bit, width int, value uint32) uint32 {
 	}
 
 	mask := uint32((uint64(1)<<width - 1) << bit)
+
 	return word&^mask | (value<<bit)&mask
 }

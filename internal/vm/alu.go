@@ -74,6 +74,7 @@ func alu(op aluOp, a, b uint32, carry bool) aluOut {
 
 	out.flags.n = out.result>>signBit == 1
 	out.flags.z = out.result == 0
+
 	return out
 }
 
@@ -104,12 +105,14 @@ func arithm(op aluOp, a, b uint32, carry bool) aluOut {
 func add(a, b, cin uint32) aluOut {
 	r, c := bits.Add32(a, b, cin)
 	v := ((a ^ r) & (b ^ r)) >> signBit
+
 	return aluOut{result: r, flags: flags{v: v == 1, c: c == 1}}
 }
 
 func sub(a, b, bin uint32) aluOut {
 	r, borrow := bits.Sub32(a, b, bin)
 	v := ((a ^ b) & (a ^ r)) >> signBit
+
 	return aluOut{result: r, flags: flags{v: v == 1, c: borrow == 1}}
 }
 
@@ -155,6 +158,7 @@ func mulDiv(op aluOp, a, b uint32) aluOut {
 		return aluOut{result: uint32((int64(int32(a)) * int64(int32(b))) >> wordBits)}
 	case aluUMulH:
 		hi, _ := bits.Mul32(a, b)
+
 		return aluOut{result: hi}
 	default:
 	}
@@ -162,8 +166,10 @@ func mulDiv(op aluOp, a, b uint32) aluOut {
 	if b == 0 {
 		return aluOut{divZero: true}
 	}
+
 	if op == aluDiv {
 		return aluOut{result: uint32(int32(a) / int32(b))}
 	}
+
 	return aluOut{result: uint32(int32(a) % int32(b))}
 }

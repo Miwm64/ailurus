@@ -1,6 +1,6 @@
 package vm
 
-// Simulator configuration, passed from cli
+// Config Simulator configuration, passed from cli.
 type Config struct {
 	MemorySize uint32
 	Cache      bool

@@ -74,10 +74,10 @@ func (p *Macro) AddRawLine(line string) {
 }
 
 func handleMacroHeader(tokens []tokenizer.Token, macros map[string]*Macro) (*Macro, error) {
-	brace := len(tokens) == 5 && tokens[4].Kind == tokenizer.LBRACE
+	brace := len(tokens) == 5 && tokens[4].Kind == tokenizer.LBrace
 
 	if (len(tokens) != 4 && !brace) ||
-		tokens[1].Kind != tokenizer.NAME || tokens[2].Kind != tokenizer.COMMA || tokens[3].Kind != tokenizer.NUMBER {
+		tokens[1].Kind != tokenizer.Name || tokens[2].Kind != tokenizer.Comma || tokens[3].Kind != tokenizer.Number {
 		return nil, ErrBadMacroHeader
 	}
 

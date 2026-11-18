@@ -1,5 +1,5 @@
-// go test ./golden            check
-// go test ./golden -update    rewrite the expected fields from the actual run
+// go test ./golden_test            check
+// go test ./golden_test -update    rewrite the expected fields from the actual run
 package golden_test
 
 import (
@@ -213,7 +213,7 @@ func compare(t *testing.T, field, got, want string) {
 	g, w := strings.Split(got, "\n"), strings.Split(want, "\n")
 	for i := range max(len(g), len(w)) {
 		if gl, wl := lineAt(g, i), lineAt(w, i); gl != wl {
-			t.Errorf("%s, line %d:\n got  %s\n want %s\n(go test ./golden -update rewrites the file)",
+			t.Errorf("%s, line %d:\n got  %s\n want %s\n(go test ./golden_test -update rewrites the file)",
 				field, i+1, gl, wl)
 
 			return

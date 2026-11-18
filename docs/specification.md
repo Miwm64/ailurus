@@ -924,3 +924,37 @@ Controller FSM:
 
 - `ram_op` depends only on the FSM state: a RAM access starts in the state after IDLE (the extra IDLE tick in every miss and write).
 - A RAM fault (`address out of memory`) returns the FSM to IDLE; the CU stops.
+
+### Journal
+
+**Instruction line** comes after the last tick of every instruction:
+```text
+=== 00000008  mov r1 , msg                   tick=20 irq=0
+    rsp=00000000  r1=00000028  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
+     r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=0
+```
+- Instruction address and mnemonic is taken from listing.
+- `tick` — the last tick of the instruction.
+- `irq=N` — interrupt nesting depth. It goes up at the tick that chooses `irq0` (the last tick of the interrupted
+  instruction) and down at the last tick of `iret`. `pending` means `irq_pending` is set.
+- Registers, NZVC and IE after the instruction.
+
+**Tick line** appears in `mode: tick` only, one per tick, before that tick's instruction line:
+```text
+    102 fetch1     PC=0000008C IR=D4202582 MAR=0000008C MDR=6000FFF8 IDX=0 POS= 4 irq=0 pending mem:hit line 2     io:-               | latch_mdr mem_op=read
+```
+
+| Column                     | Meaning                                                                       |
+|----------------------------|-------------------------------------------------------------------------------|
+| tick                       | tick number                                                                   |
+| step                       | CU step run at this tick, see [ControlUnit](#controlunit)                     |
+| PC, IR, MAR, MDR, IDX, POS | values after the tick                                                         |
+| `irq=N [pending]`          | as in the instruction line                                                    |
+| `mem:`                     | memory event at this tick                                                     |
+| `io:`                      | IO event at this tick                                                         |
+| after `\|`                 | control signals set at this tick: latches, `clear_irq`, `mem_op`, `io_op`     |
+
+
+- A latch gated by `ready` (`latch_mdr`) is listed on every tick of a wait.
+- `latch_ps` stands for all five PS latches. TMP, MAR_DST, EXT, DST_REG, mux selects and `alu_op` are not shown.
+- `from_tick` / `to_tick` filter both kinds of lines by tick.

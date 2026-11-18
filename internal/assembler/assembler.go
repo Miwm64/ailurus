@@ -532,6 +532,13 @@ func (p *assembler) addFixups(operands []operand, positions []isa.EncodedPositio
 		}
 
 		pos := positions[i]
+		kind := isa.ModeToRelocationKind(op.arg.Mode)
+
+		pcNext := 0
+		if kind == isa.PCRel16 {
+			pcNext = p.textCounter + 4*(pos.Word+1)
+		}
+
 		p.fixups = append(p.fixups, fixup{
 			Section:   isa.Text,
 			Offset:    p.textCounter + 4*pos.Word,
@@ -539,7 +546,7 @@ func (p *assembler) addFixups(operands []operand, positions []isa.EncodedPositio
 			Width:     pos.Width,
 			Kind:      isa.ModeToRelocationKind(op.arg.Mode),
 			Symbol:    op.label,
-			PCNext:    p.textCounter + 4*(pos.Word+1),
+			PCNext:    pcNext,
 			lineIndex: p.lineIndex,
 		})
 	}

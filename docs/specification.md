@@ -21,14 +21,14 @@
 |---|--------------------|-------------------------|---------------------|--------------------------------------------------------------|
 | 0 | register           | `r1`                    | 4 (reg#)            | operand is the register itself                               |
 | 1 | direct memory      | `(0x120)`, `(label)`    | 32 (address)        | access at the absolute address                               |
-| 2 | PC-relative memory | `(@label)`              | 16 (offset)         | access at `PC_next + offset`                                 |
+| 2 | PC-relative memory | `(@label)`              | 16 (offset)         | access at `operand_pc_next + offset`                         |
 | 3 | register indirect  | `(r1)`                  | 4 (reg#)            | access at `r1`                                               |
 | 4 | postincrement      | `(r1)+`                 | 4 (reg#)            | access at `r1`, then `r1 ← r1 + 4`                           |
 | 5 | predecrement       | `-(r1)`                 | 4 (reg#)            | `r1 ← r1 − 4`, then access at `r1`                           |
 | 6 | immediate          | `120`, `0x120`, `label` | 16 (value)          | value stored in the instruction; a bare label is its address |
 | 7 | register relative  | `(r1+10)`               | 20 (reg# + offset)  | access at `r1 + offset`                                      |
 
-- `PC_next` — address of the next instruction. Offsets are computed by the translator: `addr(label) − PC_next`.
+- `operand_pc_next` - the address right after the word that holds the offset.
 - Syntax rule: bare — value, parentheses — memory.
 - Assembler errors:
   - immediate as destination;
@@ -78,6 +78,8 @@
 | test a, b                 | flags ← a & b                           | F2     | NZ; V,C ← 0       |
 | addm dst, src1, ..., srcN | dst ← dst + src1 + ... + srcN           | FA     | NZ (final result) |
 
+- `div` / `mod` by 0: the machine halts with a fault.
+
 #### Shifts
 | Instruction    | Meaning                          | Format | Flags |
 |----------------|----------------------------------|--------|-------|
@@ -89,16 +91,17 @@
 `count mod 32` is used.
 
 #### Stack
-| Instruction       | Meaning                              | Format | Flags |
-|-------------------|--------------------------------------|--------|-------|
-| push operand      | alias of `mov -(rsp), operand`       | F2     | NZ    |
-| pop operand       | alias of `mov operand, (rsp)+`       | F2     | NZ    |
-| pushm r2, r1, r13 | push registers in list order         | FP     | —     |
-| popm r13, r1, r2  | pop into registers in list order     | FP     | —     |
-| call target       | push PC_next, PC ← target            | FJ     | —     |
-| ret               | pop PC                               | F0     | —     |
-| iret              | pop PS, pop PC                       | F0     | —     |
+| Instruction       | Meaning                          | Format | Flags |
+|-------------------|----------------------------------|--------|-------|
+| push operand      | alias of `mov -(rsp), operand`   | F2     | NZ    |
+| pop operand       | alias of `mov operand, (rsp)+`   | F2     | NZ    |
+| pushm r2, r1, r13 | push registers in list order     | FP     | —     |
+| popm r13, r1, r2  | pop into registers in list order | FP     | —     |
+| call target       | push ret_addr, PC ← target       | FJ     | —     |
+| ret               | pop PC                           | F0     | —     |
+| iret              | pop PS, pop PC                   | F0     | —     |
 
+`ret_addr` — address of the next instruction. \
 Stack grows down. `pushm` / `popm` both go in list order, so restoring needs the reversed list:
 ```asm
 pushm r1, r2   ; push r1, then r2
@@ -116,6 +119,7 @@ rsp can not be pushed or poped via pushm, popm.
 - `port` — immediate only. Ports are a separate address space.
 - 0 — input: last character from the input schedule; its arrival raises the interrupt.
 - 1 — output: writing appends a character to the output buffer.
+- Any other combination stops the machine with a fault.
 
 #### Control flow
 | Instruction  | Meaning / condition   | Format | Flags |
@@ -136,6 +140,7 @@ rsp can not be pushed or poped via pushm, popm.
 | halt         | stop execution        | F0     | —     |
 
 Conditional jumps: if the condition holds, `PC ← PC_next + offset`. Always PC-relative.
+`ei` takes effect in the next instruction, see [Entry](#entry).
 
 #### Jump targets
 
@@ -146,7 +151,23 @@ Conditional jumps: if the condition holds, `PC ← PC_next + offset`. Always PC-
 
 ### Interrupts
 
-One interrupt source: input (port 0).
+#### Request
+- A character from the input schedule arrives: `IO[0] ← char`, `irq_pending ← 1`.
+- `irq_pending` is a single bit — requests are not queued — and `IO[0]` holds only the last character:
+  one that arrives before the handler has read the previous one with `in` overwrites it.
+
+#### Entry
+Checked at the last tick of every instruction, with PS as it is in that tick:
+```
+if irq_pending == 1 and IE == 1:
+    irq_pending ← 0
+    push PC
+    push PS
+    IE ← 0
+    PC ← mem[0x4]
+```
+- `ei` takes effect in the next instruction: in its own last tick IE is still 0.
+- `iret` restores PS before its last tick: no instruction of the interrupted program runs in between.
 
 #### Vectors
 | Address | Contents                                    |
@@ -196,6 +217,8 @@ if irq_pending == 1 and IE == 1:
 | W1 | Aligned write, hit  | Write word to `data_array` and RAM                                                           | 11    | IDLE + RAM write; cache write in parallel       |
 | W2 | Aligned write, miss | Write to RAM only                                                                            | 11    | IDLE + one RAM access                           |
 | W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 12–13 | IDLE + RAM write + 1 tick per invalidated line  |
+
+- Burst fill: the first word of a line is 10 ticks; the other 3 words come 1 tick each.
 
 ### Instruction formats
 

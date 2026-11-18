@@ -8,3 +8,4 @@ programs/*_res.asm
 **/*.bin
 **/*.lst
 **/*.j
+programs

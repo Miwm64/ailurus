@@ -21,11 +21,18 @@ type Machine struct {
 	tick    uint64
 	limit   uint64
 	journal []Record
+	memWait uint64
 
 	// journal annotations
 	irqDepth  int
 	instrAddr uint32
 	prevStep  cuStep
+}
+
+// Stats: memory counters for the run summary.
+type Stats struct {
+	MemWait uint64      // ticks with a memory request that is not ready yet
+	Cache   *CacheStats // nil when the cache is off
 }
 
 // New builds a machine with image loaded at address 0.
@@ -74,6 +81,10 @@ func (p *Machine) Tick() {
 	req := memReq{Op: sig.memOp, addr: regs.mar, data: out.result}
 	mem := p.mem.outputs(req)
 
+	if req.Op != memNone && !mem.ready {
+		p.memWait++
+	}
+
 	// 4. clock edge: everyone latches
 	p.mem.clock(req)
 	p.io.clock(p.tick, sig, out.result)
@@ -98,4 +109,14 @@ func (p *Machine) Output() []byte {
 
 func (p *Machine) Journal() []Record {
 	return p.journal
+}
+
+func (p *Machine) Stats() Stats {
+	stats := Stats{MemWait: p.memWait}
+	if cache, ok := p.mem.(*cacheMemory); ok {
+		cacheStats := cache.stats
+		stats.Cache = &cacheStats
+	}
+
+	return stats
 }

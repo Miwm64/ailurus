@@ -21,6 +21,13 @@ const (
 	cacheInv2
 )
 
+// CacheStats: one count per access, taken when the access starts.
+type CacheStats struct {
+	Hits, Misses, Evictions uint64
+	Writes                  uint64 // write-through
+	Bypasses                uint64 // unaligned reads, served by RAM
+}
+
 type tagEntry struct {
 	valid bool
 	tag   uint32
@@ -35,6 +42,7 @@ type cacheMemory struct {
 	effAddr   uint32
 	filled    uint8 // words filled so far
 	victim    uint8
+	stats     CacheStats
 }
 
 func newCache(r *ram) *cacheMemory {
@@ -152,14 +160,22 @@ func (p *cacheMemory) idle(req memReq) {
 	switch {
 	case req.Op == memNone:
 	case req.Op == memWrite:
+		p.stats.Writes++
 		p.state = cacheWrite
 	case !aligned(req.addr):
+		p.stats.Bypasses++
 		p.state = cacheBypassR
 	case hit:
+		p.stats.Hits++
 		p.plru = plruTouch(p.plru, line)
 	default: // miss: fill the line from its first word
+		p.stats.Misses++
 		p.effAddr = req.addr &^ (cacheLineSize - 1)
 		p.victim, p.filled, p.state = p.chooseVictim(), 0, cacheFill
+
+		if p.tagArray[p.victim].valid {
+			p.stats.Evictions++
+		}
 	}
 }
 

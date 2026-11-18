@@ -38,6 +38,12 @@ const (
 	maxSectionSize = 1 << 20
 )
 
+const (
+	aliasPush = "push"
+	aliasPop  = "pop"
+)
+
+
 type fixup struct {
 	isa.Relocation
 
@@ -263,26 +269,26 @@ func stringToBytes(str string) []byte {
 
 var aliases = map[string]string{
 	"asl":  "lsl",
-	"push": "mov",
-	"pop":  "mov",
+	aliasPush: "mov",
+	aliasPop:  "mov",
 }
 
 func rewriteAlias(mnemonic string, operands []operand) ([]operand, error) {
 	const rsp = 0
 
 	switch mnemonic {
-	case "push", "pop":
+	case "aliasPush", aliasPop:
 		if len(operands) != 1 {
 			return nil, fmt.Errorf("%w: %s expects 1, got %d", isa.ErrArgumentCount, mnemonic, len(operands))
 		}
 	}
 
 	switch mnemonic {
-	case "push":
+	case "aliasPush":
 		dst := operand{arg: isa.Argument{Mode: isa.PreDecrement, Value: rsp}}
 
 		return []operand{dst, operands[0]}, nil
-	case "pop":
+	case aliasPop:
 		src := operand{arg: isa.Argument{Mode: isa.PostIncrement, Value: rsp}}
 
 		return []operand{operands[0], src}, nil

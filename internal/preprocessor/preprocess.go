@@ -19,10 +19,11 @@ type conditionFrame struct {
 
 var allowed = map[string]struct{}{
 	"#ifdef":  {},
-	"#ifndef": {},
+	directiveIfndef: {},
 	"#else":   {},
 	"#endif":  {},
 }
+const directiveIfndef = "#ifndef"
 
 func Preprocess(text string, globalDefines map[string]string) (res string, lineMap map[int]int, err error) {
 	lines := strings.Split(text, "\n")

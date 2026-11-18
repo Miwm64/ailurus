@@ -25,9 +25,11 @@ func ReadBytes(path string) ([]byte, error) {
 }
 
 func WriteFile(path string, data string) error {
-	err := os.WriteFile(path, []byte(data), 0644)
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
 
-	return fmt.Errorf("write: %w", err)
+	return nil
 }
 
 func WriteJSON(path string, v any) error {

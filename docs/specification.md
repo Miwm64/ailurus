@@ -216,7 +216,7 @@ if irq_pending == 1 and IE == 1:
 | R3 | Unaligned read      | Bypass: single RAM read, cache untouched                                                     | 11    | IDLE + one RAM access                           |
 | W1 | Aligned write, hit  | Write word to `data_array` and RAM                                                           | 11    | IDLE + RAM write; cache write in parallel       |
 | W2 | Aligned write, miss | Write to RAM only                                                                            | 11    | IDLE + one RAM access                           |
-| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 12–13 | IDLE + RAM write + 1 tick per invalidated line  |
+| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 12–13 | IDLE + RAM write + 1 tick per touched line      |
 
 - Burst fill: the first word of a line is 10 ticks; the other 3 words come 1 tick each.
 
@@ -900,24 +900,27 @@ POS ← 0. `last` — the current operand is the last one.
 
 ![Cache](scheme/cache.png)
 
-- `cmp scheme` compares the CMP_MUX address with all 16 tags.
-- `effective_addr` — burst address, then `+ 4` per word.
+- From the DataPath: `mem_op`, `addr`, `data_in`. Back: `data_out`, `ready`.
+- `cmp scheme` compares the CMP_MUX address (`addr` or `addr + 4`) with all 16 tags → `hit`, `line_number`.
+- `effective_addr` (EFF_ADDR_MUX, `latch_eff_addr`): on a miss — the line base (`addr` AND mask), then `+ 4` per filled word.
+- ADDR_MUX — RAM address: `addr` or `effective_addr`.
 - IND_ARR_MUX — word in the line: `addr[3:2]` or `effective_addr[3:2]`.
-- D_OUT_MUX — to DataPath: data_array or RAM (cache bypass).
-- `ram_op`: 0 — none, 1 — read, 2 — write; `ram_done` — RAM finished.
+- D_ARR_MUX — data_array input: RAM `data_out` (FILL) or `data_in` (write hit); `data_arr_wr` — write enable.
+- D_OUT_MUX — to DataPath: data_array or RAM (bypass).
+- `ram_op`: 0 — none, 1 — read, 2 — write, 3 — read_next (burst: the next word, 1 tick); `ram_done` — RAM finished.
 - `ta_wr` — write tag + valid; `ready` — request complete, to CU.
 - Alignment check, victim choice and the 15 tree-PLRU bits are inside the controller.
 
 Controller FSM:
+| State      | Action                                                                                                                                      | Next                                                                                                         |
+|------------|---------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `IDLE`     | wait for `mem_op`. Aligned read hit: data_array word to DataPath, update PLRU, `ready`                                                      | read miss → `FILL` (`effective_addr` ← line base, pick victim); unaligned read → `BYPASS_R`; write → `WRITE` |
+| `FILL`     | `ram_op` = read for the first word, read_next for the other three, at `effective_addr`; on `ram_done` store the word, `effective_addr += 4` | after the 4th word → `TAG`                                                                                   |
+| `TAG`      | `ta_wr` for the victim, update PLRU, word to DataPath, `ready`                                                                              | `IDLE`                                                                                                       |
+| `BYPASS_R` | `ram_op = read` at `addr`; on `ram_done` RAM value to DataPath, `ready`                                                                     | `IDLE`                                                                                                       |
+| `WRITE`    | `ram_op = write` at `addr`; on `ram_done`: aligned hit — also write data_array; aligned → `ready`                                           | aligned → `IDLE`; unaligned → `INV1`                                                                         |
+| `INV1`     | compare `addr`; hit → clear valid; `ready` if the write stays in one line                                                                   | spans 2 lines → `INV2`; otherwise → `IDLE`                                                                   |
+| `INV2`     | compare `addr + 4`; hit → clear valid; `ready`                                                                                              | `IDLE`                                                                                                       |
 
-| State      | Action                                                                                             | Next                                                             |
-|------------|----------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
-| `IDLE`     | wait for `mem_rd` / `mem_wr`. Aligned read hit: data_array value to DataPath, update PLRU, `ready` | read miss → `FILL`; unaligned read → `BYPASS_R`; write → `WRITE` |
-| `FILL`     | `ram_op = read` at `effective_addr`; on `ram_done` store the word, `effective_addr += 4`;          | `TAG`                                                            |
-| `TAG`      | `ta_wr` for the victim, update PLRU, word to DataPath, `ready`                                     | `IDLE`                                                           |
-| `BYPASS_R` | `ram_op = read` at `addr`; on `ram_done` RAM value to DataPath, `ready`                            | `IDLE`                                                           |
-| `WRITE`    | `ram_op = write` at `addr`; aligned hit — also write data_array; on `ram_done`: aligned → `ready`  | aligned → `IDLE`; unaligned → `INV1`                             |
-| `INV1`     | compare `addr`; hit → clear valid                                                                  | spans 2 lines → `INV2`; otherwise → `IDLE`                       |
-| `INV2`     | compare `addr + 4`; hit → clear valid; `ready`. For unaligned writes spanning 2 lines              | `IDLE`                                                           |
-
-- `ram_op` depends only on the FSM state: a RAM access starts in the state after IDLE.
+- `ram_op` depends only on the FSM state: a RAM access starts in the state after IDLE (the extra IDLE tick in every miss and write).
+- A RAM fault (`address out of memory`) returns the FSM to IDLE; the CU stops.

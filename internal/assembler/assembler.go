@@ -544,7 +544,7 @@ func (p *assembler) addFixups(operands []operand, positions []isa.EncodedPositio
 			Offset:    p.textCounter + 4*pos.Word,
 			Bit:       pos.Offset,
 			Width:     pos.Width,
-			Kind:      isa.ModeToRelocationKind(op.arg.Mode),
+			Kind:      kind,
 			Symbol:    op.label,
 			PCNext:    pcNext,
 			lineIndex: p.lineIndex,

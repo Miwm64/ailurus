@@ -1,4 +1,4 @@
-description: prints a pstr through port 1, no stdlib
+description: prints a pstr, no stdlib
 sources:
   main.asm: |
     .export _start

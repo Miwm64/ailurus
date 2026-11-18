@@ -521,7 +521,7 @@ processed like ordinary code.
 - The linker writes the address of `_start` into the reset vector and the address of `_handler`
   into the interrupt vector (see Memory organization).
 - Both must be exported with `.export`; the linker takes them from the export tables, and files must not
-  imports them, as it causes error.
+  import them, as it causes error.
 - No exported `_start` is an error.
 - No exported `_handler` leaves the interrupt vector at 0.
 
@@ -690,11 +690,12 @@ Fields:
 
 - Von Neumann: code and data share one memory. Single-port, byte-addressed.
 - Word: 32 bits. Little-endian: the lowest byte of a word is at the lowest address.
-- Memory size is set in the simulator config.
+- Every access reads or writes 4 consecutive bytes at any address. Unaligned accesses work but bypass the cache.
+- Size: `memory_size` in the simulator config, 4096 bytes by default. An image that doesn't fit is rejected
+  at load (`image does not fit in memory`). An access past the end stops the run (`address out of memory`).
 - Registers available to the programmer: `rsp`, `r1`–`r15`.
 - PC and PS are not addressable; they change only through control flow, PC-relative modes, flags and `ei` / `di`.
-- IO ports are a separate address space (port 0 — input, port 1 — output).
-
+- IO ports are a separate address space (port 0 — input, port 1 — output), see [IO](#io).
 ### Layout
 ```
         Memory
@@ -714,8 +715,11 @@ Fields:
 +-------------------------------+
 ```
 
-- Each file's section part starts at a 4-byte-aligned address.
-- `rsp` is not initialized at reset: `_start` must set it.
+- Files are placed in command-line order; the stdlib goes last.
+- Each file's section part starts at a 4-byte-aligned address; `data` starts right after the last `text` part.
+- There is no heap. The free area is not managed and can grow into `data`.
+- `rsp` is not initialized at reset: `_start` must set it, usually to `memory_size` (`mov rsp, 0x1000`).
+  The first push writes at `rsp − 4`.
 
 ### Mapping
 
@@ -731,14 +735,14 @@ Fields:
 | Interrupt   | handler is code in `text`, its address is in the `0x4` vector. Entry pushes PC and PS.                             |
 
 - Compile time: the assembler places everything at offsets within sections; the linker assigns final addresses and fills the vectors.
-- Run time: only registers, the stack and `data` contents change.
+- Run time: nothing is write-protected; by convention only registers, the stack and `data` change.
 
 ### Calling convention
 
 | What         | Rule                                                                            |
 |--------------|---------------------------------------------------------------------------------|
 | Arguments    | `r1`–`r4`; the rest on the stack, pushed right to left, the caller removes them |
-| Return value | `r1`; 64-bit — `r1` low, `r2` high                                              |
+| Return value | `r1`; a second result in `r2` (64-bit: `r1` low, `r2` high)                     |
 | Caller-saved | `r1`–`r7`: a procedure may change them                                          |
 | Callee-saved | `r8`–`r15`, `rsp`: restored before `ret`                                        |
 

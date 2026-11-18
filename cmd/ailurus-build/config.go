@@ -51,8 +51,6 @@ func parseConfig() (config, error) {
 	switch {
 	case len(cfg.inputFiles) == 0:
 		return config{}, errNoInput
-	case flag.NArg() == 0:
-		return config{}, errNoInput
 	case cfg.assembleOnly && cfg.preprocessOnly:
 		return config{}, errBothModes
 	}

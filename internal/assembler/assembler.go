@@ -481,7 +481,7 @@ func (p *assembler) handleInstruction(tokens []tokenizer.Token) error {
 	p.objectFile.Sections[isa.Text].WriteAt(p.textCounter, wordsToBytes(words))
 	p.resolveLabel()
 	p.addLineToListing(p.textCounter)
-	p.addFixups(operands, positions, len(words))
+	p.addFixups(operands, positions)
 	p.textCounter += 4 * len(words)
 
 	return nil
@@ -525,7 +525,7 @@ func parseOperands(mnemonic string, tokens []tokenizer.Token) ([]operand, error)
 }
 
 // addFixups: a fixup for every operand that names a label.
-func (p *assembler) addFixups(operands []operand, positions []isa.EncodedPosition, words int) {
+func (p *assembler) addFixups(operands []operand, positions []isa.EncodedPosition) {
 	for i, op := range operands {
 		if op.label == "" {
 			continue
@@ -539,7 +539,7 @@ func (p *assembler) addFixups(operands []operand, positions []isa.EncodedPositio
 			Width:     pos.Width,
 			Kind:      isa.ModeToRelocationKind(op.arg.Mode),
 			Symbol:    op.label,
-			PCNext:    p.textCounter + 4*words,
+			PCNext:    p.textCounter + 4*(pos.Word+1),
 			lineIndex: p.lineIndex,
 		})
 	}

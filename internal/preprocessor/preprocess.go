@@ -18,11 +18,12 @@ type conditionFrame struct {
 }
 
 var allowed = map[string]struct{}{
-	"#ifdef":  {},
+	"#ifdef":        {},
 	directiveIfndef: {},
-	"#else":   {},
-	"#endif":  {},
+	"#else":         {},
+	"#endif":        {},
 }
+
 const directiveIfndef = "#ifndef"
 
 func Preprocess(text string, globalDefines map[string]string) (res string, lineMap map[int]int, err error) {

@@ -173,3 +173,15 @@ func parseListing(src string) (map[uint32]string, error) {
 
 	return source, nil
 }
+
+// run summary.
+func summary(ticks uint64, runErr error) string {
+	switch {
+	case runErr == nil:
+		return fmt.Sprintf("halted after %d ticks", ticks)
+	case errors.Is(runErr, vm.ErrTickLimit):
+		return fmt.Sprintf("tick limit reached after %d ticks", ticks)
+	default:
+		return fmt.Sprintf("fault after %d ticks: %v", ticks, runErr)
+	}
+}

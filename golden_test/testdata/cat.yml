@@ -1,0 +1,318 @@
+description: echoes input until the tick limit
+sources:
+  main.asm: |
+    .export _start
+    .export _handler
+    .import inputPush
+    .import readChar
+    .import printChar
+
+    _start:
+        mov rsp, 0x1000
+        ei
+    loop:
+        call readChar
+        call printChar
+        jump @loop
+
+    _handler:
+        call inputPush
+        iret
+config: |
+  tick_limit: 3000
+  input:
+    - [100, "c"]
+    - [300, "a"]
+    - [700, "t"]
+    - [1000, "\n"]
+  journal:
+    mode: tick
+    from_tick: 96
+    to_tick: 163
+summary: |-
+  tick limit reached after 3000 ticks
+  memory wait: 646 ticks
+  cache: 527 hits, 14 misses (97.4% hit rate), 0 evictions, 45 writes, 0 bypasses
+output: |
+  cat
+listing: |
+  00000000 - 00000008 - _start address
+  00000004 - 00000024 - _handler address
+  00000008 - A0610000 - mov rsp , 0x1000
+  0000000C - 10000000 - ei
+  00000010 - 3C000000 - call readChar
+  00000014 - 00000084
+  00000018 - 3C000000 - call printChar
+  0000001C - 00000064
+  00000020 - 3A00FFEC - jump @ loop
+  00000024 - 3C000000 - call inputPush
+  00000028 - 00000030
+  0000002C - 0C000000 - iret
+  00000030 - 40800321 - pushm r1 , r2 , r3
+  00000034 - E8600001 - in r1 , 0
+  00000038 - A0202A82 - mov r2 , ( @ inTail )
+  0000003C - A0000023 - mov r3 , r2
+  00000040 - B0600043 - add r3 , 4
+  00000044 - A46003F3 - and r3 , 63
+  00000048 - D4202943 - cmp r3 , ( @ inHead )
+  0000004C - 6000000C - jz inputPushDone
+  00000050 - B0602E82 - add r2 , inBuf
+  00000054 - A1800012 - mov ( r2 ) , r1
+  00000058 - A1030288 - mov ( @ inTail ) , r3
+  0000005C - 44800123 - popm r3 , r2 , r1
+  00000060 - 08000000 - ret
+  00000064 - EF010001 - out 1 , r1
+  00000068 - 08000000 - ret
+  0000006C - A0400012 - mov r2 , ( r1 ) +
+  00000070 - 6000000C - jz printDone
+  00000074 - EF410001 - out 1 , ( r1 ) +
+  00000078 - 2C000002 - dec r2
+  0000007C - 6400FFF4 - jnz printLoop
+  00000080 - 08000000 - ret
+  00000084 - A0202582 - mov r2 , ( @ inHead )
+  00000088 - D4202582 - cmp r2 , ( @ inTail )
+  0000008C - 6000FFF8 - jz readCharWait
+  00000090 - A0000021 - mov r1 , r2
+  00000094 - B0602E81 - add r1 , inBuf
+  00000098 - A0300011 - mov r1 , ( r1 )
+  0000009C - B0600042 - add r2 , 4
+  000000A0 - A46003F2 - and r2 , 63
+  000000A4 - A1020238 - mov ( @ inHead ) , r2
+  000000A8 - 08000000 - ret
+  000000AC - 40C0BA98 - pushm r8 , r9 , r10 , r11
+  000000B0 - A0000018 - mov r8 , r1
+  000000B4 - A0000029 - mov r9 , r2
+  000000B8 - 2000000A - clr r10
+  000000BC - A000001B - mov r11 , r1
+  000000C0 - B060004B - add r11 , 4
+  000000C4 - 3E00FFBC - call @ readChar
+  000000C8 - D46000A1 - cmp r1 , "\n"
+  000000CC - 6000001C - jz readLineDone
+  000000D0 - D400009A - cmp r10 , r9
+  000000D4 - 6C00000C - jae readLineOverflow
+  000000D8 - A200001B - mov ( r11 ) + , r1
+  000000DC - 2800000A - inc r10
+  000000E0 - 3A00FFE0 - jump @ readLineLoop
+  000000E4 - A06FFFF1 - mov r1 , -1
+  000000E8 - 3A000008 - jump @ readLineRet
+  000000EC - A18000A8 - mov ( r8 ) , r10
+  000000F0 - A00000A1 - mov r1 , r10
+  000000F4 - 44C089AB - popm r11 , r10 , r9 , r8
+  000000F8 - 08000000 - ret
+  000000FC - A0400013 - mov r3 , ( r1 ) +
+  00000100 - D4400023 - cmp r3 , ( r2 ) +
+  00000104 - 64000024 - jnz strEqNo
+  00000108 - D4600003 - cmp r3 , 0
+  0000010C - 60000014 - jz strEqYes
+  00000110 - A0400014 - mov r4 , ( r1 ) +
+  00000114 - D4400024 - cmp r4 , ( r2 ) +
+  00000118 - 64000010 - jnz strEqNo
+  0000011C - 2C000003 - dec r3
+  00000120 - 3A00FFE4 - jump @ strEqLoop
+  00000124 - A0600011 - mov r1 , 1
+  00000128 - 08000000 - ret
+  0000012C - 20000001 - clr r1
+  00000130 - 08000000 - ret
+  00000134 - A0400024 - mov r4 , ( r2 ) +
+  00000138 - A0400035 - mov r5 , ( r3 ) +
+  0000013C - A0000046 - mov r6 , r4
+  00000140 - B0000056 - add r6 , r5
+  00000144 - A2000061 - mov ( r1 ) + , r6
+  00000148 - D4600004 - cmp r4 , 0
+  0000014C - 60000010 - jz strConcatB
+  00000150 - A0400026 - mov r6 , ( r2 ) +
+  00000154 - A2000061 - mov ( r1 ) + , r6
+  00000158 - 2C000004 - dec r4
+  0000015C - 3A00FFE8 - jump @ strConcatA
+  00000160 - D4600005 - cmp r5 , 0
+  00000164 - 60000010 - jz strConcatDone
+  00000168 - A0400036 - mov r6 , ( r3 ) +
+  0000016C - A2000061 - mov ( r1 ) + , r6
+  00000170 - 2C000005 - dec r5
+  00000174 - 3A00FFE8 - jump @ strConcatB
+  00000178 - 08000000 - ret
+  0000017C - A2800080 - push r8
+  00000180 - A0400013 - mov r3 , ( r1 ) +
+  00000184 - A0400024 - mov r4 , ( r2 ) +
+  00000188 - B8000043 - sub r3 , r4
+  0000018C - 78000038 - jl strContainsNo
+  00000190 - 28000003 - inc r3
+  00000194 - A0000015 - mov r5 , r1
+  00000198 - A0000026 - mov r6 , r2
+  0000019C - A0000047 - mov r7 , r4
+  000001A0 - D4600007 - cmp r7 , 0
+  000001A4 - 60000028 - jz strContainsYes
+  000001A8 - A0400058 - mov r8 , ( r5 ) +
+  000001AC - D4400068 - cmp r8 , ( r6 ) +
+  000001B0 - 64000008 - jnz strContainsNext
+  000001B4 - 2C000007 - dec r7
+  000001B8 - 3A00FFE4 - jump @ strContainsCmp
+  000001BC - B0600041 - add r1 , 4
+  000001C0 - 2C000003 - dec r3
+  000001C4 - 6400FFCC - jnz strContainsStart
+  000001C8 - 20000001 - clr r1
+  000001CC - 3A000004 - jump @ strContainsRet
+  000001D0 - A0600011 - mov r1 , 1
+  000001D4 - A0400008 - pop r8
+  000001D8 - 08000000 - ret
+  000001DC - A0000023 - mov r3 , r2
+  000001E0 - B0600043 - add r3 , 4
+  000001E4 - 20000004 - clr r4
+  000001E8 - D4600001 - cmp r1 , 0
+  000001EC - 78000008 - jl intToStrSign
+  000001F0 - 30000001 - neg r1
+  000001F4 - 3A000004 - jump @ intToStrDigits
+  000001F8 - A26002D3 - mov ( r3 ) + , "-"
+  000001FC - A0000015 - mov r5 , r1
+  00000200 - D06000A5 - mod r5 , 10
+  00000204 - 30000005 - neg r5
+  00000208 - B0600305 - add r5 , "0"
+  0000020C - A2800050 - push r5
+  00000210 - 28000004 - inc r4
+  00000214 - CC6000A1 - div r1 , 10
+  00000218 - 6400FFE0 - jnz intToStrDigits
+  0000021C - A0400005 - pop r5
+  00000220 - A2000053 - mov ( r3 ) + , r5
+  00000224 - 2C000004 - dec r4
+  00000228 - 6400FFF0 - jnz intToStrPop
+  0000022C - A0000031 - mov r1 , r3
+  00000230 - B8000021 - sub r1 , r2
+  00000234 - E0600021 - lsr r1 , 2
+  00000238 - 2C000001 - dec r1
+  0000023C - A1800012 - mov ( r2 ) , r1
+  00000240 - 08000000 - ret
+  00000244 - A0400013 - mov r3 , ( r1 ) +
+  00000248 - 6000008C - jz strToIntBad
+  0000024C - 20000004 - clr r4
+  00000250 - 20000005 - clr r5
+  00000254 - A0300016 - mov r6 , ( r1 )
+  00000258 - D46002D6 - cmp r6 , "-"
+  0000025C - 64000008 - jnz strToIntPlus
+  00000260 - A0600015 - mov r5 , 1
+  00000264 - 3A000008 - jump @ strToIntSkipSign
+  00000268 - D46002B6 - cmp r6 , "+"
+  0000026C - 6400000C - jnz strToIntDigit
+  00000270 - B0600041 - add r1 , 4
+  00000274 - 2C000003 - dec r3
+  00000278 - 6000005C - jz strToIntBad
+  0000027C - A0400016 - mov r6 , ( r1 ) +
+  00000280 - B8600306 - sub r6 , "0"
+  00000284 - D46000A6 - cmp r6 , 10
+  00000288 - 6C00004C - jae strToIntBad
+  0000028C - A0000047 - mov r7 , r4
+  00000290 - C46000A7 - umulh r7 , 10
+  00000294 - 64000040 - jnz strToIntBad
+  00000298 - C86000A4 - mull r4 , 10
+  0000029C - B0000064 - add r4 , r6
+  000002A0 - 70000034 - jb strToIntBad
+  000002A4 - 2C000003 - dec r3
+  000002A8 - 6400FFD0 - jnz strToIntDigit
+  000002AC - D4600005 - cmp r5 , 0
+  000002B0 - 60000010 - jz strToIntPositive
+  000002B4 - 30000004 - neg r4
+  000002B8 - D4600004 - cmp r4 , 0
+  000002BC - 80000018 - jg strToIntBad
+  000002C0 - 3A000008 - jump @ strToIntOk
+  000002C4 - D4600004 - cmp r4 , 0
+  000002C8 - 7800000C - jl strToIntBad
+  000002CC - A0000041 - mov r1 , r4
+  000002D0 - 20000002 - clr r2
+  000002D4 - 08000000 - ret
+  000002D8 - A06FFFF2 - mov r2 , -1
+  000002DC - 08000000 - ret
+  000002E0 - 00000000 - inHead : .word 0
+  000002E4 - 00000000 - inTail : .word 0
+  000002E8 - 00000000 - inBuf : .word 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0
+  000002EC - 00000000
+  000002F0 - 00000000
+  000002F4 - 00000000
+  000002F8 - 00000000
+  000002FC - 00000000
+  00000300 - 00000000
+  00000304 - 00000000
+  00000308 - 00000000
+  0000030C - 00000000
+  00000310 - 00000000
+  00000314 - 00000000
+  00000318 - 00000000
+  0000031C - 00000000
+  00000320 - 00000000
+  00000324 - 00000000
+journal: |2
+       96 of_dst0    PC=0000008C IR=D4202582 MAR=00000088 MDR=D4202582 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
+       97 of_src0    PC=0000008C IR=D4202582 MAR=000002E4 MDR=D4202582 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
+       98 of_src1    PC=0000008C IR=D4202582 MAR=000002E4 MDR=00000000 IDX=0 POS= 4 irq=0         mem:hit line 3     io:-               | latch_mdr mem_op=read
+       99 of_src_end PC=0000008C IR=D4202582 MAR=000002E4 MDR=00000000 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_tmp
+      100 exec0      PC=0000008C IR=D4202582 MAR=000002E4 MDR=00000000 IDX=0 POS= 4 irq=0         mem:-              io:in 'c'          | latch_ps
+  === 00000088  cmp r2 , ( @ inTail )          tick=100 irq=0
+      rsp=00000FFC  r1=00000000  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
+       r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
+      101 fetch0     PC=0000008C IR=D4202582 MAR=0000008C MDR=00000000 IDX=0 POS= 4 irq=0 pending mem:-              io:-               | latch_mar
+      102 fetch1     PC=0000008C IR=D4202582 MAR=0000008C MDR=6000FFF8 IDX=0 POS= 4 irq=0 pending mem:hit line 2     io:-               | latch_mdr mem_op=read
+      103 fetch2     PC=00000090 IR=6000FFF8 MAR=0000008C MDR=6000FFF8 IDX=0 POS= 0 irq=0 pending mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+      104 of_dst0    PC=00000090 IR=6000FFF8 MAR=0000008C MDR=6000FFF8 IDX=0 POS= 0 irq=0 pending mem:-              io:-               | -
+      105 exec0      PC=00000088 IR=6000FFF8 MAR=0000008C MDR=6000FFF8 IDX=0 POS= 0 irq=1 pending mem:-              io:-               | latch_pc
+  === 0000008C  jz readCharWait                tick=105 irq=1 pending
+      rsp=00000FFC  r1=00000000  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
+       r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
+      106 irq0       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:-              io:-               | latch_reg_w latch_mar clear_irq
+      107 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write          io:-               | mem_op=write
+      108 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      109 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      110 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      111 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      112 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      113 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      114 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      115 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      116 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      117 irq1       PC=00000088 IR=6000FFF8 MAR=00000FF8 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write done     io:-               | mem_op=write
+      118 irq2       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:-              io:-               | latch_reg_w latch_mar
+      119 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write          io:-               | mem_op=write
+      120 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      121 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      122 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      123 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      124 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      125 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      126 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      127 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      128 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write wait     io:-               | mem_op=write
+      129 irq3       PC=00000088 IR=6000FFF8 MAR=00000FF4 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:write done     io:-               | mem_op=write
+      130 irq4       PC=00000088 IR=6000FFF8 MAR=00000004 MDR=6000FFF8 IDX=0 POS= 0 irq=1         mem:-              io:-               | latch_mar
+      131 irq5       PC=00000088 IR=6000FFF8 MAR=00000004 MDR=00000024 IDX=0 POS= 0 irq=1         mem:hit line 0     io:-               | latch_mdr latch_ps mem_op=read
+      132 irq6       PC=00000024 IR=6000FFF8 MAR=00000004 MDR=00000024 IDX=0 POS= 0 irq=1         mem:-              io:-               | latch_pc
+      133 fetch0     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:-              io:-               | latch_mar
+      134 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:miss           io:-               | latch_mdr mem_op=read
+      135 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      136 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      137 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      138 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      139 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      140 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      141 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      142 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      143 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill wait      io:-               | latch_mdr mem_op=read
+      144 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill done      io:-               | latch_mdr mem_op=read
+      145 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill done      io:-               | latch_mdr mem_op=read
+      146 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill done      io:-               | latch_mdr mem_op=read
+      147 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=00000024 IDX=0 POS= 0 irq=1         mem:fill done      io:-               | latch_mdr mem_op=read
+      148 fetch1     PC=00000024 IR=6000FFF8 MAR=00000024 MDR=3C000000 IDX=0 POS= 0 irq=1         mem:tag            io:-               | latch_mdr mem_op=read
+      149 fetch2     PC=00000028 IR=3C000000 MAR=00000024 MDR=3C000000 IDX=0 POS= 0 irq=1         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+      150 of_dst0    PC=00000028 IR=3C000000 MAR=00000028 MDR=3C000000 IDX=0 POS= 0 irq=1         mem:-              io:-               | latch_mar
+      151 of_dst_ext PC=0000002C IR=3C000000 MAR=00000028 MDR=00000030 IDX=1 POS= 0 irq=1         mem:hit line 4     io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
+      152 exec0      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:-              io:-               | latch_reg_w latch_mar
+      153 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write          io:-               | latch_pc mem_op=write
+      154 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      155 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      156 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      157 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      158 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      159 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      160 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      161 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      162 exec1      PC=0000002C IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write wait     io:-               | latch_pc mem_op=write
+      163 exec1      PC=00000030 IR=3C000000 MAR=00000FF0 MDR=00000030 IDX=1 POS= 0 irq=1         mem:write done     io:-               | latch_pc mem_op=write
+  === 00000024  call inputPush                 tick=163 irq=1
+      rsp=00000FF0  r1=00000000  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
+       r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=0

@@ -7,7 +7,7 @@
 ; Input comes through the interrupt: _handler puts each character into a ring
 ; buffer, readChar / readLine take characters from it.
 ; Before reading input, the program's _start must set rsp and execute ei.
-; A program with its own _handler is built with --no-stdlib.
+
 
 .export inputPush
 .export printChar

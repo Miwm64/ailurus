@@ -21,14 +21,14 @@
 |---|--------------------|-------------------------|---------------------|--------------------------------------------------------------|
 | 0 | register           | `r1`                    | 4 (reg#)            | operand is the register itself                               |
 | 1 | direct memory      | `(0x120)`, `(label)`    | 32 (address)        | access at the absolute address                               |
-| 2 | PC-relative memory | `(@label)`              | 16 (offset)         | access at `PC_next + offset`                                 |
+| 2 | PC-relative memory | `(@label)`              | 16 (offset)         | access at `operand_pc_next + offset`                         |
 | 3 | register indirect  | `(r1)`                  | 4 (reg#)            | access at `r1`                                               |
 | 4 | postincrement      | `(r1)+`                 | 4 (reg#)            | access at `r1`, then `r1 ← r1 + 4`                           |
 | 5 | predecrement       | `-(r1)`                 | 4 (reg#)            | `r1 ← r1 − 4`, then access at `r1`                           |
 | 6 | immediate          | `120`, `0x120`, `label` | 16 (value)          | value stored in the instruction; a bare label is its address |
 | 7 | register relative  | `(r1+10)`               | 20 (reg# + offset)  | access at `r1 + offset`                                      |
 
-- `PC_next` — address of the next instruction. Offsets are computed by the translator: `addr(label) − PC_next`.
+- `operand_pc_next` - the address right after the word that holds the offset.
 - Syntax rule: bare — value, parentheses — memory.
 - Assembler errors:
   - immediate as destination;
@@ -78,6 +78,8 @@
 | test a, b                 | flags ← a & b                           | F2     | NZ; V,C ← 0       |
 | addm dst, src1, ..., srcN | dst ← dst + src1 + ... + srcN           | FA     | NZ (final result) |
 
+- `div` / `mod` by 0: the machine halts with a fault.
+
 #### Shifts
 | Instruction    | Meaning                          | Format | Flags |
 |----------------|----------------------------------|--------|-------|
@@ -89,16 +91,17 @@
 `count mod 32` is used.
 
 #### Stack
-| Instruction       | Meaning                              | Format | Flags |
-|-------------------|--------------------------------------|--------|-------|
-| push operand      | alias of `mov -(rsp), operand`       | F2     | NZ    |
-| pop operand       | alias of `mov operand, (rsp)+`       | F2     | NZ    |
-| pushm r2, r1, r13 | push registers in list order         | FP     | —     |
-| popm r13, r1, r2  | pop into registers in list order     | FP     | —     |
-| call target       | push PC_next, PC ← target            | FJ     | —     |
-| ret               | pop PC                               | F0     | —     |
-| iret              | pop PS, pop PC                       | F0     | —     |
+| Instruction       | Meaning                          | Format | Flags |
+|-------------------|----------------------------------|--------|-------|
+| push operand      | alias of `mov -(rsp), operand`   | F2     | NZ    |
+| pop operand       | alias of `mov operand, (rsp)+`   | F2     | NZ    |
+| pushm r2, r1, r13 | push registers in list order     | FP     | —     |
+| popm r13, r1, r2  | pop into registers in list order | FP     | —     |
+| call target       | push ret_addr, PC ← target       | FJ     | —     |
+| ret               | pop PC                           | F0     | —     |
+| iret              | pop PS, pop PC                   | F0     | —     |
 
+`ret_addr` — address of the next instruction. \
 Stack grows down. `pushm` / `popm` both go in list order, so restoring needs the reversed list:
 ```asm
 pushm r1, r2   ; push r1, then r2
@@ -116,6 +119,7 @@ rsp can not be pushed or poped via pushm, popm.
 - `port` — immediate only. Ports are a separate address space.
 - 0 — input: last character from the input schedule; its arrival raises the interrupt.
 - 1 — output: writing appends a character to the output buffer.
+- Any other combination stops the machine with a fault.
 
 #### Control flow
 | Instruction  | Meaning / condition   | Format | Flags |
@@ -135,18 +139,35 @@ rsp can not be pushed or poped via pushm, popm.
 | di           | IE ← 0                | F0     | IE    |
 | halt         | stop execution        | F0     | —     |
 
-Conditional jumps: if the condition holds, `PC ← PC_next + offset`. Always PC-relative.
+Conditional jumps: if the condition holds, `PC ← operand_pc_next + offset`. Always PC-relative.
+`ei` takes effect in the next instruction, see [Entry](#entry).
 
 #### Jump targets
 
-| Syntax   | Kind        | `jump`                | `call`                              | Size    |
-|----------|-------------|-----------------------|-------------------------------------|---------|
-| `label`  | absolute    | PC ← label            | push PC_next, PC ← label            | 2 words |
-| `@label` | PC-relative | PC ← PC_next + offset | push PC_next, PC ← PC_next + offset | 1 word  |
+| Syntax   | Kind        | `jump`                        | `call`                                       | Size    |
+|----------|-------------|-------------------------------|----------------------------------------------|---------|
+| `label`  | absolute    | PC ← label                    | push ret_addr, PC ← label                    | 2 words |
+| `@label` | PC-relative | PC ← operand_pc_next + offset | push ret_addr, PC ← operand_pc_next + offset | 1 word  |
 
 ### Interrupts
 
-One interrupt source: input (port 0).
+#### Request
+- A character from the input schedule arrives: `IO[0] ← char`, `irq_pending ← 1`.
+- `irq_pending` is a single bit — requests are not queued — and `IO[0]` holds only the last character:
+  one that arrives before the handler has read the previous one with `in` overwrites it.
+
+#### Entry
+Checked at the last tick of every instruction, with PS as it is in that tick:
+```
+if irq_pending == 1 and IE == 1:
+    irq_pending ← 0
+    push PC
+    push PS
+    IE ← 0
+    PC ← mem[0x4]
+```
+- `ei` takes effect in the next instruction: in its own last tick IE is still 0.
+- `iret` restores PS before its last tick: no instruction of the interrupted program runs in between.
 
 #### Vectors
 | Address | Contents                                    |
@@ -158,22 +179,6 @@ Filled by the linker. `0x0`–`0x7` are reserved.
 
 #### Reset
 - `PC ← mem[0x0]`, `IE ← 0`, `irq_pending ← 0`. `rsp` is not initialized.
-
-#### Request
-- A character from the input schedule arrives: `IO[0] ← char`, `irq_pending ← 1`.
-- `irq_pending` is a single bit — requests are not queued. A new character while `irq_pending = 1`
-  overwrites `IO[0]`: the previous one is lost.
-
-#### Entry
-Checked after each instruction completes (never in the middle of one):
-```
-if irq_pending == 1 and IE == 1:
-    irq_pending ← 0
-    push PC
-    push PS
-    IE ← 0
-    PC ← mem[0x4]
-```
 
 #### Return
 `iret`: pop PS (restores IE and NZVC), then pop PC.
@@ -195,7 +200,9 @@ if irq_pending == 1 and IE == 1:
 | R3 | Unaligned read      | Bypass: single RAM read, cache untouched                                                     | 11    | IDLE + one RAM access                           |
 | W1 | Aligned write, hit  | Write word to `data_array` and RAM                                                           | 11    | IDLE + RAM write; cache write in parallel       |
 | W2 | Aligned write, miss | Write to RAM only                                                                            | 11    | IDLE + one RAM access                           |
-| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 12–13 | IDLE + RAM write + 1 tick per invalidated line  |
+| W3 | Unaligned write     | Write to RAM, invalidate every cached line it touches (1 or 2)                               | 12–13 | IDLE + RAM write + 1 tick per touched line      |
+
+- Burst fill: the first word of a line is 10 ticks; the other 3 words come 1 tick each.
 
 ### Instruction formats
 
@@ -369,6 +376,70 @@ word3: [100]
 - There are no 32-bit immediates. Larger constants are stored in `data` and loaded, or built with shift / or.
 - `mov r1, label` loads the address of `label`; the address must be `< 0x8000`, otherwise translator error.
 
+### Instruction timing
+
+An instruction takes $N$ ticks without memory, plus the cost of each memory access:
+
+$$t = N + \sum_{\text{accesses}} T_{\text{access}}$$
+
+| Access          | `cache: false` | `cache: true`    |
+|-----------------|----------------|------------------|
+| aligned read    | 10             | hit 1, miss 15   |
+| unaligned read  | 10             | 11               |
+| aligned write   | 10             | 11               |
+| unaligned write | 10             | 12–13            |
+
+| Symbol   | Meaning                                                                       |
+|----------|-------------------------------------------------------------------------------|
+| $R$, $W$ | reads, writes (word 1 and every extension word count as reads)                |
+| $e$      | extension words; `pushm` / `popm`: $\max\big(0, \lceil (n-5)/8 \rceil\big)$   |
+| $a(m)$   | address steps of mode $m$, see below                                          |
+| $[x]$    | 1 if $x$, else 0                                                              |
+
+| Mode   | reg | imm | direct | PC-rel | `(r)` | `(r)+` | `-(r)` | `(r+k)` |
+|--------|-----|-----|--------|--------|-------|--------|--------|---------|
+| $a(m)$ | 0   | 0   | 1      | 1      | 1     | 2      | 1      | 1       |
+
+#### F1, F2
+
+| Value | Formula                                                              |
+|-------|----------------------------------------------------------------------|
+| $N$   | $3 + d + a(m_{src}) + e + s$                                         |
+| $R$   | $1 + e + [\text{src in memory}] + [\text{dst in memory and read}]$   |
+| $W$   | $[\text{dst in memory and written}]$                                 |
+
+| Term        | Value                                                                                  |
+|-------------|----------------------------------------------------------------------------------------|
+| $d$         | register dst or `out` port — 1; memory dst — $a(m_{dst})$                              |
+| $s$         | 1 if src in memory, or memory dst with src in a later word, or `out`; else 0           |
+| dst read    | all except `mov`, `clr`, `in`                                                          |
+| dst written | all except `cmp`, `test`, `out`                                                        |
+
+| Instruction        | $e$ | $N$ | $R$ | $W$ | $t$, no cache |
+|--------------------|-----|-----|-----|-----|---------------|
+| `add r1, r2`       | 0   | 4   | 1   | 0   | 14            |
+| `mov r3, (r2)+`    | 0   | 7   | 2   | 0   | 27            |
+| `add (r1), 7`      | 0   | 4   | 2   | 1   | 34            |
+| `mov (buf), r4`    | 2   | 7   | 3   | 1   | 47            |
+| `add (buf), (r2)+` | 2   | 9   | 5   | 1   | 69            |
+
+#### Other formats
+
+| Instruction            | $N$                                   | $R$                             | $W$                       |
+|------------------------|---------------------------------------|---------------------------------|---------------------------|
+| reset                  | 1                                     | 1                               | 0                         |
+| `halt`, `ei`, `di`     | 4                                     | 1                               | 0                         |
+| `ret`                  | 5                                     | 2                               | 0                         |
+| `iret`                 | 7                                     | 3                               | 0                         |
+| branch, `jump @label`  | 4                                     | 1                               | 0                         |
+| `jump label`           | 4                                     | 2                               | 0                         |
+| `call @label`          | 4                                     | 1                               | 1                         |
+| `call label`           | 4                                     | 2                               | 1                         |
+| `pushm`, $n$ regs      | $3 + n + e$                           | $1 + e$                         | $n$                       |
+| `popm`, $n$ regs       | $4 + 2n + 2e$                         | $1 + n + e$                     | 0                         |
+| `addm` $m_1 \dots m_k$ | $3 + e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + \#\text{mem operands}$ | $[m_1 \text{ in memory}]$ |
+| interrupt entry        | 4                                     | 1                               | 2                         |
+
 ## Programming language
 
 ### Syntax (EBNF)
@@ -455,13 +526,14 @@ Notes:
 
 ### Semantics
 
-**Instructions.** Executed sequentially, starting from `_start`. Meaning, operand modes, flags and
-cycle counts are described in the ISA section.
+**Instructions.** Executed sequentially, starting from `_start`. Meaning, operand modes and flags are
+described in the [Instruction set](#instruction-set) section, tick counts in [Instruction timing](#instruction-timing).
 
 **Labels.**
 - A label marks the address of the next emitted word (instruction or data). The label may stand on
   its own line or before an instruction or data on the same line.
   Directives in between change label address and section.
+- One label per address
 - A label may be used before its definition.
 - A label is local to its file unless it is exported with `.export`.
 - Another file can use an exported label only after declaring it with `.import`. Using a name that
@@ -496,14 +568,13 @@ processed like ordinary code.
 **Entry points.**
 - The linker writes the address of `_start` into the reset vector and the address of `_handler`
   into the interrupt vector (see Memory organization).
-- Both must be exported with `.export`; the linker takes them from the export tables, and no file
-  imports them.
+- Both must be exported with `.export`; the linker takes them from the export tables, and files must not
+  import them, as it causes error.
 - No exported `_start` is an error.
 - No exported `_handler` leaves the interrupt vector at 0.
 
 **Types.** There are no types: every value is a 32-bit word. Signed or unsigned interpretation is chosen by
 operation (`jl` vs `jb`).
-
 
 ## Translator
 
@@ -524,6 +595,17 @@ linked together with the standard library into one flat binary image.
 | `-E`              | preprocess only: print expanded source to stdout               |
 | `-D NAME[=value]` | define `NAME`, as if `#define` were at the top of every file   |
 | `--no-stdlib`     | do not link the standard library                               |
+
+Listing (`-l`), one line per word:
+- `<address> - <HEXCODE> - <source>` — the first word of an instruction or data item.
+- `<address> - <HEXCODE>` — every following word.
+
+```text
+00000000 - 00000020 - _start address
+00000008 - A0400012 - mov r2 , ( r1 ) +
+00000088 - 00000013 - greeting : .pstr "hello from lib.asm\n"
+0000008C - 00000068
+```
 
 ### Pipeline
 
@@ -550,12 +632,9 @@ Translation pipeline includes 3 stages:
 Each line becomes a statement, aliases are rewritten.
 
 Single pass compilation + fixup:
-
-An instruction is encoded right away. Its size comes from the format and operand modes, using next-fit packing.
-If operand can not be determined right away(for example, address of label which has not been defined yet),
-operand is written as 0 and recorded as fixup.
-
-At the end of the file: fixup resolution - PC relative to a local label in the same section is fixed
+- An instruction is encoded right away. Its size comes from the format and operand modes, using next-fit packing.
+- An operand that is not known yet (a label defined later) is written as 0 and recorded as a fixup.
+- At the end of the file: fixup resolution - PC relative to a local label in the same section is fixed
 
 One pass is enough, because an instruction’s size depends only on its mnemonic and modes, not on the label values.
 
@@ -577,11 +656,11 @@ One pass is enough, because an instruction’s size depends only on its mnemonic
 
 For each entry, compute the value, run the check, and write the field.
 
-| Kind      | Value                       | Check                      |
-|-----------|-----------------------------|----------------------------|
-| `abs32`   | $S$                         | none                       |
-| `imm16`   | $S$                         | $S \le \texttt{0x7FFF}$    |
-| `pcrel16` | $S - \text{PC}_\text{next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
+| Kind      | Value                          | Check                      |
+|-----------|--------------------------------|----------------------------|
+| `abs32`   | $S$                            | none                       |
+| `imm16`   | $S$                            | $S \le \texttt{0x7FFF}$    |
+| `pcrel16` | $S - \text{operand\_pc\_next}$ | $\in [-2^{15},\ 2^{15}-1]$ |
 
 A failed check is an error.
 
@@ -617,7 +696,7 @@ msg: .pstr "hi"
   },
   "symbols": [
     { "name": "print",  "binding": "import" },
-    { "name": "_start", "binding": "export", "section": "text", "offset": 0 },
+    { "name": "_start", "binding": "export", "section": "text" },
     { "name": "loop",   "binding": "local",  "section": "text", "offset": 12 },
     { "name": "msg",    "binding": "local",  "section": "data", "offset": 0 }
   ],
@@ -649,9 +728,9 @@ Fields:
     `bit`, `width` — the field's position inside the word.
   - `kind` — `abs32`, `imm16` or `pcrel16`.
   - `symbol` — looked up among this file's symbols first, then among global exports.
-  - `pc_next` — `pcrel16` only: offset of the next instruction in the same section.
+  - `pc_next` — `pcrel16` only: `operand_pc_next` of the field.
 - `lines` — one entry per emitted instruction or data item. Used for debug listing
-
+- Zero `offset` and `pc_next` values are omitted.
 
 ## Memory organization
 
@@ -659,11 +738,12 @@ Fields:
 
 - Von Neumann: code and data share one memory. Single-port, byte-addressed.
 - Word: 32 bits. Little-endian: the lowest byte of a word is at the lowest address.
-- Memory size is set in the simulator config.
+- Every access reads or writes 4 consecutive bytes at any address. Unaligned accesses work but bypass the cache.
+- Size: `memory_size` in the simulator config, 4096 bytes by default. An image that doesn't fit is rejected
+  at load (`image does not fit in memory`). Access past the end stops the run (`address out of memory`).
 - Registers available to the programmer: `rsp`, `r1`–`r15`.
 - PC and PS are not addressable; they change only through control flow, PC-relative modes, flags and `ei` / `di`.
-- IO ports are a separate address space (port 0 — input, port 1 — output).
-
+- IO ports are a separate address space (port 0 — input, port 1 — output), see [IO](#io).
 ### Layout
 ```
         Memory
@@ -683,8 +763,11 @@ Fields:
 +-------------------------------+
 ```
 
-- Each file's section part starts at a 4-byte-aligned address.
-- `rsp` is not initialized at reset: `_start` must set it.
+- Files are placed in command-line order; the stdlib goes last.
+- Each file's section part starts at a 4-byte-aligned address; `data` starts right after the last `text` part.
+- There is no heap. The free area is not managed and can grow into `data`.
+- `rsp` is not initialized at reset: `_start` must set it, usually to `memory_size` (`mov rsp, 0x1000`).
+  The first push writes at `rsp − 4`.
 
 ### Mapping
 
@@ -700,14 +783,14 @@ Fields:
 | Interrupt   | handler is code in `text`, its address is in the `0x4` vector. Entry pushes PC and PS.                             |
 
 - Compile time: the assembler places everything at offsets within sections; the linker assigns final addresses and fills the vectors.
-- Run time: only registers, the stack and `data` contents change.
+- Run time: nothing is write-protected; by convention only registers, the stack and `data` change.
 
 ### Calling convention
 
 | What         | Rule                                                                            |
 |--------------|---------------------------------------------------------------------------------|
 | Arguments    | `r1`–`r4`; the rest on the stack, pushed right to left, the caller removes them |
-| Return value | `r1`; 64-bit — `r1` low, `r2` high                                              |
+| Return value | `r1`; a second result in `r2` (64-bit: `r1` low, `r2` high)                     |
 | Caller-saved | `r1`–`r7`: a procedure may change them                                          |
 | Callee-saved | `r8`–`r15`, `rsp`: restored before `ret`                                        |
 
@@ -718,8 +801,10 @@ Fields:
 ### Simulator CLI
 
 ```
-ailurus-run prog.bin [-l prog.lst] [-c config.yaml]
+ailurus-run [-c config.yml] [-l prog.lst] [-j journal.txt] prog.bin
 ```
+
+Flags go before the image.
 
 | Flag      | Meaning                                                             |
 |-----------|---------------------------------------------------------------------|
@@ -727,35 +812,50 @@ ailurus-run prog.bin [-l prog.lst] [-c config.yaml]
 | `-j FILE` | journal output file                                                 |
 | `-c FILE` | simulator config                                                    |
 
-Output: the output buffer and the journal.
+Output:
+- stdout — the output buffer (everything written to port 1).
+- stderr — the summary, then stats:
+  ```text
+  halted after 535 ticks
+  memory wait: 98 ticks
+  cache: 84 hits, 7 misses (92.3% hit rate), 0 evictions, 0 writes, 0 bypasses
+  ```
+  - Summary: `halted after N ticks`, `tick limit reached after N ticks` or `fault after N ticks: <reason>`.
+  - `memory wait` — ticks with a memory request that is not ready yet.
+  - `cache` — only with `cache: true`. Hit rate = hits / (hits + misses); writes and bypasses are counted separately.
+
+Exit codes: 0 — `halt`; 1 — fault, tick limit, file error, image too large; 2 — bad arguments or bad config.
 
 Config:
 ```yaml
 memory_size: 4096   # bytes
-cache: true         # false: direct RAM
-tick_limit: 100000
-input:              # interrupt schedule: [tick, char]
+cache: true         
+tick_limit: 100000  
+input:              # default: none
   - [10, "h"]
   - [25, "i"]
 journal:
-  mode: tick      # instr | tick
-  from_tick: 0     # tick lines only inside [from_tick, to_tick]
-  to_tick: 400
+  mode: instr       # instr: instruction lines; tick: tick lines + instruction lines
+  from_tick: 0      # shows [from_tick, to_tick]
+  to_tick: 400      
 ```
+- Every field has default values
+- `input`: ticks strictly ascending, each char exactly one byte (`"\n"` is fine).
+- Unknown fields are an error.
 
 ### Datapath
 
 ![DataPath](scheme/datapath.png)
 
-- `result` (ALU output) is the only write bus.
+- `result` (ALU output) is the main write bus.
 - Register file: 2 read ports, 1 write port.
 - MAR_DST — destination address, in order to save during operand fetch.
 - TMP - destination value / sum for `addm`.
 - PS — IE + NZVC, each bit latched separately; carry goes back to the ALU for `addc` / `subc`.
   PS_MUX takes ALU flags or `result` (`iret`).
-- IO_CTRL — port address from CU; . On a scheduled tick the input device writes
-  port 0 and raises `request_interrupt`.
-- To CU: `ready`, `div_zero`, PS, MDR, `request_interrupt`.
+- IO_CTRL: `io_op` (none / read / write) and the port address from the CU; write data = `result`,
+  read data → ALU_B_MUX. On a scheduled tick the input device writes port 0 and raises `request_interrupt`.
+- To CU: `ready`, `div_zero`, NZVC, IE, MDR, memory `data_out` (→ EXT), `request_interrupt`.
 
 #### ALU operations
 
@@ -785,24 +885,44 @@ journal:
 | `div`    | A / B, signed, truncated   | `div`                                                                                                |
 | `mod`    | A % B, signed              | `mod`                                                                                                |
 
-- `div`/`mod` with B = 0: `div_zero` = 1, no division.
+- `div`/`mod` with B = 0: `div_zero` = 1, `result` = 0; the CU halts the run (`division by zero`).
 
 ### ControlUnit
 
 ![ControlUnit](scheme/control_unit.png)
 
-Hardwired. `control logic` is combinational.
+Hardwired. `control logic` is combinational: inputs — step, IR (opcode, COUNT), FIELD_EXT outputs,
+`irq`, NZVC, `ready`, `div_zero`; outputs — all control signals and `next_step`.
 
-- IR keeps word 1 for the whole instruction; extension words stay in MDR.
-- step — tick inside the current phase.
-- `irq = irq_pending AND IE`.
-- PC: `pc_add = PC + (offset | 4)`; PC_MUX takes `pc_add` or MDR (`ret`, `iret`, absolute targets, vectors).
-- data_mux → DataPath: imm/offset, `4` (stack / postincrement step), `0`.
+- IR ← MDR: word 1. EXT ← memory `data_out`: the current extension word.
+- IDX, POS — word and the bit position of the current operand.
+- DST_REG — destination register, kept while the sources are fetched.
+- REG_A_MUX / REG_W_MUX: FIELD_EXT `reg`, DST_REG, 0 (`rsp`). `sel_reg_b` = FIELD_EXT `reg`.
+- data_mux: imm/offset, 4, 0.
+- PC ← `PC + (4 | offset)` or MDR (`ret`, `iret`, absolute targets, vectors).
+- `irq = irq_pending AND IE`; `irq_pending` is cleared in `irq0`.
+- Step register: the CU state; holds while memory is not `ready`. Reset → `reset0`.
 
-Phases: interrupt check → IF → OF (per operand) → execute → writeback.
+Order: reset → fetch → operand fetch (destination, then sources) → execute → writeback.
+The interrupt check is at the last tick of an instruction. If `irq` is set,
+the next step is `irq0` instead of `fetch0`.
 
-**FIELD_EXT** extracts the current operand from IR (IDX = 0) or MDR (IDX ≥ 1) at bit POS.
-Outputs: field value (sign-extended if signed), register numbers, port address, mode,
+| Step                       | Action                                                                                       |
+|----------------------------|----------------------------------------------------------------------------------------------|
+| `reset0`, `reset1`         | MDR ← mem[0]; PC ← MDR                                                                       |
+| `fetch0`–`fetch2`          | MAR ← PC; MDR ← mem[MAR]; IR ← MDR, PC ← PC + 4, IDX ← 0, POS ← 0                            |
+| `of_dst0`–`of_dst2`        | `of_dst0` decodes. Register destination → DST_REG; memory destination → its address into MAR |
+| `of_dst_ext`, `of_src_ext` | EXT, MDR ← mem[PC], PC ← PC + 4, IDX ← IDX + 1, POS ← 0                                      |
+| `of_src0`–`of_src2`        | memory source: MAR_DST ← MAR, address → MAR, MDR ← mem[MAR]                                  |
+| `of_src_end`               | TMP ← source; MAR ← MAR_DST                                                                  |
+| `of_dst_rd`                | MDR ← mem[MAR]: only for a memory destination that is also read (not `mov`, `clr`, `in`)     |
+| `exec0`–`exec5`            | by opcode; a result for memory goes to TMP                                                   |
+| `wb0`                      | mem[MAR] ← TMP                                                                               |
+| `irq0`–`irq6`              | push PC, push PS, IE ← 0, PC ← mem[0x4]                                                      |
+
+**FIELD_EXT** gets the operand layout from IR (format, modes, COUNT) and extracts the first operand that starts
+at (IDX, POS) or later, from IR (IDX = 0) or EXT (IDX ≥ 1).
+Outputs: field value (sign-extended if signed; also the port address), register number, mode,
 `fits`, `last`, `pos_next = POS + width`.
 
 | Field             | Width | Signed       | Used by                            |
@@ -821,31 +941,68 @@ Outputs: field value (sign-extended if signed), register numbers, port address, 
 | FP     | — (COUNT [25:22])                   | [19:0]                | 32 bits |
 | FA     | [20:0], 3 bits each (COUNT [25:23]) | none                  | 32 bits |
 
-`fits = POS + width ≤ area size`. Otherwise, the next word is fetched into MDR, IDX ← IDX + 1,
+`fits = POS + width ≤ area size`. Otherwise, the next word is fetched into EXT, IDX ← IDX + 1,
 POS ← 0. `last` — the current operand is the last one.
 
 ### Cache
 
 ![Cache](scheme/cache.png)
 
-- `cmp scheme` compares the CMP_MUX address with all 16 tags.
-- `effective_addr` — burst address, then `+ 4` per word.
+- From the DataPath: `mem_op`, `addr`, `data_in`. Back: `data_out`, `ready`.
+- `cmp scheme` compares the CMP_MUX address (`addr` or `addr + 4`) with all 16 tags → `hit`, `line_number`.
+- `effective_addr` (EFF_ADDR_MUX, `latch_eff_addr`): on a miss — the line base (`addr` AND mask), then `+ 4` per filled word.
+- ADDR_MUX — RAM address: `addr` or `effective_addr`.
 - IND_ARR_MUX — word in the line: `addr[3:2]` or `effective_addr[3:2]`.
-- D_OUT_MUX — to DataPath: data_array or RAM (cache bypass).
-- `ram_op`: 0 — none, 1 — read, 2 — write; `ram_done` — RAM finished.
+- D_ARR_MUX — data_array input: RAM `data_out` (FILL) or `data_in` (write hit); `data_arr_wr` — write enable.
+- D_OUT_MUX — to DataPath: data_array or RAM (bypass).
+- `ram_op`: 0 — none, 1 — read, 2 — write, 3 — read_next (burst: the next word, 1 tick); `ram_done` — RAM finished.
 - `ta_wr` — write tag + valid; `ready` — request complete, to CU.
 - Alignment check, victim choice and the 15 tree-PLRU bits are inside the controller.
 
 Controller FSM:
+| State      | Action                                                                                                                                      | Next                                                                                                         |
+|------------|---------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `IDLE`     | wait for `mem_op`. Aligned read hit: data_array word to DataPath, update PLRU, `ready`                                                      | read miss → `FILL` (`effective_addr` ← line base, pick victim); unaligned read → `BYPASS_R`; write → `WRITE` |
+| `FILL`     | `ram_op` = read for the first word, read_next for the other three, at `effective_addr`; on `ram_done` store the word, `effective_addr += 4` | after the 4th word → `TAG`                                                                                   |
+| `TAG`      | `ta_wr` for the victim, update PLRU, word to DataPath, `ready`                                                                              | `IDLE`                                                                                                       |
+| `BYPASS_R` | `ram_op = read` at `addr`; on `ram_done` RAM value to DataPath, `ready`                                                                     | `IDLE`                                                                                                       |
+| `WRITE`    | `ram_op = write` at `addr`; on `ram_done`: aligned hit — also write data_array; aligned → `ready`                                           | aligned → `IDLE`; unaligned → `INV1`                                                                         |
+| `INV1`     | compare `addr`; hit → clear valid; `ready` if the write stays in one line                                                                   | spans 2 lines → `INV2`; otherwise → `IDLE`                                                                   |
+| `INV2`     | compare `addr + 4`; hit → clear valid; `ready`                                                                                              | `IDLE`                                                                                                       |
 
-| State      | Action                                                                                             | Next                                                             |
-|------------|----------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
-| `IDLE`     | wait for `mem_rd` / `mem_wr`. Aligned read hit: data_array value to DataPath, update PLRU, `ready` | read miss → `FILL`; unaligned read → `BYPASS_R`; write → `WRITE` |
-| `FILL`     | `ram_op = read` at `effective_addr`; on `ram_done` store the word, `effective_addr += 4`;          | `TAG`                                                            |
-| `TAG`      | `ta_wr` for the victim, update PLRU, word to DataPath, `ready`                                     | `IDLE`                                                           |
-| `BYPASS_R` | `ram_op = read` at `addr`; on `ram_done` RAM value to DataPath, `ready`                            | `IDLE`                                                           |
-| `WRITE`    | `ram_op = write` at `addr`; aligned hit — also write data_array; on `ram_done`: aligned → `ready`  | aligned → `IDLE`; unaligned → `INV1`                             |
-| `INV1`     | compare `addr`; hit → clear valid                                                                  | spans 2 lines → `INV2`; otherwise → `IDLE`                       |
-| `INV2`     | compare `addr + 4`; hit → clear valid; `ready`. For unaligned writes spanning 2 lines              | `IDLE`                                                           |
+- `ram_op` depends only on the FSM state: a RAM access starts in the state after IDLE (the extra IDLE tick in every miss and write).
+- A RAM fault (`address out of memory`) returns the FSM to IDLE; the CU stops.
 
-- `ram_op` depends only on the FSM state: a RAM access starts in the state after IDLE.
+### Journal
+
+**Instruction line** comes after the last tick of every instruction:
+```text
+=== 00000008  mov r1 , msg                   tick=20 irq=0
+    rsp=00000000  r1=00000028  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
+     r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=0
+```
+- Instruction address and mnemonic is taken from listing.
+- `tick` — the last tick of the instruction.
+- `irq=N` — interrupt nesting depth. It goes up at the tick that chooses `irq0` (the last tick of the interrupted
+  instruction) and down at the last tick of `iret`. `pending` means `irq_pending` is set.
+- Registers, NZVC and IE after the instruction.
+
+**Tick line** appears in `mode: tick` only, one per tick, before that tick's instruction line:
+```text
+    102 fetch1     PC=0000008C IR=D4202582 MAR=0000008C MDR=6000FFF8 IDX=0 POS= 4 irq=0 pending mem:hit line 2     io:-               | latch_mdr mem_op=read
+```
+
+| Column                     | Meaning                                                                       |
+|----------------------------|-------------------------------------------------------------------------------|
+| tick                       | tick number                                                                   |
+| step                       | CU step run at this tick, see [ControlUnit](#controlunit)                     |
+| PC, IR, MAR, MDR, IDX, POS | values after the tick                                                         |
+| `irq=N [pending]`          | as in the instruction line                                                    |
+| `mem:`                     | memory event at this tick                                                     |
+| `io:`                      | IO event at this tick                                                         |
+| after `\|`                 | control signals set at this tick: latches, `clear_irq`, `mem_op`, `io_op`     |
+
+
+- A latch gated by `ready` (`latch_mdr`) is listed on every tick of a wait.
+- `latch_ps` stands for all five PS latches. TMP, MAR_DST, EXT, DST_REG, mux selects and `alu_op` are not shown.
+- `from_tick` / `to_tick` filter both kinds of lines by tick.

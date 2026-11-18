@@ -1,5 +1,5 @@
-//	go test ./golden            check
-//	go test ./golden -update    rewrite the expected fields from the actual run
+// go test ./golden            check
+// go test ./golden -update    rewrite the expected fields from the actual run
 package golden_test
 
 import (

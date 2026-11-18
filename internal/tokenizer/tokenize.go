@@ -9,43 +9,44 @@ import (
 type Kind int
 
 const (
-	PREPROCESSOR_DIRECTIVE Kind = iota
-	ASSEMBLER_DIRECTIVE
-	NAME
-	NUMBER
-	STRING
-	COLON
-	COMMA
-	PLUS
-	MINUS
-	AT
-	LPAREN
-	RPAREN
-	LBRACE
-	RBRACE
+	PreprocessorDirective Kind = iota
+	AssemblerDirective
+	Name
+	Number
+	String
+	Colon
+	Comma
+	Plus
+	Minus
+	At
+	LParen
+	RParen
+	LBrace
+	RBrace
 )
 
 var kindNames = [...]string{
-	PREPROCESSOR_DIRECTIVE: "preprocessor directive",
-	ASSEMBLER_DIRECTIVE:    "assembler directive",
-	NAME:                   "name",
-	NUMBER:                 "number",
-	STRING:                 "string",
-	COLON:                  "':'",
-	COMMA:                  "','",
-	PLUS:                   "'+'",
-	MINUS:                  "'-'",
-	AT:                     "'@'",
-	LPAREN:                 "'('",
-	RPAREN:                 "')'",
-	LBRACE:                 "'{'",
-	RBRACE:                 "'}'",
+	PreprocessorDirective: "preprocessor directive",
+	AssemblerDirective:    "assembler directive",
+	Name:                   "name",
+	Number:                 "number",
+	String:                 "string",
+	Colon:                  "':'",
+	Comma:                  "','",
+	Plus:                   "'+'",
+	Minus:                  "'-'",
+	At:                     "'@'",
+	LParen:                 "'('",
+	RParen:                 "')'",
+	LBrace:                 "'{'",
+	RBrace:                 "'}'",
 }
 
 func (k Kind) String() string {
 	if k < 0 || int(k) >= len(kindNames) {
 		return fmt.Sprintf("Kind(%d)", int(k))
 	}
+
 	return kindNames[k]
 }
 
@@ -57,15 +58,15 @@ var (
 )
 
 var symbols = map[byte]Kind{
-	':': COLON,
-	',': COMMA,
-	'+': PLUS,
-	'-': MINUS,
-	'@': AT,
-	'(': LPAREN,
-	')': RPAREN,
-	'{': LBRACE,
-	'}': RBRACE,
+	':': Colon,
+	',': Comma,
+	'+': Plus,
+	'-': Minus,
+	'@': At,
+	'(': LParen,
+	')': RParen,
+	'{': LBrace,
+	'}': RBrace,
 }
 
 type Token struct {
@@ -103,9 +104,9 @@ func scanToken(input string, i int) (Token, int, error) {
 
 	switch {
 	case ch == '#':
-		return scanDirective(input, i, PREPROCESSOR_DIRECTIVE)
+		return scanDirective(input, i, PreprocessorDirective)
 	case ch == '.':
-		return scanDirective(input, i, ASSEMBLER_DIRECTIVE)
+		return scanDirective(input, i, AssemblerDirective)
 	case isLetter(ch) || ch == '_':
 		return scanName(input, i)
 	case isDigit(ch):
@@ -132,7 +133,7 @@ func scanName(input string, start int) (Token, int, error) {
 		j++
 	}
 
-	return Token{NAME, input[start:j]}, j, nil
+	return Token{Name, input[start:j]}, j, nil
 }
 
 func scanNumber(input string, start int) (Token, int, error) {
@@ -152,7 +153,7 @@ func scanNumber(input string, start int) (Token, int, error) {
 		return Token{}, 0, fmt.Errorf("%w at column %d", ErrInvalidNumber, start+1)
 	}
 
-	return Token{NUMBER, input[start:j]}, j, nil
+	return Token{Number, input[start:j]}, j, nil
 }
 
 func scanString(input string, start int) (Token, int, error) {
@@ -163,7 +164,7 @@ func scanString(input string, start int) (Token, int, error) {
 
 		switch {
 		case ch == '"':
-			return Token{STRING, input[start+1 : j]}, j + 1, nil
+			return Token{String, input[start+1 : j]}, j + 1, nil
 		case ch == '\\':
 			if j+1 >= len(input) || strings.IndexByte(`nt\"0`, input[j+1]) < 0 {
 				return Token{}, 0, fmt.Errorf("%w at column %d", ErrInvalidEscape, j+1)

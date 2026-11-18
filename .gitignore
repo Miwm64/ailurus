@@ -7,3 +7,4 @@ programs/*_res.asm
 **/*.o
 **/*.bin
 **/*.lst
+**/*.j

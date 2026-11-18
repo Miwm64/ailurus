@@ -1,0 +1,42 @@
+version: "2"
+linters:
+    default: all
+    disable:
+        - depguard          # no import policy: one module, stdlib + yaml
+        - exhaustruct       # zero values are meaningful: signals{} = every control line off
+        - exhaustruct_v5    # same
+        - varnamelen        # short names (p, sig, fe, i) are Go convention https://go.dev/wiki/CodeReviewComments#variable-names
+        - wsl               # blank-line style only, no correctness value
+        - wsl_v5            # same
+        - nlreturn          # same
+        - noinlineerr       # `if err := f(); err != nil` is idiomatic Go and scopes err to the check
+        - mnd               # in the isa: word size 4, field widths 4/16/20/32, others
+        - gochecknoglobals  # opcode tables and sentinel errors are package-level by design
+        - nonamedreturns    # named results document multi-value returns; bare returns are caught by nakedret
+    settings:
+        exhaustive:
+            default-signifies-exhaustive: true  # CU / ALU switches handle a subset and say so with default
+        gosec:
+            excludes:
+                - G115  # fixed-width machine words: truncation and two's-complement casts are the semantics
+                - G304  # CLI tools open the paths the user passes them
+                - G306  # outputs (binary, listing, journal) are ordinary user files, 0644
+        tagliatelle:
+            case:
+                rules:
+                    json: snake
+                    yaml: snake  # config / object files use snake_case keys
+        cyclop:
+            max-complexity: 30  # one-case-per-step tables (CU) count every case as a branch
+        gocognit:
+            min-complexity: 40
+        funlen:
+            lines: 80
+            statements: 60  # CU step tables and assembler directive dispatch: one switch, one case per state/directive
+        wrapcheck:
+            ignore-package-globs:
+                - github.com/Miwm64/ailurus/*  # own packages already return wrapped sentinel errors
+    exclusions:
+        rules:
+            - linters: [revive]
+              text: "^(exported|package-comments):"  # internal packages, not a public API; names say what they are

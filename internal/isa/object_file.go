@@ -2,6 +2,7 @@ package isa
 
 import (
 	"encoding/hex"
+	"fmt"
 )
 
 type Section string
@@ -75,22 +76,24 @@ func NewObjectFile(source string) *ObjectFile {
 		Version: 1,
 		Source:  source,
 		Sections: map[Section]*HexBytes{
-			Data: &HexBytes{},
-			Text: &HexBytes{},
+			Data: {},
+			Text: {},
 		},
 	}
 }
 
-func (h HexBytes) MarshalText() ([]byte, error) {
-	res := make([]byte, len(h)*2)
-	hex.Encode(res, h)
+func (p *HexBytes) MarshalText() ([]byte, error) {
+	res := make([]byte, hex.EncodedLen(len(*p)))
+	hex.Encode(res, *p)
+
 	return res, nil
 }
 
-func (h *HexBytes) UnmarshalText(text []byte) error {
-	*h = make([]byte, len(text)/2)
-	_, err := hex.Decode(*h, text)
-	return err
+func (p *HexBytes) UnmarshalText(text []byte) error {
+	*p = make([]byte, len(text)/2)
+	_, err := hex.Decode(*p, text)
+
+	return fmt.Errorf("unmarshall: %w", err)
 }
 
 func ModeToRelocationKind(argumentMode Mode) RelocationKind {

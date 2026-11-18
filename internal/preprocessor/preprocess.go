@@ -19,10 +19,11 @@ type conditionFrame struct {
 
 var allowed = map[string]struct{}{
 	"#ifdef":  {},
-	"#ifndef": {},
+	directiveIfndef: {},
 	"#else":   {},
 	"#endif":  {},
 }
+const directiveIfndef = "#ifndef"
 
 func Preprocess(text string, globalDefines map[string]string) (res string, lineMap map[int]int, err error) {
 	lines := strings.Split(text, "\n")
@@ -35,12 +36,14 @@ func Preprocess(text string, globalDefines map[string]string) (res string, lineM
 
 	defines := make(map[string]string)
 	maps.Copy(defines, globalDefines)
+
 	macros := make(map[string]*Macro)
 	skips := make([]conditionFrame, 0)
 
 	var currentMacro *Macro
 
 	var out []string
+
 	lineMap = map[int]int{}
 
 	for i := 0; i < len(lines); i++ {
@@ -111,16 +114,16 @@ func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacr
 		return nil, skips, currentMacro, err
 	}
 
-	if tokens[0].Kind == tokenizer.PREPROCESSOR_DIRECTIVE && tokens[0].Value == "#macro" {
+	if tokens[0].Kind == tokenizer.PreprocessorDirective && tokens[0].Value == "#macro" {
 		m, err := handleMacroHeader(tokens, macros)
 
 		return nil, skips, m, err
 	}
 
-	if tokens[0].Kind == tokenizer.PREPROCESSOR_DIRECTIVE {
-		l, frames, err := handleConditions(tokens, skips, defines)
+	if tokens[0].Kind == tokenizer.PreprocessorDirective {
+		frames, err := handleConditions(tokens, skips, defines)
 
-		return []string{l}, frames, currentMacro, err
+		return []string{""}, frames, currentMacro, err
 	}
 
 	lines, err := handleNormalLine(tokens, fromMacro, defines, macros)
@@ -130,25 +133,22 @@ func handleLine(line string, fromMacro bool, skips []conditionFrame, currentMacr
 
 func handleNormalLine(tokens []tokenizer.Token, fromMacro bool, defines map[string]string,
 	macros map[string]*Macro) ([]string, error) {
-
 	label, call := "", 0
-	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.NAME && tokens[1].Kind == tokenizer.COLON {
+	if len(tokens) >= 2 && tokens[0].Kind == tokenizer.Name && tokens[1].Kind == tokenizer.Colon {
 		label, call = tokens[0].Value+":\n", 2
 	}
 
-	if call < len(tokens) && tokens[call].Kind == tokenizer.NAME {
-		if macro, ok := macros[tokens[call].Value]; ok {
-			if fromMacro {
-				return nil, fmt.Errorf("%w: %s", ErrNestedMacroCall, macro.Name)
-			}
-
-			expanded, err := macro.Apply(splitArguments(tokens[call+1:]))
-			if err != nil {
-				return nil, err
-			}
-
-			return append([]string{label}, expanded...), nil
+	if macro := macroAt(tokens, call, macros); macro != nil {
+		if fromMacro {
+			return nil, fmt.Errorf("%w: %s", ErrNestedMacroCall, macro.Name)
 		}
+
+		expanded, err := macro.Apply(splitArguments(tokens[call+1:]))
+		if err != nil {
+			return nil, err
+		}
+
+		return append([]string{label}, expanded...), nil
 	}
 
 	var res strings.Builder
@@ -157,9 +157,9 @@ func handleNormalLine(tokens []tokenizer.Token, fromMacro bool, defines map[stri
 		res.WriteString(" ")
 
 		switch tok.Kind {
-		case tokenizer.PREPROCESSOR_DIRECTIVE, tokenizer.LBRACE, tokenizer.RBRACE:
+		case tokenizer.PreprocessorDirective, tokenizer.LBrace, tokenizer.RBrace:
 			return nil, fmt.Errorf("%w: %s", tokenizer.ErrUnexpectedChar, tok.Value)
-		case tokenizer.NAME:
+		case tokenizer.Name:
 			if value, ok := defines[tok.Value]; ok {
 				res.WriteString(value)
 
@@ -177,6 +177,14 @@ func handleNormalLine(tokens []tokenizer.Token, fromMacro bool, defines map[stri
 	return []string{res.String()[1:]}, nil
 }
 
+func macroAt(tokens []tokenizer.Token, i int, macros map[string]*Macro) *Macro {
+	if i >= len(tokens) || tokens[i].Kind != tokenizer.Name {
+		return nil
+	}
+
+	return macros[tokens[i].Value]
+}
+
 // splitArguments joins the tokens between commas into one argument each.
 func splitArguments(tokens []tokenizer.Token) []string {
 	if len(tokens) == 0 {
@@ -187,7 +195,7 @@ func splitArguments(tokens []tokenizer.Token) []string {
 	parts := make([]string, 0)
 
 	for _, tok := range tokens {
-		if tok.Kind == tokenizer.COMMA {
+		if tok.Kind == tokenizer.Comma {
 			args = append(args, strings.Join(parts, " "))
 			parts = parts[:0]
 
@@ -201,7 +209,7 @@ func splitArguments(tokens []tokenizer.Token) []string {
 }
 
 func tokenText(tok tokenizer.Token) string {
-	if tok.Kind == tokenizer.STRING {
+	if tok.Kind == tokenizer.String {
 		return "\"" + tok.Value + "\""
 	}
 

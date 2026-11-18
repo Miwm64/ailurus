@@ -162,7 +162,11 @@ func assemble(name, src string, defines map[string]string) (*isa.ObjectFile, err
 	}
 
 	obj, err := assembler.Assemble(name, res, lineMap)
-	return obj, fmt.Errorf("%s: %w", name, err)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
+	}
+
+	return obj, nil
 }
 
 func formatListing(entries []linker.ListingEntry) string {

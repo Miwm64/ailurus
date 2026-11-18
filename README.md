@@ -318,3 +318,61 @@ For example, `add (r1), 7` takes $4 + 2 \cdot 10 + 1 \cdot 10 = 34$ ticks withou
 - 8 addressing modes, including postincrement, predecrement and register-relative.
 - Variable length: 1–8 words. `addm` sums up to 7 operands of any mode, `pushm` / `popm` take a register list.
 - The CU fetches every extension word as a separate step (`of_dst_ext`, `of_src_ext`), which is visible in the journal.
+
+## Translator
+
+### CLI
+```text
+ailurus-build [flags] FILE...
+```
+
+| Flag              | Meaning                                                  |
+|-------------------|----------------------------------------------------------|
+| `-o FILE`         | output binary (default `a.bin`)                          |
+| `-l FILE`         | debug listing: `<address> - <HEXCODE> - <source>`        |
+| `-c`              | assemble only: one `.o` (JSON object file) per input     |
+| `-E`              | preprocess only                                          |
+| `-D NAME[=value]` | define `NAME` in every file                              |
+| `--no-stdlib`     | do not link the standard library                         |
+
+`FILE` is an `.asm` or `.o` file.
+
+### Pipeline
+
+The work goes in three stages:
+1. **Preprocessor** — one pass over the text: defines, macros, conditional blocks. Every line keeps its
+   `file:line`, so errors and the listing point to the real source.
+2. **Assembler** — one pass + fixups. The size of an instruction depends only on the mnemonic and the modes,
+   so it can be encoded right away. Every label operand is encoded as 0 right away, a PC-relative reference to a label
+   in the same file and section is fixed at the end of the file, all others go to the relocation table. 
+   The result is an object file.
+3. **Linker** — places all `text` parts, then all `data` parts, resolves imports, applies relocations and writes
+   the vectors `0x0` (`_start`) and `0x4` (`_handler`). The output is a flat binary image.
+
+### Object file
+
+The object file (`.o`, from `-c`) is JSON, because it is an intermediate file and should be easy to read. 
+The executable has binary format, as the task specified.
+It holds the section bytes, the symbol table and the relocations:
+
+```json
+{
+  "version": 1,
+  "source": "main.asm",
+  "sections": { "text": "<bytes, hex>", "data": "<bytes, hex>" },
+  "symbols": [
+    { "name": "print",  "binding": "import" },
+    { "name": "_start", "binding": "export", "section": "text" },
+    { "name": "msg",    "binding": "local",  "section": "data", "offset": 0 }
+  ],
+  "relocations": [
+    { "section": "text", "offset": 0, "bit": 4, "width": 16, "kind": "pcrel16", "symbol": "msg", "pc_next": 4 },
+    { "section": "text", "offset": 8, "bit": 0, "width": 32, "kind": "abs32",   "symbol": "print" }
+  ]
+}
+```
+
+A relocation says which field to fill (`offset`, `bit`, `width`) and how: `abs32` / `imm16` — the symbol
+address, `pcrel16` — the address minus `pc_next`. The full format is in
+[Object file format](docs/specification.md#object-file-format).
+

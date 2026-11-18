@@ -52,7 +52,10 @@ config: |
   journal:
     mode: instr
     from_tick: 3000
-summary: halted after 3660 ticks
+summary: |-
+  halted after 3660 ticks
+  memory wait: 1494 ticks
+  cache: 411 hits, 61 misses (87.1% hit rate), 45 evictions, 64 writes, 0 bypasses
 output: |
   What is your name?
   Hello, Mike!

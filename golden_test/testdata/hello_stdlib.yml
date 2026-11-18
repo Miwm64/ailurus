@@ -13,7 +13,10 @@ sources:
 config: |-
   journal:
     mode: instr
-summary: halted after 461 ticks
+summary: |-
+  halted after 461 ticks
+  memory wait: 150 ticks
+  cache: 57 hits, 10 misses (85.1% hit rate), 0 evictions, 1 writes, 0 bypasses
 output: |
   Hello, world!
 listing: |

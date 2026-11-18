@@ -121,7 +121,10 @@ config: |
     mode: instr
     from_tick: 3405
     to_tick: 3519
-summary: halted after 8143 ticks
+summary: |-
+  halted after 8143 ticks
+  memory wait: 2104 ticks
+  cache: 1221 hits, 81 misses (93.8% hit rate), 65 evictions, 97 writes, 0 bypasses
 output: |
   n!             = 0x21C3677C82B40000
   1! + ... + n!  = 0x238BA9C90FF9FA19

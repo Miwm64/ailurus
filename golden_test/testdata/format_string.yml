@@ -294,7 +294,10 @@ config: |
     mode: instr
     from_tick: 50080
     to_tick: 51120
-summary: halted after 51444 ticks
+summary: |-
+  halted after 51444 ticks
+  memory wait: 13664 ticks
+  cache: 7915 hits, 561 misses (93.4% hit rate), 545 evictions, 581 writes, 0 bypasses
 output: |
   [232] [  -42] [190  ] [-0007]
 listing: |

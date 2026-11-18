@@ -79,9 +79,25 @@ func main() {
 	}
 
 	_, _ = fmt.Fprintln(os.Stderr, summary(machine.Ticks(), runErr))
+	_, _ = fmt.Fprint(os.Stderr, statsText(machine.Stats()))
 	_, _ = os.Stdout.Write(machine.Output())
 
 	if runErr != nil {
 		os.Exit(1)
 	}
+}
+
+func statsText(stats vm.Stats) string {
+	text := fmt.Sprintf("memory wait: %d ticks\n", stats.MemWait)
+
+	if c := stats.Cache; c != nil {
+		text += fmt.Sprintf("cache: %d hits, %d misses", c.Hits, c.Misses)
+		if reads := c.Hits + c.Misses; reads > 0 {
+			text += fmt.Sprintf(" (%.1f%% hit rate)", 100*float64(c.Hits)/float64(reads))
+		}
+
+		text += fmt.Sprintf(", %d evictions, %d writes, %d bypasses\n", c.Evictions, c.Writes, c.Bypasses)
+	}
+
+	return text
 }

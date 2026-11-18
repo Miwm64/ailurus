@@ -131,7 +131,10 @@ config: |
     mode: instr
     from_tick: 15193
     to_tick: 16256
-summary: halted after 15703 ticks
+summary: |-
+  halted after 15703 ticks
+  memory wait: 7292 ticks
+  cache: 1529 hits, 303 misses (83.5% hit rate), 287 evictions, 305 writes, 0 bypasses
 output: |
   -3
   -3

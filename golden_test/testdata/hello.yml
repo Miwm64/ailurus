@@ -20,7 +20,10 @@ build_args:
 config: |-
   journal:
     mode: instr
-summary: halted after 535 ticks
+summary: |-
+  halted after 535 ticks
+  memory wait: 98 ticks
+  cache: 84 hits, 7 misses (92.3% hit rate), 0 evictions, 0 writes, 0 bypasses
 output: |
   Hello, world!
 listing: |

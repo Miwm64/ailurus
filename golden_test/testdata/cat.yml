@@ -29,7 +29,10 @@ config: |
     mode: tick
     from_tick: 96
     to_tick: 163
-summary: tick limit reached after 3000 ticks
+summary: |-
+  tick limit reached after 3000 ticks
+  memory wait: 646 ticks
+  cache: 527 hits, 14 misses (97.4% hit rate), 0 evictions, 45 writes, 0 bypasses
 output: |
   cat
 listing: |

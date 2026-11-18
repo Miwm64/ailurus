@@ -140,5 +140,6 @@ msg: .pstr "Hello, world!\n"
 - **Sections.** `text`  holds only instructions, `data` holds only data. `.org N` sets the offset inside
   the current file's part of the section.
 - **Entry points.** `_start` is required, `_handler` is optional. Both must be exported.
+  `rsp` is not initialized at reset, so `_start` must set it before the first `call`, `push` or `ei`.
 - **Standard library** (linked by default): `print`, `printChar`, `readChar`, `readLine`, `strEq`, `strConcat`,
   `strContains`, `intToStr`, `strToInt` and `inputPush` for the interrupt handler.

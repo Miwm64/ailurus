@@ -1,252 +1,6 @@
 description: format_string - %d, %5d, %-5d, %05d with the arguments one per line; journal over the last printPadded (zero padding, sign first)
 sources:
-  main.asm: |
-    .export _start
-    .export _handler
-    .import inputPush
-    .import print
-    .import printChar
-    .import readLine
-    .import strToInt
-    .import intToStr
-
-    #define FORMAT_CAP 32
-    #define LINE_CAP 32
-
-    _start:
-        mov rsp, 0x1000
-        ei
-        mov r1, fmt
-        mov r2, FORMAT_CAP
-        call readLine
-        cmp r1, 0
-        jl fail
-        mov r8, fmt             
-        mov r9, (r8)+           ; characters left
-        clr r12
-    countLoop:
-        cmp r9, 0
-        jz readArgs
-        mov r1, r8
-        mov r2, r9
-        call parseSpec
-        cmp r1, 0
-        jz countSkip
-        mov r8, r1
-        mov r9, r2
-        inc r12
-        jump @countLoop
-    countSkip:
-        add r8, 4
-        dec r9
-        jump @countLoop
-    readArgs:                   ; one integer per placeholder, all read before any output
-        mov r10, r12
-        mov r11, args
-    readArgsLoop:
-        cmp r10, 0
-        jz format
-        mov r1, line
-        mov r2, LINE_CAP
-        call readLine
-        cmp r1, 0
-        jl fail
-        mov r1, line
-        call strToInt
-        cmp r2, 0
-        jnz fail
-        mov (r11)+, r1
-        dec r10
-        jump @readArgsLoop
-    format:
-        cmp r12, 0
-        jz formatVerbatim
-        clr r1                  ; check first: on an error only -1 is printed
-        mov r2, r12
-        call render
-        cmp r1, 0
-        jnz fail
-        mov r1, 1
-        mov r2, r12
-        call render
-        jump @formatDone
-    formatVerbatim:             
-        mov r1, fmt
-        call print
-    formatDone:
-        mov r1, "\n"
-        call printChar
-        halt
-    fail:
-        mov r1, failText
-        call print
-        halt
-
-    ; render: r1 = 1 to print, 0 to only check; r2 = number of arguments
-    ; -> r1 = 0, or -1 if a "%" is not %% / a spec, or not every argument is used
-    render:
-        pushm r8, r9, r10, r11, r12
-        mov r12, r1
-        mov r10, r2             ; arguments left
-        mov r8, fmt
-        mov r9, (r8)+
-        mov r11, args
-    renderLoop:
-        cmp r9, 0
-        jz renderEnd
-        cmp (r8), "%"
-        jnz renderChar
-        mov r1, r8
-        mov r2, r9
-        call parseSpec
-        cmp r1, 0
-        jnz renderSpec
-        cmp r9, 1
-        jz renderBad
-        cmp (r8+4), "%"
-        jnz renderBad
-        add r8, 4               ; "%%": print the second one
-        dec r9
-    renderChar:
-        mov r1, (r8)+
-        dec r9
-        cmp r12, 0
-        jz renderLoop
-        call printChar
-        jump @renderLoop
-    renderSpec:
-        mov r8, r1
-        mov r9, r2
-        dec r10
-        mov r1, (r11)+
-        cmp r12, 0
-        jz renderLoop
-        mov r2, r3
-        mov r3, r4
-        call printPadded
-        jump @renderLoop
-    renderEnd:
-        clr r1
-        cmp r10, 0
-        jz renderRet
-    renderBad:
-        mov r1, -1
-    renderRet:
-        popm r12, r11, r10, r9, r8
-        ret
-
-    ; parseSpec: r1 = position, r2 = characters left -> r1 = position after %[-][width]d,
-    ; r2 = characters left, r3 = width, r4 = padding (see printPadded); r1 = 0 if there is no spec
-    parseSpec:
-        cmp (r1), "%"
-        jnz parseSpecNo
-        clr r3
-        clr r4
-        add r1, 4
-        dec r2
-        jz parseSpecNo
-        cmp (r1), "-"
-        jnz parseSpecZero
-        mov r4, 1
-        add r1, 4
-        dec r2
-        jz parseSpecNo
-    parseSpecZero:
-        cmp r4, 0
-        jnz parseSpecWidth
-        cmp (r1), "0"
-        jnz parseSpecWidth
-        mov r4, 2
-    parseSpecWidth:
-        mov r5, (r1)
-        sub r5, "0"
-        cmp r5, 10
-        jae parseSpecEnd        ; not a digit; unsigned, so below "0" is caught too
-        mull r3, 10
-        add r3, r5
-        add r1, 4
-        dec r2
-        jz parseSpecNo
-        jump @parseSpecWidth
-    parseSpecEnd:
-        cmp (r1), "d"
-        jnz parseSpecNo
-        add r1, 4
-        dec r2
-        ret
-    parseSpecNo:
-        clr r1
-        ret
-
-    ; printPadded: r1 = number, r2 = width, r3 = padding: 0 spaces before, 1 spaces after, 2 zeros before
-    printPadded:
-        pushm r8, r9, r10
-        mov r8, r2
-        mov r9, r3
-        mov r10, digits
-        mov r2, r10
-        call intToStr
-        sub r8, r1              ; padding length
-        cmp r9, 1
-        jz printPaddedAfter
-        cmp r9, 2
-        jz printPaddedZeros
-        mov r1, r8
-        mov r2, " "
-        call printRepeat
-        jump @printPaddedDigits
-    printPaddedZeros:
-        cmp (r10+4), "-"
-        jnz printPaddedZeroFill
-        mov r1, "-"             ; the sign goes before the zeros
-        call printChar
-        mov r1, (r10)           ; the rest is a pstr one word later: its length replaces the "-"
-        dec r1
-        add r10, 4
-        mov (r10), r1
-    printPaddedZeroFill:
-        mov r1, r8
-        mov r2, "0"
-        call printRepeat
-    printPaddedDigits:
-        mov r1, r10
-        call print
-        jump @printPaddedDone
-    printPaddedAfter:
-        mov r1, r10
-        call print
-        mov r1, r8
-        mov r2, " "
-        call printRepeat
-    printPaddedDone:
-        popm r10, r9, r8
-        ret
-
-    ; printRepeat: r1 = count, r2 = character; prints nothing if count <= 0
-    printRepeat:
-        mov r3, r1
-    printRepeatLoop:
-        cmp r3, 0
-        jle printRepeatDone
-        mov r1, r2
-        call printChar
-        dec r3
-        jump @printRepeatLoop
-    printRepeatDone:
-        ret
-
-    _handler:
-        call inputPush
-        iret
-
-    .section data
-    failText: .pstr "-1\n"
-    fmt:      .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; length + FORMAT_CAP characters
-              .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    line:     .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; length + LINE_CAP characters
-              .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    args:     .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0        ; a placeholder takes 2+ characters
-    digits:   .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0                    ; intToStr buffer
+  main.asm: ".export _start\n.export _handler\n.import inputPush\n.import print\n.import printChar\n.import readLine\n.import strToInt\n.import intToStr\n\n#define FORMAT_CAP 32\n#define LINE_CAP 32\n\n_start:\n    mov rsp, 0x1000\n    ei\n    mov r1, fmt\n    mov r2, FORMAT_CAP\n    call readLine\n    cmp r1, 0\n    jl fail\n    mov r8, fmt             \n    mov r9, (r8)+           ; characters left\n    clr r12\ncountLoop:\n    cmp r9, 0\n    jz readArgs\n    mov r1, r8\n    mov r2, r9\n    call parseSpec\n    cmp r1, 0\n    jz countSkip\n    mov r8, r1\n    mov r9, r2\n    inc r12\n    jump @countLoop\ncountSkip:\n    add r8, 4\n    dec r9\n    jump @countLoop\nreadArgs:                   ; one integer per placeholder, all read before any output\n    mov r10, r12\n    mov r11, args\nreadArgsLoop:\n    cmp r10, 0\n    jz format\n    mov r1, line\n    mov r2, LINE_CAP\n    call readLine\n    cmp r1, 0\n    jl fail\n    mov r1, line\n    call strToInt\n    cmp r2, 0\n    jnz fail\n    mov (r11)+, r1\n    dec r10\n    jump @readArgsLoop\nformat:\n    cmp r12, 0\n    jz formatVerbatim\n    clr r1                  ; check first: on an error only -1 is printed\n    mov r2, r12\n    call render\n    cmp r1, 0\n    jnz fail\n    mov r1, 1\n    mov r2, r12\n    call render\n    jump @formatDone\nformatVerbatim:             \n    mov r1, fmt\n    call print\nformatDone:\n    mov r1, \"\\n\"\n    call printChar\n    halt\nfail:\n    mov r1, failText\n    call print\n    halt\n\n; render: r1 = 1 to print, 0 to only check; r2 = number of arguments\n; -> r1 = 0, or -1 if a \"%\" is not %% / a spec, or not every argument is used\nrender:\n    pushm r8, r9, r10, r11, r12\n    mov r12, r1\n    mov r10, r2             ; arguments left\n    mov r8, fmt\n    mov r9, (r8)+\n    mov r11, args\nrenderLoop:\n    cmp r9, 0\n    jz renderEnd\n    cmp (r8), \"%\"\n    jnz renderChar\n    mov r1, r8\n    mov r2, r9\n    call parseSpec\n    cmp r1, 0\n    jnz renderSpec\n    cmp r9, 1\n    jz renderBad\n    cmp (r8+4), \"%\"\n    jnz renderBad\n    add r8, 4               ; \"%%\": print the second one\n    dec r9\nrenderChar:\n    mov r1, (r8)+\n    dec r9\n    cmp r12, 0\n    jz renderLoop\n    call printChar\n    jump @renderLoop\nrenderSpec:\n    mov r8, r1\n    mov r9, r2\n    dec r10\n    mov r1, (r11)+\n    cmp r12, 0\n    jz renderLoop\n    mov r2, r3\n    mov r3, r4\n    call printPadded\n    jump @renderLoop\nrenderEnd:\n    clr r1\n    cmp r10, 0\n    jz renderRet\nrenderBad:\n    mov r1, -1\nrenderRet:\n    popm r12, r11, r10, r9, r8\n    ret\n\n; parseSpec: r1 = position, r2 = characters left -> r1 = position after %[-][width]d,\n; r2 = characters left, r3 = width, r4 = padding (see printPadded); r1 = 0 if there is no spec\nparseSpec:\n    cmp (r1), \"%\"\n    jnz parseSpecNo\n    clr r3\n    clr r4\n    add r1, 4\n    dec r2\n    jz parseSpecNo\n    cmp (r1), \"-\"\n    jnz parseSpecZero\n    mov r4, 1\n    add r1, 4\n    dec r2\n    jz parseSpecNo\nparseSpecZero:\n    cmp r4, 0\n    jnz parseSpecWidth\n    cmp (r1), \"0\"\n    jnz parseSpecWidth\n    mov r4, 2\nparseSpecWidth:\n    mov r5, (r1)\n    sub r5, \"0\"\n    cmp r5, 10\n    jae parseSpecEnd        ; not a digit; unsigned, so below \"0\" is caught too\n    mull r3, 10\n    add r3, r5\n    add r1, 4\n    dec r2\n    jz parseSpecNo\n    jump @parseSpecWidth\nparseSpecEnd:\n    cmp (r1), \"d\"\n    jnz parseSpecNo\n    add r1, 4\n    dec r2\n    ret\nparseSpecNo:\n    clr r1\n    ret\n\n; printPadded: r1 = number, r2 = width, r3 = padding: 0 spaces before, 1 spaces after, 2 zeros before\nprintPadded:\n    pushm r8, r9, r10\n    mov r8, r2\n    mov r9, r3\n    mov r10, digits\n    mov r2, r10\n    call intToStr\n    sub r8, r1              ; padding length\n    cmp r9, 1\n    jz printPaddedAfter\n    cmp r9, 2\n    jz printPaddedZeros\n    mov r1, r8\n    mov r2, \" \"\n    call printRepeat\n    jump @printPaddedDigits\nprintPaddedZeros:\n    cmp (r10+4), \"-\"\n    jnz printPaddedZeroFill\n    mov r1, \"-\"             ; the sign goes before the zeros\n    call printChar\n    mov r1, (r10)           ; the rest is a pstr one word later: its length replaces the \"-\"\n    dec r1\n    add r10, 4\n    mov (r10), r1\nprintPaddedZeroFill:\n    mov r1, r8\n    mov r2, \"0\"\n    call printRepeat\nprintPaddedDigits:\n    mov r1, r10\n    call print\n    jump @printPaddedDone\nprintPaddedAfter:\n    mov r1, r10\n    call print\n    mov r1, r8\n    mov r2, \" \"\n    call printRepeat\nprintPaddedDone:\n    popm r10, r9, r8\n    ret\n\n; printRepeat: r1 = count, r2 = character; prints nothing if count <= 0\nprintRepeat:\n    mov r3, r1\nprintRepeatLoop:\n    cmp r3, 0\n    jle printRepeatDone\n    mov r1, r2\n    call printChar\n    dec r3\n    jump @printRepeatLoop\nprintRepeatDone:\n    ret\n\n_handler:\n    call inputPush\n    iret\n\n.section data\nfailText: .pstr \"-1\\n\"\nfmt:      .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; length + FORMAT_CAP characters\n          .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0\nline:     .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; length + LINE_CAP characters\n          .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0\nargs:     .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0        ; a placeholder takes 2+ characters\ndigits:   .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0                    ; intToStr buffer\n"
 config: |
   tick_limit: 200000
   input:
@@ -292,12 +46,12 @@ config: |
     - [40000, "\n"]
   journal:
     mode: instr
-    from_tick: 50080
-    to_tick: 51120
+    from_tick: 50124
+    to_tick: 51162
 summary: |-
-  halted after 51444 ticks
-  memory wait: 13664 ticks
-  cache: 7915 hits, 561 misses (93.4% hit rate), 545 evictions, 581 writes, 0 bypasses
+  halted after 51494 ticks
+  memory wait: 13720 ticks
+  cache: 7884 hits, 565 misses (93.3% hit rate), 549 evictions, 581 writes, 0 bypasses
 output: |
   [232] [  -42] [190  ] [-0007]
 listing: |
@@ -798,264 +552,264 @@ listing: |
   000007B8 - 00000000
   000007BC - 00000000
 journal: |
-  === 000001B0  call printPadded               tick=50084 irq=0
+  === 000001B0  call printPadded               tick=50124 irq=0
       rsp=00000FE4  r1=FFFFFFF9  r2=00000005  r3=00000002  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000660  r9=00000001 r10=00000000 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000260  pushm r8 , r9 , r10            tick=50138 irq=0
+  === 00000260  pushm r8 , r9 , r10            tick=50178 irq=0
       rsp=00000FD8  r1=FFFFFFF9  r2=00000005  r3=00000002  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000660  r9=00000001 r10=00000000 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000264  mov r8 , r2                    tick=50143 irq=0
+  === 00000264  mov r8 , r2                    tick=50183 irq=0
       rsp=00000FD8  r1=FFFFFFF9  r2=00000005  r3=00000002  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000001 r10=00000000 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000268  mov r9 , r3                    tick=50148 irq=0
+  === 00000268  mov r9 , r3                    tick=50188 irq=0
       rsp=00000FD8  r1=FFFFFFF9  r2=00000005  r3=00000002  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000000 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000026C  mov r10 , digits               tick=50153 irq=0
+  === 0000026C  mov r10 , digits               tick=50193 irq=0
       rsp=00000FD8  r1=FFFFFFF9  r2=00000005  r3=00000002  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000270  mov r2 , r10                   tick=50172 irq=0
+  === 00000270  mov r2 , r10                   tick=50212 irq=0
       rsp=00000FD8  r1=FFFFFFF9  r2=00000748  r3=00000002  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000274  call intToStr                  tick=50189 irq=0
+  === 00000274  call intToStr                  tick=50230 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=00000002  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000004EC  mov r3 , r2                    tick=50208 irq=0
+  === 000004EC  mov r3 , r2                    tick=50249 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=00000748  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000004F0  add r3 , 4                     tick=50227 irq=0
+  === 000004F0  add r3 , 4                     tick=50268 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=0000074C  r4=00000002  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000004F4  clr r4                         tick=50232 irq=0
+  === 000004F4  clr r4                         tick=50273 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=0000074C  r4=00000000  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 000004F8  cmp r1 , 0                     tick=50237 irq=0
+  === 000004F8  cmp r1 , 0                     tick=50278 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=0000074C  r4=00000000  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 000004FC  jl intToStrSign                tick=50242 irq=0
+  === 000004FC  jl intToStrSign                tick=50283 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=0000074C  r4=00000000  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 00000508  mov ( r3 ) + , "-"             tick=50273 irq=0
+  === 00000508  mov ( r3 ) + , "-"             tick=50314 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=00000750  r4=00000000  r5=00000034  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000050C  mov r5 , r1                    tick=50278 irq=0
+  === 0000050C  mov r5 , r1                    tick=50319 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=00000750  r4=00000000  r5=FFFFFFF9  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 00000510  mod r5 , 10                    tick=50297 irq=0
+  === 00000510  mod r5 , 10                    tick=50338 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=00000750  r4=00000000  r5=FFFFFFF9  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 00000514  neg r5                         tick=50302 irq=0
+  === 00000514  neg r5                         tick=50343 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=00000750  r4=00000000  r5=00000007  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0001 IE=1
-  === 00000518  add r5 , "0"                   tick=50307 irq=0
+  === 00000518  add r5 , "0"                   tick=50348 irq=0
       rsp=00000FD4  r1=FFFFFFF9  r2=00000748  r3=00000750  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000051C  push r5                        tick=50323 irq=0
+  === 0000051C  push r5                        tick=50364 irq=0
       rsp=00000FD0  r1=FFFFFFF9  r2=00000748  r3=00000750  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000520  inc r4                         tick=50342 irq=0
+  === 00000520  inc r4                         tick=50383 irq=0
       rsp=00000FD0  r1=FFFFFFF9  r2=00000748  r3=00000750  r4=00000001  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000524  div r1 , 10                    tick=50347 irq=0
+  === 00000524  div r1 , 10                    tick=50388 irq=0
       rsp=00000FD0  r1=00000000  r2=00000748  r3=00000750  r4=00000001  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000528  jnz intToStrDigits             tick=50352 irq=0
+  === 00000528  jnz intToStrDigits             tick=50393 irq=0
       rsp=00000FD0  r1=00000000  r2=00000748  r3=00000750  r4=00000001  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 0000052C  pop r5                         tick=50375 irq=0
+  === 0000052C  pop r5                         tick=50416 irq=0
       rsp=00000FD4  r1=00000000  r2=00000748  r3=00000750  r4=00000001  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000530  mov ( r3 ) + , r5              tick=50406 irq=0
+  === 00000530  mov ( r3 ) + , r5              tick=50447 irq=0
       rsp=00000FD4  r1=00000000  r2=00000748  r3=00000754  r4=00000001  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000534  dec r4                         tick=50411 irq=0
+  === 00000534  dec r4                         tick=50452 irq=0
       rsp=00000FD4  r1=00000000  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000538  jnz intToStrPop                tick=50416 irq=0
+  === 00000538  jnz intToStrPop                tick=50457 irq=0
       rsp=00000FD4  r1=00000000  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 0000053C  mov r1 , r3                    tick=50421 irq=0
+  === 0000053C  mov r1 , r3                    tick=50462 irq=0
       rsp=00000FD4  r1=00000754  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000540  sub r1 , r2                    tick=50440 irq=0
+  === 00000540  sub r1 , r2                    tick=50481 irq=0
       rsp=00000FD4  r1=0000000C  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000544  lsr r1 , 2                     tick=50445 irq=0
+  === 00000544  lsr r1 , 2                     tick=50486 irq=0
       rsp=00000FD4  r1=00000003  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000548  dec r1                         tick=50450 irq=0
+  === 00000548  dec r1                         tick=50491 irq=0
       rsp=00000FD4  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000054C  mov ( r2 ) , r1                tick=50466 irq=0
+  === 0000054C  mov ( r2 ) , r1                tick=50507 irq=0
       rsp=00000FD4  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000550  ret                            tick=50487 irq=0
+  === 00000550  ret                            tick=50528 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000005  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000027C  sub r8 , r1                    tick=50492 irq=0
+  === 0000027C  sub r8 , r1                    tick=50533 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000280  cmp r9 , 1                     tick=50511 irq=0
+  === 00000280  cmp r9 , 1                     tick=50552 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000284  jz printPaddedAfter            tick=50516 irq=0
+  === 00000284  jz printPaddedAfter            tick=50557 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000288  cmp r9 , 2                     tick=50521 irq=0
+  === 00000288  cmp r9 , 2                     tick=50562 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 0000028C  jz printPaddedZeros            tick=50526 irq=0
+  === 0000028C  jz printPaddedZeros            tick=50567 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 000002A4  cmp ( r10 + 4 ) , "-"          tick=50563 irq=0
+  === 000002A4  cmp ( r10 + 4 ) , "-"          tick=50605 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 000002AC  jnz printPaddedZeroFill        tick=50568 irq=0
+  === 000002AC  jnz printPaddedZeroFill        tick=50610 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 000002B0  mov r1 , "-"                   tick=50587 irq=0
+  === 000002B0  mov r1 , "-"                   tick=50629 irq=0
       rsp=00000FD8  r1=0000002D  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002B4  call printChar                 tick=50604 irq=0
+  === 000002B4  call printChar                 tick=50647 irq=0
       rsp=00000FD4  r1=0000002D  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000374  out 1 , r1                     tick=50624 irq=0
+  === 00000374  out 1 , r1                     tick=50667 irq=0
       rsp=00000FD4  r1=0000002D  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000378  ret                            tick=50631 irq=0
+  === 00000378  ret                            tick=50674 irq=0
       rsp=00000FD8  r1=0000002D  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002BC  mov r1 , ( r10 )               tick=50639 irq=0
+  === 000002BC  mov r1 , ( r10 )               tick=50682 irq=0
       rsp=00000FD8  r1=00000002  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002C0  dec r1                         tick=50658 irq=0
+  === 000002C0  dec r1                         tick=50701 irq=0
       rsp=00000FD8  r1=00000001  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=00000748 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002C4  add r10 , 4                    tick=50663 irq=0
+  === 000002C4  add r10 , 4                    tick=50706 irq=0
       rsp=00000FD8  r1=00000001  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002C8  mov ( r10 ) , r1               tick=50679 irq=0
+  === 000002C8  mov ( r10 ) , r1               tick=50722 irq=0
       rsp=00000FD8  r1=00000001  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002CC  mov r1 , r8                    tick=50684 irq=0
+  === 000002CC  mov r1 , r8                    tick=50727 irq=0
       rsp=00000FD8  r1=00000003  r2=00000748  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002D0  mov r2 , "0"                   tick=50703 irq=0
+  === 000002D0  mov r2 , "0"                   tick=50746 irq=0
       rsp=00000FD8  r1=00000003  r2=00000030  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002D4  call printRepeat               tick=50720 irq=0
+  === 000002D4  call printRepeat               tick=50764 irq=0
       rsp=00000FD4  r1=00000003  r2=00000030  r3=00000754  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000310  mov r3 , r1                    tick=50739 irq=0
+  === 00000310  mov r3 , r1                    tick=50783 irq=0
       rsp=00000FD4  r1=00000003  r2=00000030  r3=00000003  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000314  cmp r3 , 0                     tick=50744 irq=0
+  === 00000314  cmp r3 , 0                     tick=50788 irq=0
       rsp=00000FD4  r1=00000003  r2=00000030  r3=00000003  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000318  jle printRepeatDone            tick=50749 irq=0
+  === 00000318  jle printRepeatDone            tick=50793 irq=0
       rsp=00000FD4  r1=00000003  r2=00000030  r3=00000003  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000031C  mov r1 , r2                    tick=50754 irq=0
+  === 0000031C  mov r1 , r2                    tick=50798 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000003  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000320  call printChar                 tick=50785 irq=0
+  === 00000320  call printChar                 tick=50830 irq=0
       rsp=00000FD0  r1=00000030  r2=00000030  r3=00000003  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000374  out 1 , r1                     tick=50791 irq=0
+  === 00000374  out 1 , r1                     tick=50836 irq=0
       rsp=00000FD0  r1=00000030  r2=00000030  r3=00000003  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000378  ret                            tick=50798 irq=0
+  === 00000378  ret                            tick=50843 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000003  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000328  dec r3                         tick=50803 irq=0
+  === 00000328  dec r3                         tick=50848 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000002  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000032C  jump @ printRepeatLoop         tick=50808 irq=0
+  === 0000032C  jump @ printRepeatLoop         tick=50853 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000002  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000314  cmp r3 , 0                     tick=50813 irq=0
+  === 00000314  cmp r3 , 0                     tick=50858 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000002  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000318  jle printRepeatDone            tick=50818 irq=0
+  === 00000318  jle printRepeatDone            tick=50863 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000002  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000031C  mov r1 , r2                    tick=50823 irq=0
+  === 0000031C  mov r1 , r2                    tick=50868 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000002  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000320  call printChar                 tick=50840 irq=0
+  === 00000320  call printChar                 tick=50886 irq=0
       rsp=00000FD0  r1=00000030  r2=00000030  r3=00000002  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000374  out 1 , r1                     tick=50846 irq=0
+  === 00000374  out 1 , r1                     tick=50892 irq=0
       rsp=00000FD0  r1=00000030  r2=00000030  r3=00000002  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000378  ret                            tick=50853 irq=0
+  === 00000378  ret                            tick=50899 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000002  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000328  dec r3                         tick=50858 irq=0
+  === 00000328  dec r3                         tick=50904 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000001  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000032C  jump @ printRepeatLoop         tick=50863 irq=0
+  === 0000032C  jump @ printRepeatLoop         tick=50909 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000001  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000314  cmp r3 , 0                     tick=50868 irq=0
+  === 00000314  cmp r3 , 0                     tick=50914 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000001  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000318  jle printRepeatDone            tick=50873 irq=0
+  === 00000318  jle printRepeatDone            tick=50919 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000001  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000031C  mov r1 , r2                    tick=50878 irq=0
+  === 0000031C  mov r1 , r2                    tick=50924 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000001  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000320  call printChar                 tick=50895 irq=0
+  === 00000320  call printChar                 tick=50942 irq=0
       rsp=00000FD0  r1=00000030  r2=00000030  r3=00000001  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000374  out 1 , r1                     tick=50901 irq=0
+  === 00000374  out 1 , r1                     tick=50948 irq=0
       rsp=00000FD0  r1=00000030  r2=00000030  r3=00000001  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000378  ret                            tick=50908 irq=0
+  === 00000378  ret                            tick=50955 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000001  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000328  dec r3                         tick=50913 irq=0
+  === 00000328  dec r3                         tick=50960 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 0000032C  jump @ printRepeatLoop         tick=50918 irq=0
+  === 0000032C  jump @ printRepeatLoop         tick=50965 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000314  cmp r3 , 0                     tick=50923 irq=0
+  === 00000314  cmp r3 , 0                     tick=50970 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000318  jle printRepeatDone            tick=50928 irq=0
+  === 00000318  jle printRepeatDone            tick=50975 irq=0
       rsp=00000FD4  r1=00000030  r2=00000030  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000330  ret                            tick=50949 irq=0
+  === 00000330  ret                            tick=50996 irq=0
       rsp=00000FD8  r1=00000030  r2=00000030  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 000002DC  mov r1 , r10                   tick=50954 irq=0
+  === 000002DC  mov r1 , r10                   tick=51001 irq=0
       rsp=00000FD8  r1=0000074C  r2=00000030  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000002E0  call print                     tick=50985 irq=0
+  === 000002E0  call print                     tick=51033 irq=0
       rsp=00000FD4  r1=0000074C  r2=00000030  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000037C  mov r2 , ( r1 ) +              tick=50994 irq=0
+  === 0000037C  mov r2 , ( r1 ) +              tick=51042 irq=0
       rsp=00000FD4  r1=00000750  r2=00000001  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000380  jz printDone                   tick=51013 irq=0
+  === 00000380  jz printDone                   tick=51061 irq=0
       rsp=00000FD4  r1=00000750  r2=00000001  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000384  out 1 , ( r1 ) +               tick=51036 irq=0
+  === 00000384  out 1 , ( r1 ) +               tick=51084 irq=0
       rsp=00000FD4  r1=00000754  r2=00000001  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000388  dec r2                         tick=51041 irq=0
+  === 00000388  dec r2                         tick=51089 irq=0
       rsp=00000FD4  r1=00000754  r2=00000000  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 0000038C  jnz printLoop                  tick=51046 irq=0
+  === 0000038C  jnz printLoop                  tick=51094 irq=0
       rsp=00000FD4  r1=00000754  r2=00000000  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000390  ret                            tick=51067 irq=0
+  === 00000390  ret                            tick=51115 irq=0
       rsp=00000FD8  r1=00000754  r2=00000000  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 000002E8  jump @ printPaddedDone         tick=51072 irq=0
+  === 000002E8  jump @ printPaddedDone         tick=51120 irq=0
       rsp=00000FD8  r1=00000754  r2=00000000  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000003  r9=00000002 r10=0000074C r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000308  popm r10 , r9 , r8             tick=51114 irq=0
+  === 00000308  popm r10 , r9 , r8             tick=51162 irq=0
       rsp=00000FE4  r1=00000754  r2=00000000  r3=00000000  r4=00000000  r5=00000037  r6=00000007  r7=00000000
        r8=00000660  r9=00000001 r10=00000000 r11=00000718 r12=00000001 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1

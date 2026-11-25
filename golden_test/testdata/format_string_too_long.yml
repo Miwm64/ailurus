@@ -1,252 +1,6 @@
 description: format_string - a format line over 0x20 characters gives -1; journal from the 33rd character to halt
 sources:
-  main.asm: |
-    .export _start
-    .export _handler
-    .import inputPush
-    .import print
-    .import printChar
-    .import readLine
-    .import strToInt
-    .import intToStr
-
-    #define FORMAT_CAP 32
-    #define LINE_CAP 32
-
-    _start:
-        mov rsp, 0x1000
-        ei
-        mov r1, fmt
-        mov r2, FORMAT_CAP
-        call readLine
-        cmp r1, 0
-        jl fail
-        mov r8, fmt             
-        mov r9, (r8)+           ; characters left
-        clr r12
-    countLoop:
-        cmp r9, 0
-        jz readArgs
-        mov r1, r8
-        mov r2, r9
-        call parseSpec
-        cmp r1, 0
-        jz countSkip
-        mov r8, r1
-        mov r9, r2
-        inc r12
-        jump @countLoop
-    countSkip:
-        add r8, 4
-        dec r9
-        jump @countLoop
-    readArgs:                   ; one integer per placeholder, all read before any output
-        mov r10, r12
-        mov r11, args
-    readArgsLoop:
-        cmp r10, 0
-        jz format
-        mov r1, line
-        mov r2, LINE_CAP
-        call readLine
-        cmp r1, 0
-        jl fail
-        mov r1, line
-        call strToInt
-        cmp r2, 0
-        jnz fail
-        mov (r11)+, r1
-        dec r10
-        jump @readArgsLoop
-    format:
-        cmp r12, 0
-        jz formatVerbatim
-        clr r1                  ; check first: on an error only -1 is printed
-        mov r2, r12
-        call render
-        cmp r1, 0
-        jnz fail
-        mov r1, 1
-        mov r2, r12
-        call render
-        jump @formatDone
-    formatVerbatim:             
-        mov r1, fmt
-        call print
-    formatDone:
-        mov r1, "\n"
-        call printChar
-        halt
-    fail:
-        mov r1, failText
-        call print
-        halt
-
-    ; render: r1 = 1 to print, 0 to only check; r2 = number of arguments
-    ; -> r1 = 0, or -1 if a "%" is not %% / a spec, or not every argument is used
-    render:
-        pushm r8, r9, r10, r11, r12
-        mov r12, r1
-        mov r10, r2             ; arguments left
-        mov r8, fmt
-        mov r9, (r8)+
-        mov r11, args
-    renderLoop:
-        cmp r9, 0
-        jz renderEnd
-        cmp (r8), "%"
-        jnz renderChar
-        mov r1, r8
-        mov r2, r9
-        call parseSpec
-        cmp r1, 0
-        jnz renderSpec
-        cmp r9, 1
-        jz renderBad
-        cmp (r8+4), "%"
-        jnz renderBad
-        add r8, 4               ; "%%": print the second one
-        dec r9
-    renderChar:
-        mov r1, (r8)+
-        dec r9
-        cmp r12, 0
-        jz renderLoop
-        call printChar
-        jump @renderLoop
-    renderSpec:
-        mov r8, r1
-        mov r9, r2
-        dec r10
-        mov r1, (r11)+
-        cmp r12, 0
-        jz renderLoop
-        mov r2, r3
-        mov r3, r4
-        call printPadded
-        jump @renderLoop
-    renderEnd:
-        clr r1
-        cmp r10, 0
-        jz renderRet
-    renderBad:
-        mov r1, -1
-    renderRet:
-        popm r12, r11, r10, r9, r8
-        ret
-
-    ; parseSpec: r1 = position, r2 = characters left -> r1 = position after %[-][width]d,
-    ; r2 = characters left, r3 = width, r4 = padding (see printPadded); r1 = 0 if there is no spec
-    parseSpec:
-        cmp (r1), "%"
-        jnz parseSpecNo
-        clr r3
-        clr r4
-        add r1, 4
-        dec r2
-        jz parseSpecNo
-        cmp (r1), "-"
-        jnz parseSpecZero
-        mov r4, 1
-        add r1, 4
-        dec r2
-        jz parseSpecNo
-    parseSpecZero:
-        cmp r4, 0
-        jnz parseSpecWidth
-        cmp (r1), "0"
-        jnz parseSpecWidth
-        mov r4, 2
-    parseSpecWidth:
-        mov r5, (r1)
-        sub r5, "0"
-        cmp r5, 10
-        jae parseSpecEnd        ; not a digit; unsigned, so below "0" is caught too
-        mull r3, 10
-        add r3, r5
-        add r1, 4
-        dec r2
-        jz parseSpecNo
-        jump @parseSpecWidth
-    parseSpecEnd:
-        cmp (r1), "d"
-        jnz parseSpecNo
-        add r1, 4
-        dec r2
-        ret
-    parseSpecNo:
-        clr r1
-        ret
-
-    ; printPadded: r1 = number, r2 = width, r3 = padding: 0 spaces before, 1 spaces after, 2 zeros before
-    printPadded:
-        pushm r8, r9, r10
-        mov r8, r2
-        mov r9, r3
-        mov r10, digits
-        mov r2, r10
-        call intToStr
-        sub r8, r1              ; padding length
-        cmp r9, 1
-        jz printPaddedAfter
-        cmp r9, 2
-        jz printPaddedZeros
-        mov r1, r8
-        mov r2, " "
-        call printRepeat
-        jump @printPaddedDigits
-    printPaddedZeros:
-        cmp (r10+4), "-"
-        jnz printPaddedZeroFill
-        mov r1, "-"             ; the sign goes before the zeros
-        call printChar
-        mov r1, (r10)           ; the rest is a pstr one word later: its length replaces the "-"
-        dec r1
-        add r10, 4
-        mov (r10), r1
-    printPaddedZeroFill:
-        mov r1, r8
-        mov r2, "0"
-        call printRepeat
-    printPaddedDigits:
-        mov r1, r10
-        call print
-        jump @printPaddedDone
-    printPaddedAfter:
-        mov r1, r10
-        call print
-        mov r1, r8
-        mov r2, " "
-        call printRepeat
-    printPaddedDone:
-        popm r10, r9, r8
-        ret
-
-    ; printRepeat: r1 = count, r2 = character; prints nothing if count <= 0
-    printRepeat:
-        mov r3, r1
-    printRepeatLoop:
-        cmp r3, 0
-        jle printRepeatDone
-        mov r1, r2
-        call printChar
-        dec r3
-        jump @printRepeatLoop
-    printRepeatDone:
-        ret
-
-    _handler:
-        call inputPush
-        iret
-
-    .section data
-    failText: .pstr "-1\n"
-    fmt:      .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; length + FORMAT_CAP characters
-              .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    line:     .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; length + LINE_CAP characters
-              .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    args:     .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0        ; a placeholder takes 2+ characters
-    digits:   .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0                    ; intToStr buffer
+  main.asm: ".export _start\n.export _handler\n.import inputPush\n.import print\n.import printChar\n.import readLine\n.import strToInt\n.import intToStr\n\n#define FORMAT_CAP 32\n#define LINE_CAP 32\n\n_start:\n    mov rsp, 0x1000\n    ei\n    mov r1, fmt\n    mov r2, FORMAT_CAP\n    call readLine\n    cmp r1, 0\n    jl fail\n    mov r8, fmt             \n    mov r9, (r8)+           ; characters left\n    clr r12\ncountLoop:\n    cmp r9, 0\n    jz readArgs\n    mov r1, r8\n    mov r2, r9\n    call parseSpec\n    cmp r1, 0\n    jz countSkip\n    mov r8, r1\n    mov r9, r2\n    inc r12\n    jump @countLoop\ncountSkip:\n    add r8, 4\n    dec r9\n    jump @countLoop\nreadArgs:                   ; one integer per placeholder, all read before any output\n    mov r10, r12\n    mov r11, args\nreadArgsLoop:\n    cmp r10, 0\n    jz format\n    mov r1, line\n    mov r2, LINE_CAP\n    call readLine\n    cmp r1, 0\n    jl fail\n    mov r1, line\n    call strToInt\n    cmp r2, 0\n    jnz fail\n    mov (r11)+, r1\n    dec r10\n    jump @readArgsLoop\nformat:\n    cmp r12, 0\n    jz formatVerbatim\n    clr r1                  ; check first: on an error only -1 is printed\n    mov r2, r12\n    call render\n    cmp r1, 0\n    jnz fail\n    mov r1, 1\n    mov r2, r12\n    call render\n    jump @formatDone\nformatVerbatim:             \n    mov r1, fmt\n    call print\nformatDone:\n    mov r1, \"\\n\"\n    call printChar\n    halt\nfail:\n    mov r1, failText\n    call print\n    halt\n\n; render: r1 = 1 to print, 0 to only check; r2 = number of arguments\n; -> r1 = 0, or -1 if a \"%\" is not %% / a spec, or not every argument is used\nrender:\n    pushm r8, r9, r10, r11, r12\n    mov r12, r1\n    mov r10, r2             ; arguments left\n    mov r8, fmt\n    mov r9, (r8)+\n    mov r11, args\nrenderLoop:\n    cmp r9, 0\n    jz renderEnd\n    cmp (r8), \"%\"\n    jnz renderChar\n    mov r1, r8\n    mov r2, r9\n    call parseSpec\n    cmp r1, 0\n    jnz renderSpec\n    cmp r9, 1\n    jz renderBad\n    cmp (r8+4), \"%\"\n    jnz renderBad\n    add r8, 4               ; \"%%\": print the second one\n    dec r9\nrenderChar:\n    mov r1, (r8)+\n    dec r9\n    cmp r12, 0\n    jz renderLoop\n    call printChar\n    jump @renderLoop\nrenderSpec:\n    mov r8, r1\n    mov r9, r2\n    dec r10\n    mov r1, (r11)+\n    cmp r12, 0\n    jz renderLoop\n    mov r2, r3\n    mov r3, r4\n    call printPadded\n    jump @renderLoop\nrenderEnd:\n    clr r1\n    cmp r10, 0\n    jz renderRet\nrenderBad:\n    mov r1, -1\nrenderRet:\n    popm r12, r11, r10, r9, r8\n    ret\n\n; parseSpec: r1 = position, r2 = characters left -> r1 = position after %[-][width]d,\n; r2 = characters left, r3 = width, r4 = padding (see printPadded); r1 = 0 if there is no spec\nparseSpec:\n    cmp (r1), \"%\"\n    jnz parseSpecNo\n    clr r3\n    clr r4\n    add r1, 4\n    dec r2\n    jz parseSpecNo\n    cmp (r1), \"-\"\n    jnz parseSpecZero\n    mov r4, 1\n    add r1, 4\n    dec r2\n    jz parseSpecNo\nparseSpecZero:\n    cmp r4, 0\n    jnz parseSpecWidth\n    cmp (r1), \"0\"\n    jnz parseSpecWidth\n    mov r4, 2\nparseSpecWidth:\n    mov r5, (r1)\n    sub r5, \"0\"\n    cmp r5, 10\n    jae parseSpecEnd        ; not a digit; unsigned, so below \"0\" is caught too\n    mull r3, 10\n    add r3, r5\n    add r1, 4\n    dec r2\n    jz parseSpecNo\n    jump @parseSpecWidth\nparseSpecEnd:\n    cmp (r1), \"d\"\n    jnz parseSpecNo\n    add r1, 4\n    dec r2\n    ret\nparseSpecNo:\n    clr r1\n    ret\n\n; printPadded: r1 = number, r2 = width, r3 = padding: 0 spaces before, 1 spaces after, 2 zeros before\nprintPadded:\n    pushm r8, r9, r10\n    mov r8, r2\n    mov r9, r3\n    mov r10, digits\n    mov r2, r10\n    call intToStr\n    sub r8, r1              ; padding length\n    cmp r9, 1\n    jz printPaddedAfter\n    cmp r9, 2\n    jz printPaddedZeros\n    mov r1, r8\n    mov r2, \" \"\n    call printRepeat\n    jump @printPaddedDigits\nprintPaddedZeros:\n    cmp (r10+4), \"-\"\n    jnz printPaddedZeroFill\n    mov r1, \"-\"             ; the sign goes before the zeros\n    call printChar\n    mov r1, (r10)           ; the rest is a pstr one word later: its length replaces the \"-\"\n    dec r1\n    add r10, 4\n    mov (r10), r1\nprintPaddedZeroFill:\n    mov r1, r8\n    mov r2, \"0\"\n    call printRepeat\nprintPaddedDigits:\n    mov r1, r10\n    call print\n    jump @printPaddedDone\nprintPaddedAfter:\n    mov r1, r10\n    call print\n    mov r1, r8\n    mov r2, \" \"\n    call printRepeat\nprintPaddedDone:\n    popm r10, r9, r8\n    ret\n\n; printRepeat: r1 = count, r2 = character; prints nothing if count <= 0\nprintRepeat:\n    mov r3, r1\nprintRepeatLoop:\n    cmp r3, 0\n    jle printRepeatDone\n    mov r1, r2\n    call printChar\n    dec r3\n    jump @printRepeatLoop\nprintRepeatDone:\n    ret\n\n_handler:\n    call inputPush\n    iret\n\n.section data\nfailText: .pstr \"-1\\n\"\nfmt:      .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; length + FORMAT_CAP characters\n          .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0\nline:     .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; length + LINE_CAP characters\n          .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0\nargs:     .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0        ; a placeholder takes 2+ characters\ndigits:   .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0                    ; intToStr buffer\n"
 config: |
   tick_limit: 200000
   input:
@@ -287,11 +41,11 @@ config: |
   journal:
     mode: instr
     from_tick: 33000
-    to_tick: 33576
+    to_tick: 33571
 summary: |-
-  halted after 33576 ticks
+  halted after 33572 ticks
   memory wait: 4198 ticks
-  cache: 6632 hits, 37 misses (99.4% hit rate), 21 evictions, 368 writes, 0 bypasses
+  cache: 6623 hits, 37 misses (99.4% hit rate), 21 evictions, 368 writes, 0 bypasses
 output: |
   -1
 listing: |
@@ -792,7 +546,7 @@ listing: |
   000007B8 - 00000000
   000007BC - 00000000
 journal: |
-  === 00000398  cmp r2 , ( @ inTail )          tick=33004 irq=1 pending
+  === 0000039C  jz readCharWait                tick=33003 irq=1 pending
       rsp=00000FE8  r1=00000061  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
   === 00000334  call inputPush                 tick=33048 irq=1
@@ -840,108 +594,105 @@ journal: |
   === 0000033C  iret                           tick=33197 irq=0
       rsp=00000FE8  r1=00000061  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 0000039C  jz readCharWait                tick=33202 irq=0
-      rsp=00000FE8  r1=00000061  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
-       r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000398  cmp r2 , ( @ inTail )          tick=33210 irq=0
+  === 00000398  cmp r2 , ( @ inTail )          tick=33205 irq=0
       rsp=00000FE8  r1=00000061  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=1001 IE=1
-  === 0000039C  jz readCharWait                tick=33215 irq=0
+  === 0000039C  jz readCharWait                tick=33210 irq=0
       rsp=00000FE8  r1=00000061  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=1001 IE=1
-  === 000003A0  mov r1 , r2                    tick=33220 irq=0
+  === 000003A0  mov r1 , r2                    tick=33215 irq=0
       rsp=00000FE8  r1=00000000  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0101 IE=1
-  === 000003A4  add r1 , inBuf                 tick=33225 irq=0
+  === 000003A4  add r1 , inBuf                 tick=33220 irq=0
       rsp=00000FE8  r1=00000780  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000003A8  mov r1 , ( r1 )                tick=33247 irq=0
+  === 000003A8  mov r1 , ( r1 )                tick=33242 irq=0
       rsp=00000FE8  r1=00000061  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000003AC  add r2 , 4                     tick=33252 irq=0
+  === 000003AC  add r2 , 4                     tick=33247 irq=0
       rsp=00000FE8  r1=00000061  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000003B0  and r2 , 63                    tick=33257 irq=0
+  === 000003B0  and r2 , 63                    tick=33252 irq=0
       rsp=00000FE8  r1=00000061  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000003B4  mov ( @ inHead ) , r2          tick=33273 irq=0
+  === 000003B4  mov ( @ inHead ) , r2          tick=33268 irq=0
       rsp=00000FE8  r1=00000061  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000003B8  ret                            tick=33280 irq=0
+  === 000003B8  ret                            tick=33275 irq=0
       rsp=00000FEC  r1=00000061  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000003D8  cmp r1 , "\n"                  tick=33285 irq=0
+  === 000003D8  cmp r1 , "\n"                  tick=33280 irq=0
       rsp=00000FEC  r1=00000061  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000003DC  jz readLineDone                tick=33290 irq=0
+  === 000003DC  jz readLineDone                tick=33285 irq=0
       rsp=00000FEC  r1=00000061  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 000003E0  cmp r10 , r9                   tick=33295 irq=0
+  === 000003E0  cmp r10 , r9                   tick=33290 irq=0
       rsp=00000FEC  r1=00000061  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 000003E4  jae readLineOverflow           tick=33300 irq=0
+  === 000003E4  jae readLineOverflow           tick=33295 irq=0
       rsp=00000FEC  r1=00000061  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 000003F4  mov r1 , -1                    tick=33305 irq=0
+  === 000003F4  mov r1 , -1                    tick=33300 irq=0
       rsp=00000FEC  r1=FFFFFFFF  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 000003F8  jump @ readLineRet             tick=33310 irq=0
+  === 000003F8  jump @ readLineRet             tick=33305 irq=0
       rsp=00000FEC  r1=FFFFFFFF  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000600  r9=00000020 r10=00000020 r11=00000684 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 00000404  popm r11 , r10 , r9 , r8       tick=33355 irq=0
+  === 00000404  popm r11 , r10 , r9 , r8       tick=33350 irq=0
       rsp=00000FFC  r1=FFFFFFFF  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 00000408  ret                            tick=33362 irq=0
+  === 00000408  ret                            tick=33357 irq=0
       rsp=00001000  r1=FFFFFFFF  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 00000020  cmp r1 , 0                     tick=33381 irq=0
+  === 00000020  cmp r1 , 0                     tick=33376 irq=0
       rsp=00001000  r1=FFFFFFFF  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 00000024  jl fail                        tick=33386 irq=0
+  === 00000024  jl fail                        tick=33381 irq=0
       rsp=00001000  r1=FFFFFFFF  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=1000 IE=1
-  === 00000108  mov r1 , failText              tick=33405 irq=0
+  === 00000108  mov r1 , failText              tick=33400 irq=0
       rsp=00001000  r1=000005F0  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000010C  call print                     tick=33436 irq=0
+  === 0000010C  call print                     tick=33432 irq=0
       rsp=00000FFC  r1=000005F0  r2=00000004  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000037C  mov r2 , ( r1 ) +              tick=33473 irq=0
+  === 0000037C  mov r2 , ( r1 ) +              tick=33469 irq=0
       rsp=00000FFC  r1=000005F4  r2=00000003  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000380  jz printDone                   tick=33492 irq=0
+  === 00000380  jz printDone                   tick=33488 irq=0
       rsp=00000FFC  r1=000005F4  r2=00000003  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000384  out 1 , ( r1 ) +               tick=33501 irq=0
+  === 00000384  out 1 , ( r1 ) +               tick=33497 irq=0
       rsp=00000FFC  r1=000005F8  r2=00000003  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000388  dec r2                         tick=33506 irq=0
+  === 00000388  dec r2                         tick=33502 irq=0
       rsp=00000FFC  r1=000005F8  r2=00000002  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000038C  jnz printLoop                  tick=33511 irq=0
+  === 0000038C  jnz printLoop                  tick=33507 irq=0
       rsp=00000FFC  r1=000005F8  r2=00000002  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000384  out 1 , ( r1 ) +               tick=33520 irq=0
+  === 00000384  out 1 , ( r1 ) +               tick=33516 irq=0
       rsp=00000FFC  r1=000005FC  r2=00000002  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000388  dec r2                         tick=33525 irq=0
+  === 00000388  dec r2                         tick=33521 irq=0
       rsp=00000FFC  r1=000005FC  r2=00000001  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 0000038C  jnz printLoop                  tick=33530 irq=0
+  === 0000038C  jnz printLoop                  tick=33526 irq=0
       rsp=00000FFC  r1=000005FC  r2=00000001  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000384  out 1 , ( r1 ) +               tick=33539 irq=0
+  === 00000384  out 1 , ( r1 ) +               tick=33535 irq=0
       rsp=00000FFC  r1=00000600  r2=00000001  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-  === 00000388  dec r2                         tick=33544 irq=0
+  === 00000388  dec r2                         tick=33540 irq=0
       rsp=00000FFC  r1=00000600  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 0000038C  jnz printLoop                  tick=33549 irq=0
+  === 0000038C  jnz printLoop                  tick=33545 irq=0
       rsp=00000FFC  r1=00000600  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000390  ret                            tick=33570 irq=0
+  === 00000390  ret                            tick=33566 irq=0
       rsp=00001000  r1=00000600  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-  === 00000114  halt                           tick=33575 irq=0
+  === 00000114  halt                           tick=33571 irq=0
       rsp=00001000  r1=00000600  r2=00000000  r3=00000000  r4=00000000  r5=00000000  r6=00000000  r7=00000000
        r8=00000000  r9=00000000 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1

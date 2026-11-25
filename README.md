@@ -327,13 +327,13 @@ $k_{\text{mem}}$ — number of memory operands of `addm`.
 
 | Instruction                  | $N$                                   | $R$                                                       | $W$                            |
 |------------------------------|---------------------------------------|-----------------------------------------------------------|--------------------------------|
-| F1, F2                       | $3 + d + a(m_{src}) + e + s$          | $1 + e + [\text{src in mem}] + [\text{dst in mem, read}]$ | $[\text{dst in mem, written}]$ |
+| F1, F2                       | $3 + d + a(m_{src}) + 2e + s$         | $1 + e + [\text{src in mem}] + [\text{dst in mem, read}]$ | $[\text{dst in mem, written}]$ |
 | `halt`, `ei`, `di`           | 4                                     | 1                                                         | 0                              |
 | `ret` / `iret`               | 5 / 7                                 | 2 / 3                                                     | 0                              |
-| branch, `jump @l` / `jump l` | 4                                     | 1 / 2                                                     | 0                              |
-| `call @l` / `call l`         | 4                                     | 1 / 2                                                     | 1                              |
-| `pushm` / `popm`, $n$ regs   | $3 + n + e$ / $4 + 2n + 2e$           | $1 + e$ / $1 + n + e$                                     | $n$ / 0                        |
-| `addm` $m_1 \dots m_k$       | $3 + e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + k_{\text{mem}}$                                  | $[m_1 \text{ in mem}]$         |
+| branch, `jump @l` / `jump l` | 4 / 5                                 | 1 / 2                                                     | 0                              |
+| `call @l` / `call l`         | 4 / 5                                 | 1 / 2                                                     | 1                              |
+| `pushm` / `popm`, $n$ regs   | $3 + n + 2e$ / $4 + 2n + 3e$          | $1 + e$ / $1 + n + e$                                     | $n$ / 0                        |
+| `addm` $m_1 \dots m_k$       | $3 + 2e + \sum_i \big(a(m_i) + 1\big)$ | $1 + e + k_{\text{mem}}$                               | $[m_1 \text{ in mem}]$         |
 | interrupt entry              | 4                                     | 1                                                         | 2                              |
 
 F1/F2 terms: $d = 1$ for a register destination (and the `out` port), $a(m_{dst})$ for a memory one;
@@ -347,15 +347,16 @@ Examples (no cache, $t = N + 10\,(R + W)$):
 | `add r1, r2`       | 0   | 4   | 1   | 0   | 14  |
 | `mov r3, (r2)+`    | 0   | 7   | 2   | 0   | 27  |
 | `add (r1), 7`      | 0   | 4   | 2   | 1   | 34  |
-| `mov (buf), r4`    | 2   | 7   | 3   | 1   | 47  |
-| `add (buf), (r2)+` | 2   | 9   | 5   | 1   | 69  |
+| `mov (buf), r4`    | 2   | 9   | 3   | 1   | 49  |
+| `add (buf), (r2)+` | 2   | 11  | 5   | 1   | 71  |
 
 ### CISC traits
 
 - Memory to memory operations: `add (total), (@seed)`.
 - 8 addressing modes, including postincrement, predecrement and register-relative.
 - Variable length: 1–8 words. `addm` sums up to 7 operands of any mode, `pushm` / `popm` take a register list.
-- The CU fetches every extension word as a separate step (`of_dst_ext`, `of_src_ext`), which is visible in the journal.
+- The CU fetches every extension word through MDR in two visible steps: `of_dst_ext` / `of_src_ext`
+  read memory into MDR, then `of_dst_ext_latch` / `of_src_ext_latch` copy MDR into EXT.
 
 ## Translator
 
@@ -480,7 +481,8 @@ between steps. For example, `add (r1), r2` runs as `MAR ← r1`, `MDR ← mem[MA
 
 Fetch reads word 1 into IR (`MAR ← PC`, `MDR ← mem[MAR]`, `IR ← MDR`, `PC ← PC + 4`). From the opcode and
 the modes in IR, FIELD_EXT knows where every operand is. IDX and POS point to the current operand. If the
-operand is in the next word (`fits = 0`), the CU reads that word into EXT and moves IDX to it. `control logic`
+operand is in the next word (`fits = 0`), the CU first reads that word into MDR and, on the following tick,
+copies MDR into EXT. It then continues decoding from the new word. `control logic`
 is combinational: from the step, the opcode, the FIELD_EXT outputs, the flags and `ready`, it makes all control
 signals and the next step. While memory is not `ready`, the step register holds. At the last tick of an
 instruction, if `irq` is set, the CU goes to `irq0`–`irq6` (push PC, push PS, IE ← 0, PC ← mem[0x4])
@@ -489,7 +491,7 @@ instead of the next fetch.
 | Element               | Signals                                        | Purpose                                                                                        |
 |-----------------------|------------------------------------------------|------------------------------------------------------------------------------------------------|
 | step register         | `latch_step`, `reset_step`                     | the CU state: `fetch0`, `of_dst0`, `of_src1`, `exec0`, `wb0`, `irq0`, ...                      |
-| IR, EXT               | `latch_ir`, `latch_ext`                        | word 1 of the instruction and the current extension word                                       |
+| IR, EXT               | `latch_ir`, `latch_ext`                        | IR ← MDR for word 1; EXT ← MDR for the current extension word                                  |
 | IDX, POS              | `latch_idx`, `sel_idx`, `latch_pos`, `sel_pos` | word number and bit position of the current operand                                            |
 | FIELD_EXT             | — (combinational)                              | finds the current operand from the layout in IR, sign-extends it; gives `mode`, `fits`, `last` |
 | DST_REG               | `latch_dst_reg`                                | destination register number, kept while sources are fetched                                    |
@@ -639,7 +641,7 @@ $ make build
 $ cd examples
 $ ../build/ailurus-build -o hello.bin -l hello.lst hello.asm
 $ ../build/ailurus-run -c config.yml -l hello.lst -j journal.txt hello.bin
-halted after 461 ticks
+halted after 462 ticks
 memory wait: 150 ticks
 cache: 57 hits, 10 misses (85.1% hit rate), 0 evictions, 1 writes, 0 bypasses
 Hello, world!
@@ -658,7 +660,7 @@ Separate translation, then linking of object files:
 $ ../build/ailurus-build --no-stdlib -D VERBOSE -c lib.asm main.asm    # lib.o, main.o
 $ ../build/ailurus-build --no-stdlib -o prog.bin lib.o main.o
 $ ../build/ailurus-run prog.bin
-halted after 2202 ticks
+halted after 2210 ticks
 ...
 hello from lib.asm
 ```
@@ -670,15 +672,15 @@ Every golden test, with and without the cache (same input):
 | Test              | `cache: false` | `cache: true` | Speedup | Hit rate |
 |-------------------|----------------|---------------|---------|----------|
 | hello             | 1 256          | 535           | 2.35×   | 92.3%    |
-| hello_stdlib      | 923            | 461           | 2.00×   | 85.1%    |
-| link              | 5 147          | 2 202         | 2.34×   | 92.2%    |
-| strings           | 6 017          | 3 010         | 2.00×   | 86.8%    |
-| cisc              | 18 950         | 9 736         | 1.95×   | 85.7%    |
-| double            | 17 030         | 8 143         | 2.09×   | 93.8%    |
-| hello_user_name   | 6 230          | 3 660         | 1.70×   | 87.1%    |
-| sort              | 25 712         | 15 703        | 1.64×   | 83.5%    |
-| format_string     | 64 933         | 51 444        | 1.26×   | 93.4%    |
-| linear_filter     | 47 763         | 37 301        | 1.28×   | 87.2%    |
+| hello_stdlib      | 924            | 462           | 2.00×   | 85.1%    |
+| link              | 5 155          | 2 210         | 2.33×   | 92.2%    |
+| strings           | 6 033          | 3 026         | 1.99×   | 86.8%    |
+| cisc              | 19 000         | 9 786         | 1.94×   | 85.7%    |
+| double            | 17 081         | 8 194         | 2.08×   | 93.8%    |
+| hello_user_name   | 6 240          | 3 559         | 1.75×   | 88.5%    |
+| sort              | 25 782         | 15 675        | 1.64×   | 83.8%    |
+| format_string     | 65 004         | 51 494        | 1.26×   | 93.3%    |
+| linear_filter     | 47 896         | 37 397        | 1.28×   | 86.7%    |
 
 Programs without input get about 2× faster. For programs with input the total also includes waiting for the
 next character, so the gain looks smaller.
@@ -693,25 +695,28 @@ It reads the same words again and again, so it has strong temporal locality. Sam
 
 | Metric                         | `cache: true` | `cache: false` |
 |--------------------------------|---------------|----------------|
-| whole run, ticks               | 37 301        | 47 763         |
-| memory wait, ticks             | 14 264        | 33 111         |
-| filter loop (10 elements)      | 917           | 2 460          |
-| one filter iteration           | 78            | 239            |
-| hit rate                       | 87.2%         | —              |
+| whole run, ticks               | 37 397        | 47 896         |
+| memory wait, ticks             | 14 474        | 33 111         |
+| filter loop (10 elements)      | 957           | 2 500          |
+| one filter iteration           | 82            | 243            |
+| hit rate                       | 86.7%         | —              |
 
-The filter loop is 2.7 times faster. The whole run is only 1.3 times faster, because most of the time the
+The filter loop is 2.6 times faster. The whole run is only 1.3 times faster, because most of the time the
 program waits for input. In the journal you can see a miss with
 the burst fill, and then hits on the same word:
 
 ```text
-  31119 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00001114 IDX=1 POS= 4 irq=0         mem:miss           io:-               | latch_mdr mem_op=read
-  31120 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00001114 IDX=1 POS= 4 irq=0         mem:fill wait      io:-               | latch_mdr mem_op=read
+  31142 of_dst_ext PC=00000080 IR=4B1FF6D8 MAR=0000007C MDR=00001114 IDX=1 POS= 0 irq=0         mem:hit line 10    io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+  31143 of_dst_ext_latch PC=00000080 IR=4B1FF6D8 MAR=0000007C MDR=00001114 IDX=1 POS= 0 irq=0         mem:-              io:-               | latch_ext
+  31146 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00001114 IDX=1 POS= 4 irq=0         mem:miss           io:-               | latch_mdr mem_op=read
+  31147 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00001114 IDX=1 POS= 4 irq=0         mem:fill wait      io:-               | latch_mdr mem_op=read
   ...
-  31129 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00001114 IDX=1 POS= 4 irq=0         mem:fill done      io:-               | latch_mdr mem_op=read
-  31133 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 4 irq=0         mem:tag            io:-               | latch_mdr mem_op=read
-  31134 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
-  31135 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_mar
-  31136 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:hit line 3     io:-               | latch_mdr mem_op=read
+  31160 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 4 irq=0         mem:tag            io:-               | latch_mdr mem_op=read
+  31161 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
+  31163 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=1 POS= 8 irq=0         mem:hit line 5     io:-               | latch_mdr mem_op=read
+  ...
+  31183 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000080 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:tag            io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+  31184 of_src_ext_latch PC=00000084 IR=4B1FF6D8 MAR=00000080 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:-              io:-               | latch_ext
 ```
 
 ## CI

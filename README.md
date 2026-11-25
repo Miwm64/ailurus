@@ -282,15 +282,15 @@ Opcode is 6 bits, the mode of an operand is 3 bits. Word 1 always holds the opco
 knows the whole layout after the first fetch. Operand values are packed **next-fit** from bit 0: a value goes into
 the rest of the current word if it fits, otherwise into the next word.
 
-| Format | Instructions       | Word 1                                                                  | Size |
-|--------|--------------------|-------------------------------------------------------------------------|------|
-| F0     | `halt`, `ret`, ... | `[31:26 OPCODE][25:0 0]`                                                | 1    |
-| F1     | `inc`, `clr`, ...  | `[31:26 OPCODE][25:23 MODE][22:0 operand]`                              | 1–2  |
-| F2     | `mov`, `add`, ...  | `[31:26 OPCODE][25:23 MODE1][22:20 MODE2][19:0 operands]`               | 1–3  |
-| FB     | `jz`, `jl`, ...    | `[31:26 OPCODE][25:16 0][15:0 offset]`                                  | 1    |
-| FJ     | `jump`, `call`     | `[31:26 OPCODE][25 K][24:16 0][15:0 offset]`, K = 0 → address in word 2 | 1–2  |
-| FP     | `pushm`, `popm`    | `[31:26 OPCODE][25:22 COUNT][19:0 5 registers]`, then 8 per word        | 1–3  |
-| FA     | `addm`             | `[31:26 OPCODE][25:23 COUNT][20:0 7 modes]`, values from word 2         | 2–8  |
+| Format | Instructions     | Encoding                                                                                                                                   | Size |
+|--------|------------------|--------------------------------------------------------------------------------------------------------------------------------------------|------|
+| F0     | `halt`, `ret`, … | W1: `[31:26 OPCODE][25:0 0]`                                                                                                               | 1    |
+| F1     | `inc`, `clr`, …  | W1: `[31:26 OPCODE][25:23 MODE][22:0 operand]`; optional W2: `[31:0 absolute address]`                                                     | 1–2  |
+| F2     | `mov`, `add`, …  | W1: `[31:26 OPCODE][25:23 MODE1][22:20 MODE2][19:0 operands]`; W2–W3 contain operands that do not fit                                      | 1–3  |
+| FB     | `jz`, `jl`, …    | W1: `[31:26 OPCODE][25:16 0][15:0 offset]`                                                                                                 | 1    |
+| FJ     | `jump`, `call`   | W1: `[31:26 OPCODE][25 K][24:16 0][15:0 offset]`; when `K=0`, W2: `[31:0 absolute address]`                                                | 1–2  |
+| FP     | `pushm`, `popm`  | W1: `[31:26 OPCODE][25:22 COUNT][21:20 0][19:0 first 5 registers]`; W2: `[31:0 next 8 registers]`; W3: `[31:12 0][11:0 final 3 registers]` | 1–3  |
+| FA     | `addm`           | W1: `[31:26 OPCODE][25:23 COUNT][22:21 0][20:0 7 modes]`; operand values begin in W2                                                       | 2–8  |
 
 Signed fields are sign-extended; register-relative is `reg#` in [19:16] + offset in [15:0]. Opcodes of all
 instructions are in [Opcodes](docs/specification.md#opcodes).

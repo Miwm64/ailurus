@@ -132,10 +132,10 @@ config: |
     - [30000, "\n"]
   journal:
     mode: tick
-    from_tick: 35062
-    to_tick: 35300
+    from_tick: 35129
+    to_tick: 35371
 summary: |-
-  halted after 47763 ticks
+  halted after 47896 ticks
   memory wait: 33111 ticks
 output: |
   15
@@ -516,266 +516,270 @@ listing: |
   000005B0 - 00000000
   000005B4 - 00000000
 journal: |2
-    35062 fetch0     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:-              io:-               | latch_mar
-    35063 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35064 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35065 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35066 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35067 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35068 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35069 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35070 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35071 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35072 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=A2000042 IDX=4 POS=20 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35073 fetch2     PC=00000090 IR=A2000042 MAR=0000008C MDR=A2000042 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
-    35074 of_dst0    PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_mar
-    35075 of_dst1    PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_reg_w latch_pos
-    35076 exec0      PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_tmp latch_ps
-    35077 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35078 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35079 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35080 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35081 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35082 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35083 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35084 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35085 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
-    35086 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:done           io:-               | mem_op=write
-  === 0000008C  mov ( r2 ) + , r4              tick=35086 irq=0
+    35129 fetch0     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:-              io:-               | latch_mar
+    35130 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35131 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35132 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35133 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35134 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35135 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35136 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35137 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35138 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=00000000 IDX=4 POS=20 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35139 fetch1     PC=0000008C IR=4B1FF6D8 MAR=0000008C MDR=A2000042 IDX=4 POS=20 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35140 fetch2     PC=00000090 IR=A2000042 MAR=0000008C MDR=A2000042 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+    35141 of_dst0    PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_mar
+    35142 of_dst1    PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_reg_w latch_pos
+    35143 exec0      PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_tmp latch_ps
+    35144 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35145 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35146 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35147 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35148 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35149 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35150 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35151 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35152 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | mem_op=write
+    35153 wb0        PC=00000090 IR=A2000042 MAR=000004F0 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:done           io:-               | mem_op=write
+  === 0000008C  mov ( r2 ) + , r4              tick=35153 irq=0
       rsp=00001000  r1=00000470  r2=000004F4  r3=0000000A  r4=0000000F  r5=00000001  r6=00000000  r7=00000000
        r8=0000000A  r9=00000498 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-    35087 fetch0     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
-    35088 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35089 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35090 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35091 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35092 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35093 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35094 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35095 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35096 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35097 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35098 fetch2     PC=00000094 IR=B0600041 MAR=00000090 MDR=B0600041 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
-    35099 of_dst0    PC=00000094 IR=B0600041 MAR=00000090 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
-    35100 exec0      PC=00000094 IR=B0600041 MAR=00000090 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_reg_w latch_ps
-  === 00000090  add r1 , 4                     tick=35100 irq=0
+    35154 fetch0     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
+    35155 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35156 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35157 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35158 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35159 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35160 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35161 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35162 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35163 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=A2000042 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35164 fetch1     PC=00000090 IR=A2000042 MAR=00000090 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35165 fetch2     PC=00000094 IR=B0600041 MAR=00000090 MDR=B0600041 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+    35166 of_dst0    PC=00000094 IR=B0600041 MAR=00000090 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
+    35167 exec0      PC=00000094 IR=B0600041 MAR=00000090 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_reg_w latch_ps
+  === 00000090  add r1 , 4                     tick=35167 irq=0
       rsp=00001000  r1=00000474  r2=000004F4  r3=0000000A  r4=0000000F  r5=00000001  r6=00000000  r7=00000000
        r8=0000000A  r9=00000498 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-    35101 fetch0     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
-    35102 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35103 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35104 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35105 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35106 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35107 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35108 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35109 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35110 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35111 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35112 fetch2     PC=00000098 IR=2C000003 MAR=00000094 MDR=2C000003 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
-    35113 of_dst0    PC=00000098 IR=2C000003 MAR=00000094 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
-    35114 exec0      PC=00000098 IR=2C000003 MAR=00000094 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_reg_w latch_ps
-  === 00000094  dec r3                         tick=35114 irq=0
+    35168 fetch0     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
+    35169 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35170 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35171 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35172 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35173 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35174 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35175 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35176 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35177 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=B0600041 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35178 fetch1     PC=00000094 IR=B0600041 MAR=00000094 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35179 fetch2     PC=00000098 IR=2C000003 MAR=00000094 MDR=2C000003 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+    35180 of_dst0    PC=00000098 IR=2C000003 MAR=00000094 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
+    35181 exec0      PC=00000098 IR=2C000003 MAR=00000094 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_reg_w latch_ps
+  === 00000094  dec r3                         tick=35181 irq=0
       rsp=00001000  r1=00000474  r2=000004F4  r3=00000009  r4=0000000F  r5=00000001  r6=00000000  r7=00000000
        r8=0000000A  r9=00000498 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-    35115 fetch0     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
-    35116 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35117 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35118 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35119 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35120 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35121 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35122 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35123 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35124 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35125 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=3A00FFD0 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35126 fetch2     PC=0000009C IR=3A00FFD0 MAR=00000098 MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
-    35127 of_dst0    PC=0000009C IR=3A00FFD0 MAR=00000098 MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:-              io:-               | -
-    35128 exec0      PC=0000006C IR=3A00FFD0 MAR=00000098 MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_pc
-  === 00000098  jump @ filterLoop              tick=35128 irq=0
+    35182 fetch0     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
+    35183 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35184 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35185 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35186 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35187 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35188 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35189 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35190 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35191 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=2C000003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35192 fetch1     PC=00000098 IR=2C000003 MAR=00000098 MDR=3A00FFD0 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35193 fetch2     PC=0000009C IR=3A00FFD0 MAR=00000098 MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+    35194 of_dst0    PC=0000009C IR=3A00FFD0 MAR=00000098 MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:-              io:-               | -
+    35195 exec0      PC=0000006C IR=3A00FFD0 MAR=00000098 MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_pc
+  === 00000098  jump @ filterLoop              tick=35195 irq=0
       rsp=00001000  r1=00000474  r2=000004F4  r3=00000009  r4=0000000F  r5=00000001  r6=00000000  r7=00000000
        r8=0000000A  r9=00000498 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-    35129 fetch0     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_mar
-    35130 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35131 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35132 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35133 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35134 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35135 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35136 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35137 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35138 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35139 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=D4600003 IDX=0 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35140 fetch2     PC=00000070 IR=D4600003 MAR=0000006C MDR=D4600003 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
-    35141 of_dst0    PC=00000070 IR=D4600003 MAR=0000006C MDR=D4600003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
-    35142 exec0      PC=00000070 IR=D4600003 MAR=0000006C MDR=D4600003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_ps
-  === 0000006C  cmp r3 , 0                     tick=35142 irq=0
+    35196 fetch0     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_mar
+    35197 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35198 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35199 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35200 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35201 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35202 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35203 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35204 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35205 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=3A00FFD0 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35206 fetch1     PC=0000006C IR=3A00FFD0 MAR=0000006C MDR=D4600003 IDX=0 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35207 fetch2     PC=00000070 IR=D4600003 MAR=0000006C MDR=D4600003 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+    35208 of_dst0    PC=00000070 IR=D4600003 MAR=0000006C MDR=D4600003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
+    35209 exec0      PC=00000070 IR=D4600003 MAR=0000006C MDR=D4600003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_ps
+  === 0000006C  cmp r3 , 0                     tick=35209 irq=0
       rsp=00001000  r1=00000474  r2=000004F4  r3=00000009  r4=0000000F  r5=00000001  r6=00000000  r7=00000000
        r8=0000000A  r9=00000498 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-    35143 fetch0     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
-    35144 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35145 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35146 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35147 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35148 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35149 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35150 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35151 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35152 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35153 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=60000028 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35154 fetch2     PC=00000074 IR=60000028 MAR=00000070 MDR=60000028 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
-    35155 of_dst0    PC=00000074 IR=60000028 MAR=00000070 MDR=60000028 IDX=0 POS= 0 irq=0         mem:-              io:-               | -
-    35156 exec0      PC=00000074 IR=60000028 MAR=00000070 MDR=60000028 IDX=0 POS= 0 irq=0         mem:-              io:-               | -
-  === 00000070  jz output                      tick=35156 irq=0
+    35210 fetch0     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
+    35211 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35212 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35213 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35214 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35215 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35216 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35217 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35218 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35219 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=D4600003 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35220 fetch1     PC=00000070 IR=D4600003 MAR=00000070 MDR=60000028 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35221 fetch2     PC=00000074 IR=60000028 MAR=00000070 MDR=60000028 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+    35222 of_dst0    PC=00000074 IR=60000028 MAR=00000070 MDR=60000028 IDX=0 POS= 0 irq=0         mem:-              io:-               | -
+    35223 exec0      PC=00000074 IR=60000028 MAR=00000070 MDR=60000028 IDX=0 POS= 0 irq=0         mem:-              io:-               | -
+  === 00000070  jz output                      tick=35223 irq=0
       rsp=00001000  r1=00000474  r2=000004F4  r3=00000009  r4=0000000F  r5=00000001  r6=00000000  r7=00000000
        r8=0000000A  r9=00000498 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1
-    35157 fetch0     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_mar
-    35158 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35159 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35160 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35161 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35162 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35163 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35164 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35165 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35166 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35167 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=20000004 IDX=0 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35168 fetch2     PC=00000078 IR=20000004 MAR=00000074 MDR=20000004 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
-    35169 of_dst0    PC=00000078 IR=20000004 MAR=00000074 MDR=20000004 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
-    35170 exec0      PC=00000078 IR=20000004 MAR=00000074 MDR=20000004 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_reg_w latch_ps
-  === 00000074  clr r4                         tick=35170 irq=0
+    35224 fetch0     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_mar
+    35225 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35226 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35227 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35228 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35229 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35230 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35231 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35232 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35233 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=60000028 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35234 fetch1     PC=00000074 IR=60000028 MAR=00000074 MDR=20000004 IDX=0 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35235 fetch2     PC=00000078 IR=20000004 MAR=00000074 MDR=20000004 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+    35236 of_dst0    PC=00000078 IR=20000004 MAR=00000074 MDR=20000004 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_pos latch_dst_reg
+    35237 exec0      PC=00000078 IR=20000004 MAR=00000074 MDR=20000004 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_reg_w latch_ps
+  === 00000074  clr r4                         tick=35237 irq=0
       rsp=00001000  r1=00000474  r2=000004F4  r3=00000009  r4=00000000  r5=00000001  r6=00000000  r7=00000000
        r8=0000000A  r9=00000498 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0100 IE=1
-    35171 fetch0     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
-    35172 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35173 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35174 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35175 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35176 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35177 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35178 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35179 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35180 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35181 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=4B1FF6D8 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35182 fetch2     PC=0000007C IR=4B1FF6D8 MAR=00000078 MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
-    35183 of_dst0    PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_mar
-    35184 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35185 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35186 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35187 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35188 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35189 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35190 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35191 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35192 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35193 of_dst_ext PC=00000080 IR=4B1FF6D8 MAR=0000007C MDR=00001114 IDX=1 POS= 0 irq=0         mem:done           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35194 of_dst0    PC=00000080 IR=4B1FF6D8 MAR=0000007C MDR=00001114 IDX=1 POS= 4 irq=0         mem:-              io:-               | latch_mar_dst latch_tmp latch_ps latch_pos latch_dst_reg
-    35195 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:-              io:-               | latch_mar
-    35196 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35197 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35198 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35199 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35200 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35201 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35202 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35203 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35204 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35205 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35206 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
-    35207 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_mar
-    35208 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35209 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35210 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35211 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35212 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35213 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35214 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35215 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35216 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35217 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35218 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
-    35219 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:-              io:-               | latch_mar
-    35220 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35221 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35222 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35223 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35224 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35225 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35226 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35227 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35228 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35229 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35230 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=16 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
-    35231 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:-              io:-               | latch_mar
-    35232 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35233 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35234 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35235 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35236 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35237 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35238 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35239 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35240 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35241 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000080 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:done           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35242 of_src0    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:-              io:-               | latch_mar
-    35243 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35244 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35245 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35246 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35247 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35248 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35249 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35250 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35251 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35252 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=2 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35253 of_src2    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=2 POS=20 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
-    35254 of_src0    PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:-              io:-               | latch_mar
-    35255 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35256 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35257 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35258 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35259 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35260 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35261 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35262 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35263 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35264 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000084 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:done           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35265 of_src0    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:-              io:-               | latch_mar
-    35266 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35267 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35268 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35269 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35270 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35271 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35272 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35273 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35274 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35275 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=3 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35276 of_src2    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=3 POS=20 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
-    35277 of_src0    PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:-              io:-               | latch_mar
-    35278 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35279 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35280 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35281 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35282 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35283 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35284 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35285 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35286 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35287 of_src_ext PC=0000008C IR=4B1FF6D8 MAR=00000088 MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:done           io:-               | latch_mdr latch_pc latch_idx latch_pos latch_ext mem_op=read
-    35288 of_src0    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:-              io:-               | latch_mar
-    35289 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35290 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35291 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35292 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35293 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35294 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35295 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35296 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35297 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
-    35298 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=00000000 IDX=4 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
-    35299 of_src2    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=00000000 IDX=4 POS=20 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
-    35300 exec0      PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=00000000 IDX=4 POS=20 irq=0         mem:-              io:-               | latch_reg_w
-  === 00000078  addm r4 , ( r1 ) , ( r1 ) , ( r1 ) , ( r1 - 4 ) , ( r1 - 4 ) , ( r1 - 8 ) tick=35300 irq=0
+    35238 fetch0     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:-              io:-               | latch_mar
+    35239 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35240 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35241 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35242 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35243 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35244 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35245 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35246 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35247 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=20000004 IDX=0 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35248 fetch1     PC=00000078 IR=20000004 MAR=00000078 MDR=4B1FF6D8 IDX=0 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35249 fetch2     PC=0000007C IR=4B1FF6D8 MAR=00000078 MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_ir latch_pc latch_idx latch_pos
+    35250 of_dst0    PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:-              io:-               | latch_mar
+    35251 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35252 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35253 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35254 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35255 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35256 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35257 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35258 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35259 of_dst_ext PC=0000007C IR=4B1FF6D8 MAR=0000007C MDR=4B1FF6D8 IDX=0 POS= 0 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35260 of_dst_ext PC=00000080 IR=4B1FF6D8 MAR=0000007C MDR=00001114 IDX=1 POS= 0 irq=0         mem:done           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35261 of_dst_ext_latch PC=00000080 IR=4B1FF6D8 MAR=0000007C MDR=00001114 IDX=1 POS= 0 irq=0         mem:-              io:-               | latch_ext
+    35262 of_dst0    PC=00000080 IR=4B1FF6D8 MAR=0000007C MDR=00001114 IDX=1 POS= 4 irq=0         mem:-              io:-               | latch_mar_dst latch_tmp latch_ps latch_pos latch_dst_reg
+    35263 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:-              io:-               | latch_mar
+    35264 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35265 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35266 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35267 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35268 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35269 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35270 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35271 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35272 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=00001114 IDX=1 POS= 4 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35273 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 4 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35274 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
+    35275 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:-              io:-               | latch_mar
+    35276 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35277 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35278 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35279 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35280 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35281 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35282 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35283 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35284 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35285 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS= 8 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35286 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
+    35287 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:-              io:-               | latch_mar
+    35288 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35289 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35290 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35291 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35292 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35293 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35294 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35295 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35296 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35297 of_src1    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=12 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35298 of_src2    PC=00000080 IR=4B1FF6D8 MAR=00000474 MDR=0000000A IDX=1 POS=16 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
+    35299 of_src0    PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:-              io:-               | latch_mar
+    35300 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35301 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35302 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35303 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35304 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35305 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35306 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35307 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35308 of_src_ext PC=00000080 IR=4B1FF6D8 MAR=00000080 MDR=0000000A IDX=1 POS=16 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35309 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000080 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:done           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35310 of_src_ext_latch PC=00000084 IR=4B1FF6D8 MAR=00000080 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:-              io:-               | latch_ext
+    35311 of_src0    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:-              io:-               | latch_mar
+    35312 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35313 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35314 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35315 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35316 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35317 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35318 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35319 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35320 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=2 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35321 of_src1    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=2 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35322 of_src2    PC=00000084 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=2 POS=20 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
+    35323 of_src0    PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:-              io:-               | latch_mar
+    35324 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35325 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35326 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35327 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35328 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35329 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35330 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35331 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35332 of_src_ext PC=00000084 IR=4B1FF6D8 MAR=00000084 MDR=00000005 IDX=2 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35333 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000084 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:done           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35334 of_src_ext_latch PC=00000088 IR=4B1FF6D8 MAR=00000084 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:-              io:-               | latch_ext
+    35335 of_src0    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:-              io:-               | latch_mar
+    35336 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35337 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35338 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35339 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35340 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35341 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35342 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35343 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35344 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=0001FFFC IDX=3 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35345 of_src1    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=3 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35346 of_src2    PC=00000088 IR=4B1FF6D8 MAR=00000470 MDR=00000005 IDX=3 POS=20 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
+    35347 of_src0    PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:-              io:-               | latch_mar
+    35348 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35349 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35350 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35351 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35352 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35353 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35354 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35355 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35356 of_src_ext PC=00000088 IR=4B1FF6D8 MAR=00000088 MDR=00000005 IDX=3 POS=20 irq=0         mem:wait           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35357 of_src_ext PC=0000008C IR=4B1FF6D8 MAR=00000088 MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:done           io:-               | latch_mdr latch_pc latch_idx latch_pos mem_op=read
+    35358 of_src_ext_latch PC=0000008C IR=4B1FF6D8 MAR=00000088 MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:-              io:-               | latch_ext
+    35359 of_src0    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:-              io:-               | latch_mar
+    35360 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35361 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35362 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35363 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35364 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35365 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35366 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35367 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35368 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=0001FFF8 IDX=4 POS= 0 irq=0         mem:wait           io:-               | latch_mdr mem_op=read
+    35369 of_src1    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=00000000 IDX=4 POS= 0 irq=0         mem:done           io:-               | latch_mdr mem_op=read
+    35370 of_src2    PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=00000000 IDX=4 POS=20 irq=0         mem:-              io:-               | latch_tmp latch_ps latch_pos
+    35371 exec0      PC=0000008C IR=4B1FF6D8 MAR=0000046C MDR=00000000 IDX=4 POS=20 irq=0         mem:-              io:-               | latch_reg_w
+  === 00000078  addm r4 , ( r1 ) , ( r1 ) , ( r1 ) , ( r1 - 4 ) , ( r1 - 4 ) , ( r1 - 8 ) tick=35371 irq=0
       rsp=00001000  r1=00000474  r2=000004F4  r3=00000009  r4=00000028  r5=00000001  r6=00000000  r7=00000000
        r8=0000000A  r9=00000498 r10=00000000 r11=00000000 r12=00000000 r13=00000000 r14=00000000 r15=00000000  NZVC=0000 IE=1

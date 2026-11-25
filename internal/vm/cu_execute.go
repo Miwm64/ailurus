@@ -381,6 +381,8 @@ func (p *controlUnit) nextALU(fe fieldOut) cuStep {
 
 	switch p.step {
 	case stOFDstExt:
+		return stOFDstExtLatch
+	case stOFDstExtLatch:
 		return stOFDst0
 	case stOFDst0, stOFDst1, stOFDst2:
 		switch {
@@ -405,6 +407,8 @@ func (p *controlUnit) nextALU(fe fieldOut) cuStep {
 			return stOFSrcEnd
 		}
 	case stOFSrcExt:
+		return stOFSrcExtLatch
+	case stOFSrcExtLatch:
 		switch {
 		case s.srcMem:
 			return stOFSrc0
@@ -462,7 +466,9 @@ func (p *controlUnit) nextJump(fe fieldOut) cuStep {
 	switch {
 	case p.step == stOFDst0 && !fe.fits:
 		return stOFDstExt
-	case p.step == stOFDst0, p.step == stOFDstExt:
+	case p.step == stOFDstExt:
+		return stOFDstExtLatch
+	case p.step == stOFDst0, p.step == stOFDstExtLatch:
 		return stExec0
 	case p.step == stExec0 && p.opcode() == opCall:
 		return stExec1
@@ -503,7 +509,9 @@ func (p *controlUnit) nextFP(fe fieldOut) cuStep {
 	push := p.opcode() == opPushm
 
 	switch {
-	case p.step == stOFDst0, p.step == stOFSrcExt:
+	case p.step == stOFSrcExt:
+		return stOFSrcExtLatch
+	case p.step == stOFDst0, p.step == stOFSrcExtLatch:
 		return stExec0
 	case p.step == stExec0 && !fe.fits:
 		return stOFSrcExt
@@ -575,8 +583,12 @@ func (p *controlUnit) execFA(sig signals, fe fieldOut) signals {
 func (p *controlUnit) nextFA(fe fieldOut) cuStep {
 	switch p.step {
 	case stOFDstExt:
+		return stOFDstExtLatch
+	case stOFDstExtLatch:
 		return stOFDst0
 	case stOFSrcExt:
+		return stOFSrcExtLatch
+	case stOFSrcExtLatch:
 		return stOFSrc0
 	case stExec0:
 		if p.faDstMem() {

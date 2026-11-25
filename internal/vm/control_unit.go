@@ -50,7 +50,7 @@ const (
 	stExec5
 	stWB0
 
-	// extension-word transfer: memory data is always staged through MDR
+	// extension-word transfer: memory data is always staged through MDR.
 	stOFDstExtLatch // EXT <- MDR
 	stOFSrcExtLatch // EXT <- MDR
 )

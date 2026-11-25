@@ -33,7 +33,7 @@ const (
 	stOFDst0
 	stOFDst1
 	stOFDst2
-	stOFDstExt // EXT, MDR <- mem[MAR], PC <- PC + 4, IDX <- IDX + 1, POS <- 0
+	stOFDstExt // MDR <- mem[MAR], PC <- PC + 4, IDX <- IDX + 1, POS <- 0
 	stOFSrc0
 	stOFSrc1
 	stOFSrc2
@@ -49,38 +49,44 @@ const (
 	stExec4
 	stExec5
 	stWB0
+
+	// extension-word transfer: memory data is always staged through MDR
+	stOFDstExtLatch // EXT <- MDR
+	stOFSrcExtLatch // EXT <- MDR
 )
 
 var stepNames = [...]string{
-	stReset0:    "reset0",
-	stReset1:    "reset1",
-	stIRQ0:      "irq0",
-	stIRQ1:      "irq1",
-	stIRQ2:      "irq2",
-	stIRQ3:      "irq3",
-	stIRQ4:      "irq4",
-	stIRQ5:      "irq5",
-	stIRQ6:      "irq6",
-	stFetch0:    "fetch0",
-	stFetch1:    "fetch1",
-	stFetch2:    "fetch2",
-	stOFDst0:    "of_dst0",
-	stOFDst1:    "of_dst1",
-	stOFDst2:    "of_dst2",
-	stOFDstExt:  "of_dst_ext",
-	stOFSrc0:    "of_src0",
-	stOFSrc1:    "of_src1",
-	stOFSrc2:    "of_src2",
-	stOFSrcExt:  "of_src_ext",
-	stOFSrcEnd:  "of_src_end",
-	stOFDstRead: "of_dst_rd",
-	stExec0:     "exec0",
-	stExec1:     "exec1",
-	stExec2:     "exec2",
-	stExec3:     "exec3",
-	stExec4:     "exec4",
-	stExec5:     "exec5",
-	stWB0:       "wb0",
+	stReset0:        "reset0",
+	stReset1:        "reset1",
+	stIRQ0:          "irq0",
+	stIRQ1:          "irq1",
+	stIRQ2:          "irq2",
+	stIRQ3:          "irq3",
+	stIRQ4:          "irq4",
+	stIRQ5:          "irq5",
+	stIRQ6:          "irq6",
+	stFetch0:        "fetch0",
+	stFetch1:        "fetch1",
+	stFetch2:        "fetch2",
+	stOFDst0:        "of_dst0",
+	stOFDst1:        "of_dst1",
+	stOFDst2:        "of_dst2",
+	stOFDstExt:      "of_dst_ext",
+	stOFSrc0:        "of_src0",
+	stOFSrc1:        "of_src1",
+	stOFSrc2:        "of_src2",
+	stOFSrcExt:      "of_src_ext",
+	stOFSrcEnd:      "of_src_end",
+	stOFDstRead:     "of_dst_rd",
+	stExec0:         "exec0",
+	stExec1:         "exec1",
+	stExec2:         "exec2",
+	stExec3:         "exec3",
+	stExec4:         "exec4",
+	stExec5:         "exec5",
+	stWB0:           "wb0",
+	stOFDstExtLatch: "of_dst_ext_latch",
+	stOFSrcExtLatch: "of_src_ext_latch",
 }
 
 func (s cuStep) String() string {
@@ -217,10 +223,12 @@ func (p *controlUnit) outputs(regs dpRegs) signals {
 	case stIRQ6:
 		sig.selPCMux, sig.latchPC = pcFromMDR, true
 	case stOFDstExt, stOFSrcExt:
-		sig.memOp, sig.latchMDR, sig.latchExt = memRead, true, true
+		sig.memOp, sig.latchMDR = memRead, true
 		sig.selAddMux, sig.selPCMux, sig.latchPC = addFour, pcFromAdd, true
 		sig.selIdx, sig.latchIdx = idxInc, true
 		sig.selPos, sig.latchPos = posZero, true
+	case stOFDstExtLatch, stOFSrcExtLatch:
+		sig.latchExt = true
 	default: // operand fetch, execute, writeback
 		sig = p.execute(sig, fe, regs)
 	}
@@ -293,7 +301,7 @@ func (p *controlUnit) clock(sig signals, regs dpRegs, out dpOut, mem memOut, in 
 	}
 
 	if sig.latchExt {
-		p.ext = mem.data
+		p.ext = regs.mdr
 	}
 
 	p.step = p.next(fe)
